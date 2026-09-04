@@ -203,6 +203,24 @@ func (m *Manager) Inspect(ctx context.Context, archivePath string) (Info, error)
 	return bundle.info, nil
 }
 
+// InspectBytes validates a complete Workflow Bundle without requiring stores or
+// application bootstrap. It is the internal authority used by public contract adapters.
+func InspectBytes(ctx context.Context, raw []byte) (Info, Manifest, error) {
+	if ctx == nil || len(raw) == 0 || int64(len(raw)) > maxArchiveBytes {
+		return Info{}, Manifest{}, errors.New("workflow bundle bytes and context are required")
+	}
+	reader, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		return Info{}, Manifest{}, fmt.Errorf("open workflow bundle: %w", err)
+	}
+	fail := func(err error) (*openedBundle, error) { return nil, err }
+	bundle, err := inspectArchive(ctx, reader, nil, fail)
+	if err != nil {
+		return Info{}, Manifest{}, err
+	}
+	return bundle.info, bundle.manifest, nil
+}
+
 func (m *Manager) Import(ctx context.Context, request ImportRequest) (ImportResult, error) {
 	if ctx == nil {
 		return ImportResult{}, errors.New("workflow bundle import requires context")
@@ -274,7 +292,7 @@ func (m *Manager) Import(ctx context.Context, request ImportRequest) (ImportResu
 }
 
 type openedBundle struct {
-	file        *os.File
+	closeFunc   func() error
 	manifest    Manifest
 	document    schema.WorkflowSource
 	info        Info
@@ -282,7 +300,11 @@ type openedBundle struct {
 	evidence    map[EvidenceKind]*zip.File
 }
 
-func (b *openedBundle) close() { _ = b.file.Close() }
+func (b *openedBundle) close() {
+	if b.closeFunc != nil {
+		_ = b.closeFunc()
+	}
+}
 
 func (m *Manager) openArchive(ctx context.Context, archivePath string) (*openedBundle, error) {
 	if ctx == nil || strings.TrimSpace(archivePath) == "" {
@@ -307,6 +329,15 @@ func (m *Manager) openArchive(ctx context.Context, archivePath string) (*openedB
 	if err != nil {
 		return fail(fmt.Errorf("open workflow bundle: %w", err))
 	}
+	return inspectArchive(ctx, reader, file.Close, fail)
+}
+
+func inspectArchive(
+	ctx context.Context,
+	reader *zip.Reader,
+	closeFunc func() error,
+	fail func(error) (*openedBundle, error),
+) (*openedBundle, error) {
 	entries, err := indexEntries(reader.File)
 	if err != nil {
 		return fail(err)
@@ -388,7 +419,7 @@ func (m *Manager) openArchive(ctx context.Context, archivePath string) (*openedB
 		}
 	}
 	return &openedBundle{
-		file: file, manifest: manifest, document: document,
+		closeFunc: closeFunc, manifest: manifest, document: document,
 		info:        sourceInfo(document, digest, refs, manifest),
 		blobEntries: blobEntries, evidence: evidenceEntries,
 	}, nil
