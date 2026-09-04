@@ -116,6 +116,14 @@ type ExportResult struct {
 	Path string `json:"path"`
 }
 
+type exportPayload struct {
+	info     Info
+	manifest []byte
+	source   []byte
+	refs     []blob.BlobRef
+	evidence []EvidenceInput
+}
+
 type ImportMode string
 
 const (
@@ -158,25 +166,53 @@ func (m *Manager) ExportWithEvidence(
 	if ctx == nil || strings.TrimSpace(workflowID) == "" || strings.TrimSpace(destination) == "" {
 		return ExportResult{}, errors.New("workflow bundle export requires context, workflow ID, and destination")
 	}
-	snapshot, err := m.sources.GetSource(workflowID)
+	payload, err := m.prepareExport(ctx, workflowID, evidence)
 	if err != nil {
 		return ExportResult{}, err
+	}
+	if err := m.writeArchive(ctx, destination, payload.manifest, payload.source, payload.refs, payload.evidence); err != nil {
+		return ExportResult{}, err
+	}
+	return ExportResult{Info: payload.info, Path: destination}, nil
+}
+
+// ExportBytes builds the same deterministic archive as Export without creating
+// a user-visible or temporary destination file.
+func (m *Manager) ExportBytes(ctx context.Context, workflowID string) (Info, []byte, error) {
+	if ctx == nil || strings.TrimSpace(workflowID) == "" {
+		return Info{}, nil, errors.New("workflow bundle export requires context and workflow ID")
+	}
+	payload, err := m.prepareExport(ctx, workflowID, nil)
+	if err != nil {
+		return Info{}, nil, err
+	}
+	var output bytes.Buffer
+	if err := m.writeArchiveContents(ctx, &output, payload.manifest, payload.source, payload.refs, payload.evidence); err != nil {
+		return Info{}, nil, err
+	}
+	return payload.info, output.Bytes(), nil
+}
+
+func (m *Manager) prepareExport(ctx context.Context, workflowID string, evidence []EvidenceInput) (exportPayload, error) {
+	snapshot, err := m.sources.GetSource(workflowID)
+	if err != nil {
+		return exportPayload{}, err
 	}
 	document, canonical, digest, refs, err := inspectSource(snapshot.Artifact())
 	if err != nil {
-		return ExportResult{}, err
+		return exportPayload{}, err
 	}
 	if digest != snapshot.Hash() || !bytes.Equal(canonical, snapshot.Artifact()) {
-		return ExportResult{}, errors.New("stored Workflow Source identity changed before export")
+		return exportPayload{}, errors.New("stored Workflow Source identity changed before export")
 	}
 	for _, ref := range refs {
 		if err := m.blobs.Verify(ctx, ref); err != nil {
-			return ExportResult{}, fmt.Errorf("verify export blob %s: %w", ref.Digest, err)
+			return exportPayload{}, fmt.Errorf("verify export blob %s: %w", ref.Digest, err)
 		}
 	}
 	evidence, evidenceRefs, err := normalizeEvidence(evidence)
 	if err != nil {
-		return ExportResult{}, err
+		return exportPayload{}, err
 	}
 	manifest := Manifest{
 		Format: Format, Version: Version, SourceTrust: SourceTrustUnverified,
@@ -186,12 +222,12 @@ func (m *Manager) ExportWithEvidence(
 	}
 	manifestRaw, err := json.Marshal(manifest)
 	if err != nil {
-		return ExportResult{}, err
+		return exportPayload{}, err
 	}
-	if err := m.writeArchive(ctx, destination, manifestRaw, canonical, refs, evidence); err != nil {
-		return ExportResult{}, err
-	}
-	return ExportResult{Info: sourceInfo(document, digest, refs, manifest), Path: destination}, nil
+	return exportPayload{
+		info: sourceInfo(document, digest, refs, manifest), manifest: manifestRaw,
+		source: canonical, refs: refs, evidence: evidence,
+	}, nil
 }
 
 func (m *Manager) Inspect(ctx context.Context, archivePath string) (Info, error) {
@@ -456,57 +492,7 @@ func (m *Manager) writeArchive(
 		_ = temp.Close()
 		return err
 	}
-	archive := zip.NewWriter(temp)
-	writeBytes := func(name string, raw []byte) error {
-		writer, err := archive.CreateHeader(archiveHeader(name))
-		if err != nil {
-			return err
-		}
-		_, err = writer.Write(raw)
-		return err
-	}
-	if err := writeBytes(ManifestPath, manifest); err != nil {
-		_ = archive.Close()
-		_ = temp.Close()
-		return err
-	}
-	if err := writeBytes(SourcePath, source); err != nil {
-		_ = archive.Close()
-		_ = temp.Close()
-		return err
-	}
-	written := make(map[artifact.Digest]struct{})
-	for _, ref := range refs {
-		if _, ok := written[ref.Digest]; ok {
-			continue
-		}
-		writer, err := archive.CreateHeader(archiveHeader(blobEntryPath(ref.Digest)))
-		if err != nil {
-			_ = archive.Close()
-			_ = temp.Close()
-			return err
-		}
-		if err := m.blobs.WriteTo(ctx, ref, writer); err != nil {
-			_ = archive.Close()
-			_ = temp.Close()
-			return err
-		}
-		written[ref.Digest] = struct{}{}
-	}
-	for _, item := range evidence {
-		writer, err := archive.CreateHeader(archiveHeader(evidencePath(item.Kind)))
-		if err != nil {
-			_ = archive.Close()
-			_ = temp.Close()
-			return err
-		}
-		if _, err := writer.Write(item.Bytes); err != nil {
-			_ = archive.Close()
-			_ = temp.Close()
-			return err
-		}
-	}
-	if err := archive.Close(); err != nil {
+	if err := m.writeArchiveContents(ctx, temp, manifest, source, refs, evidence); err != nil {
 		_ = temp.Close()
 		return err
 	}
@@ -519,6 +505,63 @@ func (m *Manager) writeArchive(
 	}
 	if err := durablefs.Replace(tempPath, destination); err != nil {
 		return fmt.Errorf("publish workflow bundle: %w", err)
+	}
+	return nil
+}
+
+func (m *Manager) writeArchiveContents(
+	ctx context.Context,
+	destination io.Writer,
+	manifest, source []byte,
+	refs []blob.BlobRef,
+	evidence []EvidenceInput,
+) error {
+	archive := zip.NewWriter(destination)
+	writeBytes := func(name string, raw []byte) error {
+		writer, err := archive.CreateHeader(archiveHeader(name))
+		if err != nil {
+			return err
+		}
+		_, err = writer.Write(raw)
+		return err
+	}
+	if err := writeBytes(ManifestPath, manifest); err != nil {
+		_ = archive.Close()
+		return err
+	}
+	if err := writeBytes(SourcePath, source); err != nil {
+		_ = archive.Close()
+		return err
+	}
+	written := make(map[artifact.Digest]struct{})
+	for _, ref := range refs {
+		if _, ok := written[ref.Digest]; ok {
+			continue
+		}
+		writer, err := archive.CreateHeader(archiveHeader(blobEntryPath(ref.Digest)))
+		if err != nil {
+			_ = archive.Close()
+			return err
+		}
+		if err := m.blobs.WriteTo(ctx, ref, writer); err != nil {
+			_ = archive.Close()
+			return err
+		}
+		written[ref.Digest] = struct{}{}
+	}
+	for _, item := range evidence {
+		writer, err := archive.CreateHeader(archiveHeader(evidencePath(item.Kind)))
+		if err != nil {
+			_ = archive.Close()
+			return err
+		}
+		if _, err := writer.Write(item.Bytes); err != nil {
+			_ = archive.Close()
+			return err
+		}
+	}
+	if err := archive.Close(); err != nil {
+		return err
 	}
 	return nil
 }

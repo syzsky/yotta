@@ -13,6 +13,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
+	"github.com/yottaapp/yotta/internal/registryclient"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
@@ -26,6 +27,7 @@ type Service struct {
 	authoring   nodeauthoring.Snapshot
 	bundles     *workflowbundle.Manager
 	references  ReferenceResolver
+	registry    RegistryClient
 }
 
 type ReferenceResolver func(workflowID string) []SourceReference
@@ -38,6 +40,18 @@ func WithReferenceResolver(resolver ReferenceResolver) Option {
 
 func WithBundleManager(manager *workflowbundle.Manager) Option {
 	return func(service *Service) { service.bundles = manager }
+}
+
+type RegistryClient interface {
+	PublishWorkflow(context.Context, registryclient.PublishRequest) (registryclient.WorkflowRelease, error)
+	Search(context.Context, string, int) (registryclient.SearchPage, error)
+	GetWorkflowRelease(context.Context, string) (registryclient.WorkflowRelease, error)
+	CreateInstallPlan(context.Context, string, registryclient.Environment) (registryclient.InstallPlan, error)
+	DownloadArtifact(context.Context, string) ([]byte, error)
+}
+
+func WithRegistryClient(client RegistryClient) Option {
+	return func(service *Service) { service.registry = client }
 }
 
 func NewService(application *appcore.Application, options ...Option) (*Service, error) {

@@ -611,6 +611,24 @@ export default {
     'workflow.run.failed':
       'Workflow run operation {operation} did not complete. Refresh the run state and retry.',
     'workflow.feature.unavailable': 'Workflow feature {feature} is unavailable. Restart Yotta.',
+    'workflow.registry.release_version_conflict':
+      'This version is already published. Increase the version and try again.',
+    'workflow.registry.authentication_required': 'Sign in before publishing this Workflow.',
+    'workflow.registry.workflow_rejected':
+      'This Workflow cannot be published yet. Check its content and try again.',
+    'workflow.registry.bundle_too_large':
+      'This Workflow contains too much embedded content. Reduce it and try again.',
+    'workflow.registry.invalid_search':
+      'This search could not be completed. Adjust it and try again.',
+    'workflow.registry.cancelled': 'Registry {operation} was cancelled.',
+    'workflow.registry.timeout': 'Registry {operation} timed out. Try again.',
+    'workflow.registry.incompatible':
+      'This Workflow is not compatible with the current Yotta environment. Review its requirements or choose another version.',
+    'workflow.registry.install_failed': 'The Workflow was not installed. Try again.',
+    'workflow.registry.invalid_screenshot':
+      'The selected screenshot could not be read. Choose it again and retry.',
+    'workflow.registry.unavailable':
+      'Registry {operation} is temporarily unavailable. Try again later.',
     'workflow.compile.failed':
       'Workflow validation did not complete. Fix any displayed diagnostics; if none appear, restart Yotta.',
     'workflow.draft.invalid':

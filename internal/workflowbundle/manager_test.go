@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -73,6 +74,14 @@ func TestManagerRoundTripsCanonicalSourceAndReferencedBlobs(t *testing.T) {
 		exported.Info.ResourceCount != 1 || exported.Info.DependencyCount != 1 ||
 		exported.Info.BlobCount != 1 || exported.Info.BlobBytes != ref.Size {
 		t.Fatalf("export info = %#v", exported.Info)
+	}
+	fileBytes, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bytesInfo, bundleBytes, err := sourceManager.ExportBytes(ctx, original.WorkflowID())
+	if err != nil || !reflect.DeepEqual(bytesInfo, exported.Info) || !bytes.Equal(bundleBytes, fileBytes) {
+		t.Fatalf("ExportBytes() info = %#v, equal = %t, error = %v", bytesInfo, bytes.Equal(bundleBytes, fileBytes), err)
 	}
 	inspected, err := sourceManager.Inspect(ctx, destination)
 	if err != nil || inspected.WorkflowID != original.WorkflowID() {

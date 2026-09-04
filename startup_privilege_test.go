@@ -33,6 +33,8 @@ func TestDesktopDevManifestRunsAsInvoker(t *testing.T) {
 }
 
 func TestDesktopMainDelegatesEmbeddedResourcesAndReportsStartupFailure(t *testing.T) {
+	t.Setenv("YOTTA_REGISTRY_URL", "https://registry.example.test")
+	t.Setenv("YOTTA_REGISTRY_ALLOW_INSECURE_HTTP", "true")
 	var stderr bytes.Buffer
 	exitCode := 0
 	desktopMain(func(config desktopapp.Config) error {
@@ -41,6 +43,9 @@ func TestDesktopMainDelegatesEmbeddedResourcesAndReportsStartupFailure(t *testin
 		}
 		if _, err := config.Assets.ReadFile("frontend/dist/index.html"); err != nil {
 			t.Errorf("frontend assets were not delegated: %v", err)
+		}
+		if config.RegistryURL != "https://registry.example.test" || !config.RegistryAllowLoopbackHTTP {
+			t.Errorf("registry config was not delegated: %#v", config)
 		}
 		return errors.New("boom")
 	}, &stderr, func(code int) { exitCode = code })

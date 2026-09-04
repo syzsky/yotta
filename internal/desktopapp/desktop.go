@@ -25,6 +25,7 @@ import (
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/localruntime"
 	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/registryclient"
 	"github.com/yottaapp/yotta/internal/securestore"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/services/asset"
@@ -43,9 +44,12 @@ import (
 )
 
 type Config struct {
-	Assets      embed.FS
-	TrayIcon    []byte
-	StorageRoot string
+	Assets                    embed.FS
+	TrayIcon                  []byte
+	StorageRoot               string
+	RegistryURL               string
+	RegistryAllowLoopbackHTTP bool
+	RegistryTokens            registryclient.TokenSource
 }
 
 func Run(config Config) error {
@@ -255,8 +259,7 @@ func Run(config Config) error {
 		return fmt.Errorf("attach live installation settings: %w", err)
 	}
 	var scheduleSvc *schedule.Service
-	workflowSvc, err := workflow.NewService(
-		workflowRuntime.Application,
+	workflowOptions := []workflow.Option{
 		workflow.WithBundleManager(workflowRuntime.Bundles),
 		workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
 			references := make([]workflow.SourceReference, 0)
@@ -271,7 +274,18 @@ func Run(config Config) error {
 			}
 			return references
 		}),
-	)
+	}
+	if strings.TrimSpace(config.RegistryURL) != "" {
+		registry, registryErr := registryclient.New(registryclient.Options{
+			BaseURL: config.RegistryURL, Tokens: config.RegistryTokens,
+			AllowLoopbackHTTP: config.RegistryAllowLoopbackHTTP,
+		})
+		if registryErr != nil {
+			return fmt.Errorf("initialize Registry client: %w", registryErr)
+		}
+		workflowOptions = append(workflowOptions, workflow.WithRegistryClient(registry))
+	}
+	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflowOptions...)
 	if err != nil {
 		return fmt.Errorf("initialize workflow service: %w", err)
 	}

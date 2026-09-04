@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	"github.com/yottaapp/yotta/internal/appbootstrap"
 	"github.com/yottaapp/yotta/internal/appcontrol"
+	"github.com/yottaapp/yotta/internal/apperr"
 	automationinstalled "github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/datatype"
@@ -21,6 +23,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/registryclient"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services/workflow"
@@ -28,6 +31,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
+	publicbundle "github.com/yottaapp/yotta/pkg/workflowbundle"
 )
 
 func TestServiceQueriesOneThousandSourcesWithBoundedPages(t *testing.T) {
@@ -518,6 +522,117 @@ func TestServiceExposesWorkflowSourcePortabilityWithoutMachineInstallations(t *t
 	if len(repeated) != 1 || repeated[0].Exported || repeated[0].Problem == nil || repeated[0].Problem.ID != "workflow.bundle.destination_exists" {
 		t.Fatalf("repeated ExportSourceBundles() = %#v", repeated)
 	}
+}
+
+func TestServicePublishesCanonicalBundleAndSearchesRegistry(t *testing.T) {
+	runtime := workflowRuntime(t, time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC))
+	if err := runtime.Application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runtime.Close(ctx); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	})
+	registry := &registryClientFake{}
+	service, err := workflow.NewService(runtime.Application,
+		workflow.WithBundleManager(runtime.Bundles), workflow.WithRegistryClient(registry))
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateSource("整理照片")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := service.PublishSourceToRegistry(context.Background(), workflow.PublishRegistryRequest{
+		WorkflowID: created.WorkflowID, ReleaseVersion: "1.0.0", Title: "整理照片", Summary: "自动整理照片。",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if release.ReleaseID != "release-1" || registry.published.WorkflowID != created.WorkflowID {
+		t.Fatalf("release = %#v, inspected = %#v", release, registry.published)
+	}
+	page, err := service.SearchRegistry(context.Background(), "照片", 10)
+	if err != nil || len(page.Items) != 1 || page.Items[0].Title != "整理照片" {
+		t.Fatalf("SearchRegistry = %#v, %v", page, err)
+	}
+	installed, err := service.InstallRegistryWorkflow(context.Background(), "release-1")
+	if err != nil || installed.WorkflowID == created.WorkflowID || installed.Name != created.Name {
+		t.Fatalf("InstallRegistryWorkflow = %#v, %v", installed, err)
+	}
+}
+
+func TestServiceMapsRegistryVersionConflictToStableProblem(t *testing.T) {
+	runtime := workflowRuntime(t, time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC))
+	if err := runtime.Application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = runtime.Close(context.Background()) })
+	registry := &registryClientFake{err: registryclient.Problem{Code: "registry.release_version_conflict", Status: 409}}
+	service, err := workflow.NewService(runtime.Application,
+		workflow.WithBundleManager(runtime.Bundles), workflow.WithRegistryClient(registry))
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateSource("冲突")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.PublishSourceToRegistry(context.Background(), workflow.PublishRegistryRequest{
+		WorkflowID: created.WorkflowID, ReleaseVersion: "1.0.0", Title: "冲突", Summary: "版本冲突。",
+	})
+	if envelope := apperr.From(err); envelope.ID != "workflow.registry.release_version_conflict" || envelope.Retryable {
+		t.Fatalf("envelope = %#v", envelope)
+	}
+}
+
+type registryClientFake struct {
+	published publicbundle.Info
+	bundle    []byte
+	err       error
+}
+
+func (client *registryClientFake) PublishWorkflow(ctx context.Context, request registryclient.PublishRequest) (registryclient.WorkflowRelease, error) {
+	raw, err := io.ReadAll(request.Bundle)
+	if err != nil {
+		return registryclient.WorkflowRelease{}, err
+	}
+	client.published, err = publicbundle.Inspect(ctx, raw)
+	if err != nil {
+		return registryclient.WorkflowRelease{}, err
+	}
+	if client.err != nil {
+		return registryclient.WorkflowRelease{}, client.err
+	}
+	client.bundle = append([]byte(nil), raw...)
+	return registryclient.WorkflowRelease{
+		ReleaseID: "release-1", WorkflowID: client.published.WorkflowID,
+		ReleaseVersion: request.ReleaseVersion, Title: request.Title, Summary: request.Summary,
+		Creator: registryclient.Creator{UserKey: "TestA123"}, Availability: "active",
+	}, nil
+}
+
+func (client *registryClientFake) Search(context.Context, string, int) (registryclient.SearchPage, error) {
+	return registryclient.SearchPage{Items: []registryclient.SearchResult{{
+		Kind: "workflow", Workflow: registryclient.WorkflowRelease{ReleaseID: "release-1", Title: "整理照片"},
+	}}}, client.err
+}
+
+func (client *registryClientFake) GetWorkflowRelease(context.Context, string) (registryclient.WorkflowRelease, error) {
+	return registryclient.WorkflowRelease{ReleaseID: "release-1", BundleDigest: "sha256:" + strings.Repeat("1", 64)}, client.err
+}
+
+func (client *registryClientFake) CreateInstallPlan(context.Context, string, registryclient.Environment) (registryclient.InstallPlan, error) {
+	return registryclient.InstallPlan{ResolvedWorkflowRelease: registryclient.WorkflowRelease{
+		ReleaseID: "release-1", BundleDigest: "sha256:" + strings.Repeat("1", 64),
+	}}, client.err
+}
+
+func (client *registryClientFake) DownloadArtifact(context.Context, string) ([]byte, error) {
+	return append([]byte(nil), client.bundle...), client.err
 }
 
 func TestServiceRejectsMissingOrUntrustedApplication(t *testing.T) {

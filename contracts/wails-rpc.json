@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 150,
-    "models": 237
+    "methods": 153,
+    "models": 244
   },
   "services": [
     {
@@ -1815,6 +1815,18 @@
           "returns": "$CancellablePromise<$models.BundleInfoView>"
         },
         {
+          "name": "InstallRegistryWorkflow",
+          "bindingId": "1880473553",
+          "parameters": [
+            {
+              "name": "releaseID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
           "name": "ListSourceRecoveries",
           "bindingId": "544341126",
           "parameters": [],
@@ -1849,6 +1861,18 @@
             }
           ],
           "returns": "$CancellablePromise<application$0.RunPreview>"
+        },
+        {
+          "name": "PublishSourceToRegistry",
+          "bindingId": "308539092",
+          "parameters": [
+            {
+              "name": "request",
+              "optional": false,
+              "type": "$models.PublishRegistryRequest"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RegistryWorkflowReleaseView>"
         },
         {
           "name": "QuerySources",
@@ -1905,6 +1929,23 @@
             }
           ],
           "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
+          "name": "SearchRegistry",
+          "bindingId": "1446061227",
+          "parameters": [
+            {
+              "name": "search",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "limit",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RegistrySearchPageView>"
         },
         {
           "name": "SetDebugBreakpoints",
@@ -6830,6 +6871,203 @@
               "name": "\"generatedNodes\"",
               "optional": false,
               "type": "authoring$0.GeneratedNode[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PublishRegistryExample",
+          "fields": [
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PublishRegistryRequest",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseNotes\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"examples\"",
+              "optional": false,
+              "type": "PublishRegistryExample[]"
+            },
+            {
+              "name": "\"screenshots\"",
+              "optional": false,
+              "type": "PublishRegistryScreenshot[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PublishRegistryScreenshot",
+          "fields": [
+            {
+              "name": "\"path\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"alt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RegistryCreatorView",
+          "fields": [
+            {
+              "name": "\"userKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"displayName\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RegistryScreenshotView",
+          "fields": [
+            {
+              "name": "\"url\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"alt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RegistrySearchPageView",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "RegistryWorkflowReleaseView[]"
+            },
+            {
+              "name": "\"nextCursor\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RegistryWorkflowReleaseView",
+          "fields": [
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"publisherNamespace\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sourceHash\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"bundleDigest\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseNotes\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"examples\"",
+              "optional": false,
+              "type": "PublishRegistryExample[]"
+            },
+            {
+              "name": "\"screenshots\"",
+              "optional": false,
+              "type": "RegistryScreenshotView[]"
+            },
+            {
+              "name": "\"creator\"",
+              "optional": false,
+              "type": "RegistryCreatorView"
+            },
+            {
+              "name": "\"availability\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"publishedAt\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         },

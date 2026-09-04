@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/yottaapp/yotta/internal/desktopapp"
 )
@@ -25,7 +26,11 @@ func desktopMain(start func(desktopapp.Config) error, stderr io.Writer, exit fun
 }
 
 func desktopMainWithReporter(start func(desktopapp.Config) error, stderr io.Writer, report func(string), exit func(int)) {
-	if err := start(desktopapp.Config{Assets: assets, TrayIcon: trayIcon}); err != nil {
+	if err := start(desktopapp.Config{
+		Assets: assets, TrayIcon: trayIcon,
+		RegistryURL:               os.Getenv("YOTTA_REGISTRY_URL"),
+		RegistryAllowLoopbackHTTP: strings.EqualFold(os.Getenv("YOTTA_REGISTRY_ALLOW_INSECURE_HTTP"), "true"),
+	}); err != nil {
 		message := fmt.Sprintf("Yotta startup failed: %v", err)
 		_, _ = fmt.Fprintln(stderr, message)
 		report(message)
