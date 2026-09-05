@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/communityclient"
 	"github.com/yottaapp/yotta/internal/durablefs"
+	"github.com/yottaapp/yotta/internal/nativeoidc"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/registryclient"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -23,16 +26,25 @@ import (
 )
 
 type Service struct {
-	application *appcore.Application
-	authoring   nodeauthoring.Snapshot
-	bundles     *workflowbundle.Manager
-	references  ReferenceResolver
-	registry    RegistryClient
+	community         *communityclient.Client
+	application       *appcore.Application
+	authoring         nodeauthoring.Snapshot
+	bundles           *workflowbundle.Manager
+	references        ReferenceResolver
+	registry          RegistryClient
+	account           *nativeoidc.Session
+	registryStatePath string
+	registryMu        sync.Mutex
 }
 
 type ReferenceResolver func(workflowID string) []SourceReference
 
 type Option func(*Service)
+
+func WithRegistryAccount(account *nativeoidc.Session) Option {
+	return func(s *Service) { s.account = account }
+}
+func WithRegistryState(path string) Option { return func(s *Service) { s.registryStatePath = path } }
 
 func WithReferenceResolver(resolver ReferenceResolver) Option {
 	return func(service *Service) { service.references = resolver }

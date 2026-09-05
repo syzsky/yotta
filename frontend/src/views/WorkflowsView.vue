@@ -17,13 +17,40 @@
               >
                 {{ t('workflow.list.title') }}
               </h1>
-              <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
+              <UBadge v-if="libraryMode === 'local'" color="neutral" variant="soft" size="sm">{{
+                total
+              }}</UBadge>
             </div>
           </div>
         </div>
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <div
+          class="flex rounded-lg bg-elevated p-1"
+          role="tablist"
+          :aria-label="t('workflow.market.mode_label')"
+        >
+          <UButton
+            size="sm"
+            :variant="libraryMode === 'local' ? 'solid' : 'ghost'"
+            :color="libraryMode === 'local' ? 'primary' : 'neutral'"
+            role="tab"
+            :aria-selected="libraryMode === 'local'"
+            @click="libraryMode = 'local'"
+            >{{ t('workflow.market.local') }}</UButton
+          >
+          <UButton
+            size="sm"
+            :variant="libraryMode === 'market' ? 'solid' : 'ghost'"
+            :color="libraryMode === 'market' ? 'primary' : 'neutral'"
+            role="tab"
+            :aria-selected="libraryMode === 'market'"
+            @click="libraryMode = 'market'"
+            >{{ t('workflow.market.online') }}</UButton
+          >
+        </div>
         <UButton
+          v-if="libraryMode === 'local'"
           data-testid="workflow-new-button"
           icon="i-tabler-plus"
           :label="t('workflow.list.new_workflow')"
@@ -41,6 +68,7 @@
     </header>
 
     <main
+      v-if="libraryMode === 'local'"
       class="flex min-h-0 flex-1 flex-col px-6 py-4"
       data-testid="workflow-library"
       data-mode="manage"
@@ -301,6 +329,7 @@
             class="workspace-table-row grid min-h-16 items-center gap-3 border-b border-default/70 px-3 py-2 transition-colors duration-150 hover:bg-[var(--ui-surface-hover)]"
             :style="{ gridTemplateColumns: workflowGridTemplate }"
             data-testid="workflow-library-row"
+            :data-workflow-id="source.workflowId"
             @dblclick="openWorkflow(source.workflowId)"
           >
             <UCheckbox
@@ -448,6 +477,257 @@
         />
       </footer>
     </main>
+
+    <WorkflowMarketPanel v-else />
+
+    <BaseModal
+      v-model:open="publishOpen"
+      :title="t('workflow.market.publish_title')"
+      icon="i-tabler-cloud-upload"
+      size="2xl"
+      :dismissible="!publishing"
+    >
+      <div class="space-y-4">
+        <div class="flex items-center gap-3">
+          <UPopover>
+            <button
+              type="button"
+              data-testid="workflow-publish-icon"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              :aria-label="t('workflow.market.choose_icon')"
+              class="group relative flex size-14 shrink-0 items-center justify-center rounded-xl border border-default bg-muted text-primary hover:border-primary focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <WorkflowMarketIcon
+                :name="publishDraft.listing.icon || 'i-tabler-route'"
+                class="size-8"
+              />
+              <UIcon name="i-tabler-pencil" class="absolute bottom-1 right-1 size-3 text-muted" />
+            </button>
+            <template #content
+              ><div class="w-80 p-3">
+                <IconPicker
+                  v-model="publishDraft.listing.icon"
+                  @update:model-value="publishTouched.add('icon')"
+                /></div
+            ></template>
+          </UPopover>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold text-highlighted">
+              {{ publishDraft.title || publishSource?.name }}
+            </p>
+            <p class="mt-1 text-xs text-muted">
+              {{
+                t(
+                  publishLoading
+                    ? 'workflow.market.loading_previous'
+                    : 'workflow.market.publish_description',
+                )
+              }}
+            </p>
+          </div>
+        </div>
+        <div class="flex gap-5 border-b border-default">
+          <button
+            v-for="section in publishSections"
+            :key="section.value"
+            type="button"
+            :aria-pressed="publishSection === section.value"
+            class="border-b-2 px-1 py-2.5 text-sm"
+            :class="
+              publishSection === section.value
+                ? 'border-primary text-highlighted'
+                : 'border-transparent text-muted'
+            "
+            @click="publishSection = section.value"
+          >
+            {{ section.label }}
+          </button>
+        </div>
+        <div v-show="publishSection === 'listing'" class="space-y-4">
+          <UFormField :label="t('workflow.market.publish_name')" required
+            ><UInput
+              v-model="publishDraft.title"
+              @update:model-value="publishTouched.add('title')"
+              data-testid="workflow-publish-title"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              class="w-full"
+              maxlength="160"
+          /></UFormField>
+          <UFormField :label="t('workflow.market.summary')" required
+            ><UTextarea
+              v-model="publishDraft.summary"
+              @update:model-value="publishTouched.add('summary')"
+              data-testid="workflow-publish-summary"
+              maxlength="1000"
+              :rows="2"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              class="w-full"
+              :placeholder="t('workflow.market.summary_hint')"
+          /></UFormField>
+          <UFormField :label="t('workflow.market.category')"
+            ><UInput
+              v-model="publishDraft.listing.category"
+              @update:model-value="publishTouched.add('category')"
+              data-testid="workflow-publish-category"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              class="w-full"
+              maxlength="64"
+              :placeholder="t('workflow.market.category_hint')"
+          /></UFormField>
+          <UFormField
+            :label="t('workflow.market.tags')"
+            :description="t('workflow.market.tags_hint')"
+            ><UInputTags
+              v-model="publishDraft.listing.tags"
+              @update:model-value="publishTouched.add('tags')"
+              data-testid="workflow-publish-tags"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              class="w-full"
+              :max="16"
+          /></UFormField>
+        </div>
+        <div v-show="publishSection === 'guide'" class="space-y-4">
+          <UFormField
+            :label="t('workflow.market.description')"
+            :description="t('workflow.market.markdown_hint')"
+            ><UTextarea
+              v-model="publishDraft.listing.description"
+              @update:model-value="publishTouched.add('description')"
+              data-testid="workflow-publish-description"
+              :rows="5"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              class="w-full"
+              maxlength="32768"
+          /></UFormField>
+          <UFormField :label="t('workflow.market.instructions')"
+            ><UTextarea
+              v-model="publishDraft.listing.instructions"
+              @update:model-value="publishTouched.add('instructions')"
+              data-testid="workflow-publish-instructions"
+              :rows="3"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              class="w-full"
+              maxlength="16384"
+          /></UFormField>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-highlighted">{{ t('workflow.market.screenshots') }}</span
+            ><UButton
+              icon="i-tabler-photo-plus"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              :disabled="
+                publishing ||
+                publishLoading ||
+                publishHistoryFailed ||
+                publishDraft.screenshots.length + publishDraft.existingScreenshots.length >= 6
+              "
+              @click="addPublishScreenshots"
+              >{{ t('workflow.market.add_screenshots') }}</UButton
+            >
+          </div>
+          <div
+            v-for="(shot, index) in publishDraft.existingScreenshots"
+            :key="shot.url"
+            class="flex items-center gap-2"
+          >
+            <img
+              :src="shot.url"
+              :alt="shot.alt"
+              class="size-12 rounded border border-default object-cover"
+            /><UInput
+              v-model="shot.alt"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              :aria-label="t('workflow.market.screenshot_alt')"
+              class="min-w-0 flex-1"
+            /><UButton
+              icon="i-tabler-x"
+              color="neutral"
+              variant="ghost"
+              :aria-label="t('common.delete')"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              @click="publishDraft.existingScreenshots.splice(index, 1)"
+            />
+          </div>
+          <div
+            v-for="(shot, index) in publishDraft.screenshots"
+            :key="shot.path"
+            class="flex items-center gap-2"
+          >
+            <UIcon name="i-tabler-photo" class="size-4 shrink-0 text-muted" /><UInput
+              v-model="shot.alt"
+              :aria-label="t('workflow.market.screenshot_alt')"
+              class="min-w-0 flex-1"
+            /><UButton
+              icon="i-tabler-x"
+              color="neutral"
+              variant="ghost"
+              :aria-label="t('common.delete')"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              @click="publishDraft.screenshots.splice(index, 1)"
+            />
+          </div>
+        </div>
+        <div v-show="publishSection === 'release'" class="space-y-5">
+          <UFormField
+            :label="t('workflow.market.version')"
+            required
+            :error="publishVersionValid ? undefined : t('workflow.market.invalid_version')"
+            ><WorkflowVersionInput
+              v-model="publishDraft.releaseVersion"
+              @update:model-value="publishTouched.add('version')"
+              :invalid="!publishVersionValid"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+          /></UFormField>
+          <p class="text-xs leading-5 text-muted">{{ t('workflow.market.version_hint') }}</p>
+          <UFormField :label="t('workflow.market.release_notes')"
+            ><UTextarea
+              v-model="publishDraft.releaseNotes"
+              data-testid="workflow-publish-release-notes"
+              :rows="4"
+              :disabled="publishing || publishLoading || publishHistoryFailed"
+              class="w-full"
+              :placeholder="t('workflow.market.release_notes_placeholder')"
+          /></UFormField>
+        </div>
+        <p
+          v-if="publishFailure"
+          class="whitespace-pre-wrap text-sm leading-6 text-error"
+          role="alert"
+        >
+          {{ publishFailure }}
+        </p>
+        <UButton
+          v-if="publishHistoryFailed"
+          color="neutral"
+          variant="outline"
+          @click="publishSource && openPublish(publishSource)"
+          >{{ t('common.retry') }}</UButton
+        >
+      </div>
+      <template #footer>
+        <span class="mr-auto text-xs tabular-nums text-muted">{{
+          publishDraft.releaseVersion
+        }}</span>
+        <UButton color="neutral" variant="ghost" @click="cancelPublish">{{
+          t('common.cancel')
+        }}</UButton>
+        <UButton
+          data-testid="workflow-publish-submit"
+          icon="i-tabler-cloud-upload"
+          :loading="publishing || publishLoading"
+          :disabled="
+            publishLoading ||
+            publishHistoryFailed ||
+            !publishVersionValid ||
+            !publishDraft.title.trim() ||
+            !publishDraft.summary.trim()
+          "
+          @click="publishWorkflow"
+          >{{ t('workflow.market.publish_action') }}</UButton
+        >
+      </template>
+    </BaseModal>
 
     <BaseModal
       v-model:open="batchEditing"
@@ -637,7 +917,12 @@
 </template>
 
 <script setup lang="ts">
+import WorkflowMarketIcon from '@/components/workflow/WorkflowMarketIcon.vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import WorkflowVersionInput from '@/components/workflow/WorkflowVersionInput.vue'
+import IconPicker from '@/components/common/IconPicker.vue'
+import { validReleaseVersion } from '@/app/workflow-library/releaseVersion'
+import { shopTransport } from '@/app/transport/shop'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/useAppToast'
 import { useI18n } from 'vue-i18n'
@@ -665,40 +950,71 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 import WorkflowHotkeyField from '@/components/hotkeys/WorkflowHotkeyField.vue'
+import WorkflowMarketPanel from '@/components/workflow/WorkflowMarketPanel.vue'
+import { useWorkflowLibraryQuery } from '@/app/workflow-library/useWorkflowLibraryQuery'
+import {
+  useWorkflowLibrarySelection,
+  type SelectedWorkflowSource,
+} from '@/app/workflow-library/useWorkflowLibrarySelection'
 
 defineOptions({ name: 'WorkflowsView' })
 
-type SelectedSource = Pick<
-  SourceView,
-  'workflowId' | 'name' | 'revision' | 'sourceHash' | 'category' | 'tags'
->
+type SelectedSource = SelectedWorkflowSource
 type WorkflowColumn = 'category' | 'tags' | 'nodes' | 'revision' | 'createdAt' | 'updatedAt'
-type DateRange = 'all' | 'today' | '7d' | '30d' | '90d'
 type Feedback = { tone: 'success' | 'warning' | 'error'; message: string; details: string[] }
 
 const defaultColumns: WorkflowColumn[] = ['category', 'tags', 'nodes', 'createdAt', 'updatedAt']
-const allCategories = '__all__'
 const router = useRouter()
 const toast = useToast()
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
+const libraryQuery = useWorkflowLibraryQuery({
+  reload: load,
+  translate: (key, params) => t(key, params ?? {}),
+})
+const {
+  total,
+  page,
+  pageSize,
+  sort,
+  searchInput,
+  categoryFilter,
+  tagFilters,
+  createdRange,
+  updatedRange,
+  categories,
+  tags,
+  resultStart,
+  resultEnd,
+  hasFilters,
+  categoryFilterItems,
+  tagOptions,
+  createdRangeItems,
+  updatedRangeItems,
+  sortItems,
+  pageSizeItems,
+  queryChanged,
+  applySearch,
+  resetFilters,
+  goToPage,
+} = libraryQuery
 const sources = ref<SourceView[]>([])
+const librarySelection = useWorkflowLibrarySelection(sources)
+const {
+  selected,
+  rows: selectedRows,
+  allCurrentPageSelected,
+  toggle: toggleSource,
+  toggleCurrentPage,
+  clear: clearSelection,
+  retainOnly: retainFailedWorkflowSelection,
+  remove: removeWorkflowSelection,
+  name: selectedName,
+} = librarySelection
+const libraryMode = ref<'local' | 'market'>('local')
 const recoveries = ref<SourceRecoveryView[]>([])
 const recoveryExpanded = ref(false)
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
-const sort = ref('updated_desc')
-const searchInput = ref('')
-const search = ref('')
-const categoryFilter = ref(allCategories)
-const tagFilters = ref<string[]>([])
-const createdRange = ref<DateRange>('all')
-const updatedRange = ref<DateRange>('all')
-const categories = ref<Array<{ value: string; count: number }>>([])
-const tags = ref<Array<{ value: string; count: number }>>([])
 const visibleColumns = ref<WorkflowColumn[]>(loadColumns())
-const selected = ref<Record<string, SelectedSource>>({})
 const loading = ref(true)
 const deleting = ref(false)
 const importing = ref(false)
@@ -739,8 +1055,38 @@ const metadataDraft = reactive({
   tags: [] as string[],
   template: 'generic' as 'generic' | 'windows' | 'android' | 'browser' | 'cross-target',
 })
+const publishOpen = ref(false)
+const publishing = ref(false)
+const publishFailure = ref('')
+const publishSource = ref<SourceView | null>(null)
+const publishDraft = reactive({
+  previousReleaseId: '',
+  existingScreenshots: [] as { url: string; alt: string }[],
+  listing: {
+    icon: 'i-tabler-route',
+    category: '',
+    tags: [] as string[],
+    description: '',
+    instructions: '',
+  },
+  screenshots: [] as { path: string; alt: string }[],
+  releaseVersion: '1.0.0',
+  title: '',
+  summary: '',
+  releaseNotes: '',
+})
 
-const selectedRows = computed(() => Object.values(selected.value))
+const publishVersionValid = computed(() => validReleaseVersion(publishDraft.releaseVersion))
+const publishSection = ref('listing')
+const publishLoading = ref(false)
+const publishHistoryFailed = ref(false)
+const publishTouched = new Set<string>()
+let publishGeneration = 0
+const publishSections = computed(() => [
+  { value: 'listing', label: t('workflow.market.listing_tab') },
+  { value: 'guide', label: t('workflow.market.guide_tab') },
+  { value: 'release', label: t('workflow.market.release_tab') },
+])
 const portabilityBusy = computed(
   () =>
     importing.value ||
@@ -749,22 +1095,6 @@ const portabilityBusy = computed(
     batchExporting.value ||
     batchBusy.value,
 )
-const allCurrentPageSelected = computed(
-  () =>
-    sources.value.length > 0 && sources.value.every((source) => selected.value[source.workflowId]),
-)
-const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
-const resultStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0))
-const resultEnd = computed(() => Math.min(page.value * pageSize.value, total.value))
-const hasAdvancedFilters = computed(() =>
-  Boolean(
-    categoryFilter.value !== allCategories ||
-    tagFilters.value.length ||
-    createdRange.value !== 'all' ||
-    updatedRange.value !== 'all',
-  ),
-)
-const hasFilters = computed(() => Boolean(search.value || hasAdvancedFilters.value))
 const activeFeedback = computed(() => portabilityFeedback.value ?? deleteFeedback.value)
 const feedbackClass = computed(() => {
   const tone = activeFeedback.value?.tone
@@ -772,16 +1102,6 @@ const feedbackClass = computed(() => {
   if (tone === 'warning') return 'border-warning/30 bg-warning/10 text-warning'
   return 'border-success/30 bg-success/10 text-success'
 })
-const categoryFilterItems = computed(() => [
-  { label: t('workflow.list.all_categories'), value: allCategories },
-  ...categories.value.map((item) => ({
-    label: `${item.value} (${item.count})`,
-    value: item.value,
-  })),
-])
-const tagOptions = computed(() => tags.value.map((item) => item.value))
-const createdRangeItems = computed(() => dateRangeItems('created'))
-const updatedRangeItems = computed(() => dateRangeItems('updated'))
 const metadataCategoryOptions = computed(() =>
   uniqueStrings([
     ...categories.value.map((item) => item.value),
@@ -834,19 +1154,6 @@ const categoryModeHint = computed(() =>
 const tagModeHint = computed(() =>
   t(batchDraft.tagMode === 'clear' ? 'batchMetadata.tags_clear_hint' : 'batchMetadata.keep_hint'),
 )
-const sortItems = computed(() => [
-  { label: t('workflow.list.sort_name_asc'), value: 'name_asc' },
-  { label: t('workflow.list.sort_name_desc'), value: 'name_desc' },
-  { label: t('workflow.list.sort_nodes_desc'), value: 'nodes_desc' },
-  { label: t('workflow.list.sort_revision_desc'), value: 'revision_desc' },
-  { label: t('workflow.list.sort_created_desc'), value: 'created_desc' },
-  { label: t('workflow.list.sort_updated_desc'), value: 'updated_desc' },
-])
-const pageSizeItems = [
-  { label: '20', value: 20 },
-  { label: '50', value: 50 },
-  { label: '100', value: 100 },
-]
 const templateItems = computed(() => [
   { label: t('workflow.list.template_generic'), value: 'generic' },
   { label: t('workflow.list.template_windows'), value: 'windows' },
@@ -922,26 +1229,13 @@ async function load(): Promise<void> {
   try {
     const [result, isolated] = await Promise.all([
       workflowTransport.querySources({
-        search: search.value,
-        category: categoryFilter.value === allCategories ? '' : categoryFilter.value,
-        tags: tagFilters.value,
-        createdSince: rangeStart(createdRange.value),
-        updatedSince: rangeStart(updatedRange.value),
-        sort: sort.value,
-        page: page.value,
-        pageSize: pageSize.value,
+        ...libraryQuery.request(),
       }),
       workflowTransport.listSourceRecoveries(),
     ])
     sources.value = result.items
     recoveries.value = isolated
-    total.value = result.total
-    categories.value = result.categories ?? []
-    tags.value = result.tags ?? []
-    if (page.value > pageCount.value) {
-      page.value = pageCount.value
-      await load()
-    }
+    if (libraryQuery.accept(result)) await load()
   } catch (error) {
     failure.value = errorText(error)
   } finally {
@@ -949,59 +1243,8 @@ async function load(): Promise<void> {
   }
 }
 
-async function queryChanged(): Promise<void> {
-  page.value = 1
-  await load()
-}
-
-async function applySearch(): Promise<void> {
-  search.value = searchInput.value.trim()
-  await queryChanged()
-}
-
-async function resetFilters(): Promise<void> {
-  searchInput.value = ''
-  search.value = ''
-  resetAdvancedFilters()
-  await queryChanged()
-}
-
-function resetAdvancedFilters(): void {
-  categoryFilter.value = allCategories
-  tagFilters.value = []
-  createdRange.value = 'all'
-  updatedRange.value = 'all'
-  sort.value = 'updated_desc'
-}
-
 function openWorkflow(workflowId: string): void {
   void router.push(`/workflows/${workflowId}/edit`)
-}
-
-async function goToPage(next: number): Promise<void> {
-  if (next < 1 || next > pageCount.value || next === page.value) return
-  page.value = next
-  await load()
-}
-
-function toggleSource(source: SourceView, checked: boolean): void {
-  const next = { ...selected.value }
-  if (checked) next[source.workflowId] = source
-  else delete next[source.workflowId]
-  selected.value = next
-}
-
-function toggleCurrentPage(checked: boolean): void {
-  const next = { ...selected.value }
-  for (const source of sources.value) {
-    if (checked) next[source.workflowId] = source
-    else delete next[source.workflowId]
-  }
-  selected.value = next
-}
-
-function clearSelection(): void {
-  selected.value = {}
 }
 
 function openBatchEdit(): void {
@@ -1047,15 +1290,6 @@ async function saveBatchMetadata(): Promise<void> {
   } finally {
     batchBusy.value = false
   }
-}
-
-function retainFailedWorkflowSelection(workflowIDs: string[]): void {
-  const failed = new Set(workflowIDs)
-  selected.value = Object.fromEntries(
-    selectedRows.value
-      .filter((source) => failed.has(source.workflowId))
-      .map((source) => [source.workflowId, source]),
-  )
 }
 
 function isColumnVisible(key: WorkflowColumn): boolean {
@@ -1175,28 +1409,6 @@ function createBatchTag(value: string): void {
   batchDraft.tags = uniqueMetadataValues([...batchDraft.tags, tag])
 }
 
-function dateRangeItems(kind: 'created' | 'updated') {
-  const prefix = kind === 'created' ? 'created' : 'updated'
-  return [
-    { label: t(`workflow.list.${prefix}_any`), value: 'all' },
-    { label: t(`workflow.list.${prefix}_today`), value: 'today' },
-    { label: t(`workflow.list.${prefix}_days`, { n: 7 }), value: '7d' },
-    { label: t(`workflow.list.${prefix}_days`, { n: 30 }), value: '30d' },
-    { label: t(`workflow.list.${prefix}_days`, { n: 90 }), value: '90d' },
-  ]
-}
-
-function rangeStart(range: DateRange): string {
-  if (range === 'all') return ''
-  const start = new Date()
-  if (range === 'today') {
-    start.setHours(0, 0, 0, 0)
-  } else {
-    start.setDate(start.getDate() - Number.parseInt(range, 10))
-  }
-  return start.toISOString()
-}
-
 function formatListDate(value?: string): string {
   if (!value) return '—'
   const parsed = new Date(value)
@@ -1234,6 +1446,16 @@ function rowMenuItems(source: SourceView) {
         onSelect: () => openMetadataEditor(source),
       },
       {
+        label: t('workflow.market.publish_action'),
+        icon: 'i-tabler-cloud-upload',
+        onSelect: () => openPublish(source),
+      },
+      {
+        label: t('workflow.market.clone'),
+        icon: 'i-tabler-copy',
+        onSelect: () => void cloneWorkflow(source.workflowId),
+      },
+      {
         label: t('workflow.list.export_source'),
         icon: 'i-tabler-file-export',
         disabled: portabilityBusy.value,
@@ -1255,6 +1477,130 @@ function rowMenuItems(source: SourceView) {
       },
     ],
   ]
+}
+
+function openPublish(source: SourceView): void {
+  publishHistoryFailed.value = false
+  publishLoading.value = true
+  const generation = ++publishGeneration
+  publishTouched.clear()
+  publishSource.value = source
+  publishDraft.releaseVersion = '1.0.0'
+  publishDraft.title = source.name
+  publishDraft.summary = source.description?.trim() || source.name
+  publishDraft.releaseNotes = ''
+  publishDraft.listing = {
+    icon: 'i-tabler-route',
+    category: source.category || '',
+    tags: [...(source.tags || [])],
+    description: '',
+    instructions: '',
+  }
+  publishDraft.screenshots = []
+  publishDraft.existingScreenshots = []
+  publishDraft.previousReleaseId = ''
+  publishSection.value = 'listing'
+  publishFailure.value = ''
+  publishOpen.value = true
+  void shopTransport
+    .history(source.workflowId)
+    .then((releases) => {
+      const previous = releases[0]
+      if (!previous || generation !== publishGeneration || !publishOpen.value || publishing.value)
+        return
+      if (!publishTouched.has('title')) publishDraft.title = previous.title
+      if (!publishTouched.has('summary')) publishDraft.summary = previous.summary
+      const listing = {
+        icon: previous.listing?.icon || 'i-tabler-route',
+        category: previous.listing?.category || source.category || '',
+        tags: [...(previous.listing?.tags || source.tags || [])],
+        description: previous.listing?.description || '',
+        instructions: previous.listing?.instructions || '',
+      }
+      for (const key of ['icon', 'category', 'description', 'instructions'] as const)
+        if (!publishTouched.has(key)) publishDraft.listing[key] = listing[key]
+      if (!publishTouched.has('tags')) publishDraft.listing.tags = listing.tags
+      publishDraft.previousReleaseId = previous.releaseId
+      publishDraft.existingScreenshots = previous.screenshots.map((shot) => ({
+        url: shot.url,
+        alt: shot.alt,
+      }))
+    })
+    .catch((error) => {
+      if (generation === publishGeneration) {
+        publishHistoryFailed.value = true
+        publishFailure.value = errorMessage(error)
+      }
+    })
+    .finally(() => {
+      if (generation === publishGeneration) publishLoading.value = false
+    })
+}
+
+async function publishWorkflow(): Promise<void> {
+  const source = publishSource.value
+  if (
+    !source ||
+    publishing.value ||
+    publishLoading.value ||
+    publishHistoryFailed.value ||
+    !publishVersionValid.value
+  )
+    return
+  publishing.value = true
+  publishFailure.value = ''
+  try {
+    await workflowTransport.publishSourceToRegistry({
+      listing: publishDraft.listing,
+      workflowId: source.workflowId,
+      releaseVersion: publishDraft.releaseVersion.trim(),
+      title: publishDraft.title.trim(),
+      summary: publishDraft.summary.trim(),
+      releaseNotes: publishDraft.releaseNotes.trim(),
+      examples: [],
+      screenshots: publishDraft.screenshots,
+      previousReleaseId: publishDraft.previousReleaseId,
+      existingScreenshots: publishDraft.existingScreenshots,
+    })
+    publishOpen.value = false
+    libraryMode.value = 'market'
+  } catch (error) {
+    publishFailure.value = errorMessage(error)
+  } finally {
+    publishing.value = false
+  }
+}
+
+async function cancelPublish(): Promise<void> {
+  try {
+    if (publishing.value) await shopTransport.cancelLogin()
+    else publishOpen.value = false
+  } catch (error) {
+    publishFailure.value = errorMessage(error)
+  }
+}
+
+async function addPublishScreenshots(): Promise<void> {
+  try {
+    const paths = await shopTransport.chooseScreenshots()
+    for (const path of Array.isArray(paths) ? paths : paths ? [paths] : []) {
+      if (publishDraft.screenshots.length + publishDraft.existingScreenshots.length >= 6) break
+      if (!publishDraft.screenshots.some((item) => item.path === path))
+        publishDraft.screenshots.push({ path, alt: publishDraft.title })
+    }
+  } catch (error) {
+    publishFailure.value = errorMessage(error)
+  }
+}
+
+async function cloneWorkflow(workflowId: string): Promise<void> {
+  try {
+    const source = await shopTransport.clone(workflowId)
+    await load()
+    openWorkflow(source.workflowId)
+  } catch (error) {
+    failure.value = errorMessage(error)
+  }
 }
 
 function openRecoveryRepair(recovery: SourceRecoveryView): void {
@@ -1418,10 +1764,6 @@ function bundleDescription(info: BundleInfoView): string {
   })
 }
 
-function selectedName(workflowId: string): string {
-  return selected.value[workflowId]?.name ?? workflowId
-}
-
 async function requestDelete(rows: SelectedSource[]): Promise<void> {
   if (!rows.length || deleting.value) return
   deleting.value = true
@@ -1467,12 +1809,10 @@ async function requestDelete(rows: SelectedSource[]): Promise<void> {
     const results = await workflowTransport.deleteSources(requests)
     const deleted = results.filter((result) => result.deleted)
     const failed = results.filter((result) => !result.deleted)
-    const next = { ...selected.value }
     for (const result of deleted) {
-      delete next[result.workflowId]
       delete runFeedbackById[result.workflowId]
     }
-    selected.value = next
+    removeWorkflowSelection(deleted.map((result) => result.workflowId))
     deleteFeedback.value =
       failed.length || blocked.length
         ? {

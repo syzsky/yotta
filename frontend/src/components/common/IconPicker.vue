@@ -18,7 +18,8 @@
         :title="icon"
         @click="emit('update:modelValue', icon)"
       >
-        <UIcon :name="icon" class="size-4" />
+        <UIcon v-if="iconsReady" :name="icon" class="size-4" />
+        <span v-else class="block size-4" />
       </button>
       <div
         v-if="query.trim() && shown.length === 0 && !searching"
@@ -34,6 +35,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ensureWorkflowIcons } from '@/lib/workflowIcons'
 
 defineProps<{ modelValue: string | undefined | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
@@ -69,6 +71,8 @@ async function ensureLoaded() {
   try {
     const { default: names } = await import('virtual:tabler-icon-names')
     allNames.value = names.map((name) => `i-tabler-${name}`)
+  } catch {
+    loaded = false
   } finally {
     searching.value = false
   }
@@ -84,6 +88,22 @@ const shown = computed(() => {
   const candidates = allNames.value.length ? allNames.value : curated
   return candidates.filter((name) => name.includes(value)).slice(0, 120)
 })
+const iconsReady = ref(false)
+let iconGeneration = 0
+watch(
+  shown,
+  async (icons) => {
+    const generation = ++iconGeneration
+    iconsReady.value = false
+    try {
+      await ensureWorkflowIcons(icons)
+      if (generation === iconGeneration) iconsReady.value = true
+    } catch {
+      if (generation === iconGeneration) iconsReady.value = false
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped>

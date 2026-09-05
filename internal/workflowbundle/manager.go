@@ -127,8 +127,9 @@ type exportPayload struct {
 type ImportMode string
 
 const (
-	ImportCopy    ImportMode = "copy"
-	ImportReplace ImportMode = "replace"
+	ImportCopy     ImportMode = "copy"
+	ImportReplace  ImportMode = "replace"
+	ImportRegistry ImportMode = "registry"
 )
 
 type ImportRequest struct {
@@ -270,6 +271,9 @@ func (m *Manager) Import(ctx context.Context, request ImportRequest) (ImportResu
 	baseRevision := int64(-1)
 	expectedHash := artifact.Digest("")
 	switch request.Mode {
+	case ImportRegistry:
+		// An installation retains the published identity. Only explicit cloning rewrites it.
+		document.Revision = 0
 	case "", ImportCopy:
 		document.Workflow.ID = m.newID()
 		document.Revision = 0

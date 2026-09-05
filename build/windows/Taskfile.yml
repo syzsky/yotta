@@ -25,6 +25,8 @@ tasks:
     summary: Builds the application using native Go cross-compilation
     internal: true
     vars:
+      SERVICE_CONFIG:
+        sh: go run ./cmd/service-config
       # production tag 让 wails3 走 embed dist 而不是 vite dev server；
       # -H windowsgui 隐藏启动时弹的 cmd 黑窗口（wails3 是 GUI 应用）。
       # dev/EXTRA_TAGS 分支保留但默认走 production —— 本仓 dev workflow 走 `task dev`，
@@ -47,7 +49,7 @@ tasks:
         vars:
           ARCH: '{{.ARCH}}'
           DEV: '{{.DEV}}'
-      - go build -mod=readonly {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
+      - go build -mod=readonly {{.BUILD_FLAGS}} -ldflags="{{if ne .DEV "true"}}-w -s -H windowsgui {{end}}-X github.com/yottaapp/yotta/pkg/version.Version={{.PRODUCT_VERSION}} -X github.com/yottaapp/yotta/internal/serviceconfig.Encoded={{.SERVICE_CONFIG}}" -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
       - cmd: powershell -NoProfile -Command "Remove-Item -LiteralPath '{{.ROOT_DIR}}/wails_windows_{{.ARCH | default ARCH}}.syso' -ErrorAction SilentlyContinue"
         platforms: [windows]
       - cmd: rm -f "{{.ROOT_DIR}}/wails_windows_{{.ARCH | default ARCH}}.syso"

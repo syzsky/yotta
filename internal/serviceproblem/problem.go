@@ -12,11 +12,12 @@ type projected struct {
 	id, category string
 	params       map[string]any
 	retryable    bool
+	operationID  string
 }
 
 func (e projected) Error() string { return e.id }
 func (e projected) RPCErrorEnvelope() apperr.Envelope {
-	return apperr.Envelope{ID: e.id, Category: e.category, Params: e.params, Retryable: e.retryable}
+	return apperr.Envelope{ID: e.id, Category: e.category, Params: e.params, Retryable: e.retryable, OperationID: e.operationID}
 }
 
 func Wrap(id, category string, params map[string]any, retryable bool, cause error) error {
@@ -27,5 +28,10 @@ func Wrap(id, category string, params map[string]any, retryable bool, cause erro
 	if errors.As(cause, &provider) {
 		return cause
 	}
-	return errors.Join(projected{id: id, category: category, params: params, retryable: retryable}, cause)
+	operationID := ""
+	var correlated interface{ CorrelationID() string }
+	if errors.As(cause, &correlated) {
+		operationID = correlated.CorrelationID()
+	}
+	return errors.Join(projected{id: id, category: category, params: params, retryable: retryable, operationID: operationID}, cause)
 }

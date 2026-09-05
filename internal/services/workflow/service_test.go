@@ -560,8 +560,51 @@ func TestServicePublishesCanonicalBundleAndSearchesRegistry(t *testing.T) {
 		t.Fatalf("SearchRegistry = %#v, %v", page, err)
 	}
 	installed, err := service.InstallRegistryWorkflow(context.Background(), "release-1")
-	if err != nil || installed.WorkflowID == created.WorkflowID || installed.Name != created.Name {
+	if err != nil || installed.WorkflowID != created.WorkflowID || installed.Name != created.Name {
 		t.Fatalf("InstallRegistryWorkflow = %#v, %v", installed, err)
+	}
+	consumer := workflowRuntime(t, time.Now())
+	if err := consumer.Application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = consumer.Close(context.Background()) })
+	statePath := filepath.Join(t.TempDir(), "installations.json")
+	consumerService, err := workflow.NewService(consumer.Application, workflow.WithBundleManager(consumer.Bundles), workflow.WithRegistryClient(registry), workflow.WithRegistryState(statePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := consumerService.InstallRegistryWorkflow(context.Background(), "release-1")
+	if err != nil || first.WorkflowID != created.WorkflowID {
+		t.Fatalf("first install = %#v, %v", first, err)
+	}
+	if _, err := service.UpdateSourceMetadata(created.WorkflowID, created.Revision, workflow.UpdateSourceMetadataRequest{Name: "Updated workflow"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.PublishSourceToRegistry(context.Background(), workflow.PublishRegistryRequest{WorkflowID: created.WorkflowID, ReleaseVersion: "2.0.0", Title: "Updated", Summary: "Updated"}); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := consumerService.InstallRegistryWorkflow(context.Background(), "release-2")
+	if err != nil || updated.WorkflowID != first.WorkflowID || updated.Name != "Updated workflow" {
+		t.Fatalf("update = %#v, %v", updated, err)
+	}
+	// A fresh service must recover the installation record, so a repeat is an open.
+	reopened, err := workflow.NewService(consumer.Application, workflow.WithBundleManager(consumer.Bundles), workflow.WithRegistryClient(registry), workflow.WithRegistryState(statePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := reopened.InstallRegistryWorkflow(context.Background(), "release-2")
+	if err != nil || again.Revision != updated.Revision {
+		t.Fatalf("repeat install = %#v, %v", again, err)
+	}
+	if _, err := reopened.UpdateSourceMetadata(updated.WorkflowID, updated.Revision, workflow.UpdateSourceMetadataRequest{Name: "Local edits"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reopened.InstallRegistryWorkflow(context.Background(), "release-3"); apperr.From(err).ID != "workflow.registry.local_changes" {
+		t.Fatalf("modified update = %v", err)
+	}
+	cloned, err := reopened.CloneSource(context.Background(), updated.WorkflowID)
+	if err != nil || cloned.WorkflowID == updated.WorkflowID || cloned.Name != "Local edits" {
+		t.Fatalf("clone = %#v, %v", cloned, err)
 	}
 }
 
@@ -628,6 +671,7 @@ func (client *registryClientFake) GetWorkflowRelease(context.Context, string) (r
 func (client *registryClientFake) CreateInstallPlan(context.Context, string, registryclient.Environment) (registryclient.InstallPlan, error) {
 	return registryclient.InstallPlan{ResolvedWorkflowRelease: registryclient.WorkflowRelease{
 		ReleaseID: "release-1", BundleDigest: "sha256:" + strings.Repeat("1", 64),
+		WorkflowID: client.published.WorkflowID, SourceHash: string(client.published.SourceHash), ReleaseVersion: "1.0.0",
 	}}, client.err
 }
 

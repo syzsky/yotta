@@ -65,6 +65,7 @@
       class="shrink-0 flex items-stretch border-l border-default"
       style="--wails-draggable: no-drag"
     >
+      <RegistryAccount />
       <button
         type="button"
         data-testid="open-launcher"
@@ -165,6 +166,7 @@ import { requestMainWindowClose } from '@/app/window/requestMainWindowClose'
 import type { MainWindowCloseStage } from '@/app/window/mainWindowCloseGuard'
 import YottaMark from '@/components/common/YottaMark.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import RegistryAccount from '@/components/RegistryAccount.vue'
 
 const { t } = useI18n()
 const route = useRoute()

@@ -1,4 +1,4 @@
-//go:build windows && !production
+//go:build windows
 
 package desktopapp
 
@@ -19,6 +19,8 @@ const (
 )
 
 func wailsWindowsOptions() application.WindowsOptions {
+	// Explicit process-local diagnostics also supports verification of the shipped executable.
+	// With no port environment variable no debugging endpoint is enabled.
 	var options application.WindowsOptions
 	if profile := strings.TrimSpace(os.Getenv(webviewDebugProfileEnv)); profile != "" && filepath.IsAbs(profile) {
 		options.WebviewUserDataPath = filepath.Clean(profile)

@@ -44,6 +44,9 @@ importers:
       '@iconify-json/tabler':
         specifier: ^1.2.38
         version: 1.2.38
+      '@iconify/vue':
+        specifier: 5.0.1
+        version: 5.0.1(vue@3.5.41(typescript@6.0.3))
       '@intlify/unplugin-vue-i18n':
         specifier: ^11.2.5
         version: 11.2.5(@vue/compiler-dom@3.5.41)(eslint@10.8.1(jiti@2.7.0))(typescript@6.0.3)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))(vue-i18n@9.14.5(vue@3.5.41(typescript@6.0.3)))(vue@3.5.41(typescript@6.0.3))

@@ -611,6 +611,32 @@ export default {
     'workflow.run.failed':
       'Workflow run operation {operation} did not complete. Refresh the run state and retry.',
     'workflow.feature.unavailable': 'Workflow feature {feature} is unavailable. Restart Yotta.',
+    'workflow.community.unavailable':
+      'The community service is unavailable. Try again later; your input is preserved.',
+    'workflow.community.authentication_required':
+      'Sign in to post. If your session has expired, sign out and sign in again.',
+    'workflow.community.invalid':
+      'Choose 1–5 stars or comment without a rating. Content must be at most 4000 characters.',
+    'workflow.community.own_rating':
+      'Authors cannot rate their own work, but can join the discussion.',
+    'workflow.community.not_found':
+      'This review or reply is no longer available. Refresh the discussion.',
+    'workflow.community.cancelled': 'Cancelled. Your input is preserved.',
+    'workflow.registry.invalid_title': 'Use 1–160 characters for the marketplace name.',
+    'workflow.registry.invalid_summary':
+      'Use 1–1000 characters for the summary. Put longer content in the detailed description.',
+    'workflow.registry.invalid_presentation':
+      'Check the length of release notes, examples and screenshot captions.',
+    'workflow.registry.bundle_invalid':
+      'The workflow file did not pass format validation. Export it and include the operation ID in your report; retrying unchanged content will not resolve this.',
+    'workflow.registry.invalid_listing':
+      'Check the icon, category, tags and description length before publishing. Use up to 16 tags, with 32 characters per tag.',
+    'workflow.registry.invalid_version':
+      'Use three non-negative integers for the version, such as 1.0.0, then publish again.',
+    'workflow.registry.not_owner':
+      'Only the original author can publish updates. Choose “Clone as a new work” from the workflow menu before publishing.',
+    'workflow.registry.local_changes':
+      'This workflow has local changes or no installation record. Clone it to preserve your work before updating the original.',
     'workflow.registry.release_version_conflict':
       'This version is already published. Increase the version and try again.',
     'workflow.registry.authentication_required': 'Sign in before publishing this Workflow.',

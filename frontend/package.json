@@ -40,6 +40,7 @@
     "@codemirror/view": "^6.43.8",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@iconify-json/tabler": "^1.2.38",
+    "@iconify/vue": "5.0.1",
     "@intlify/unplugin-vue-i18n": "^11.2.5",
     "@lezer/highlight": "^1.2.3",
     "@nuxt/ui": "^4.10.0",

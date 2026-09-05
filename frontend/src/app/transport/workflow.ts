@@ -11,8 +11,11 @@ import type {
   DeleteSourceRequest,
   DeleteSourceResult,
   PatchView,
+  PublishRegistryRequest,
   RunTimelineExportResult,
   RunView,
+  RegistrySearchPageView,
+  RegistryWorkflowReleaseView,
   SourcePage,
   SourceQuery,
   SourceRecoveryView,
@@ -29,6 +32,41 @@ import type {
   JSONValue as WorkflowJSONValue,
 } from '../../../../contracts/workflow/current/authoring-patch'
 import { callRPC, invoke } from '@/lib/invoke'
+import type { Draft as ReviewDraft } from '@bindings/github.com/yottaapp/yotta/internal/communityclient/models.js'
+
+export const communityTransport = {
+  replies: (id: string, parent: string, cursor: string) =>
+    invoke(WorkflowService.WorkflowReviewReplies, id, parent, cursor),
+  list: (id: string, cursor = '') => invoke(WorkflowService.WorkflowReviews, id, cursor),
+  mine: (id: string) => invoke(WorkflowService.MyWorkflowReview, id),
+  save: (draft: ReviewDraft) => invoke(WorkflowService.SaveWorkflowReview, draft),
+  remove: (id: string) => invoke(WorkflowService.DeleteWorkflowReview, id),
+  reply: (id: string, parent: string, content: string) =>
+    invoke(WorkflowService.ReplyToWorkflowReview, id, parent, content),
+  removeReply: (id: string, reply: string) =>
+    invoke(WorkflowService.DeleteWorkflowReply, id, reply),
+}
+import type { SearchOptions } from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
+
+export const shopTransport = {
+  discover: (query: SearchOptions) => invoke(WorkflowService.DiscoverRegistry, query),
+  history: (workflowId: string) => invoke(WorkflowService.RegistryWorkflowHistory, workflowId),
+  chooseScreenshots: () =>
+    callRPC('shop.chooseScreenshots', () =>
+      Dialogs.OpenFile({
+        AllowsMultipleSelection: true,
+        CanChooseFiles: true,
+        CanChooseDirectories: false,
+        Filters: [{ DisplayName: 'PNG / JPEG', Pattern: '*.png;*.jpg;*.jpeg' }],
+      }),
+    ),
+  account: () => invoke(WorkflowService.RegistryAccount),
+  login: () => invoke(WorkflowService.LoginRegistry),
+  cancelLogin: () => invoke(WorkflowService.CancelRegistryLogin),
+  logout: () => invoke(WorkflowService.LogoutRegistry),
+  installations: () => invoke(WorkflowService.RegistryInstallations),
+  clone: (workflowId: string) => invoke(WorkflowService.CloneSource, workflowId),
+}
 
 export interface RunChangedEvent {
   runId: string
@@ -110,6 +148,9 @@ export interface WorkflowTransport {
   chooseRunTimelineDestination(filename: string): Promise<string>
   exportRunTimeline(runId: string, destination: string): Promise<RunTimelineExportResult>
   getAuthoringProjection(): Promise<string>
+  searchRegistry(search: string, limit: number): Promise<RegistrySearchPageView>
+  publishSourceToRegistry(request: PublishRegistryRequest): Promise<RegistryWorkflowReleaseView>
+  installRegistryWorkflow(releaseId: string): Promise<SourceView>
 }
 
 export const workflowTransport: WorkflowTransport = {
@@ -202,7 +243,13 @@ export const workflowTransport: WorkflowTransport = {
   exportRunTimeline: (runId, destination) =>
     invoke(WorkflowService.ExportRunTimeline, runId, destination),
   getAuthoringProjection: () => invoke(WorkflowService.GetAuthoringProjection),
+  searchRegistry: (search, limit) => invoke(WorkflowService.SearchRegistry, search, limit),
+  publishSourceToRegistry: (request) => invoke(WorkflowService.PublishSourceToRegistry, request),
+  installRegistryWorkflow: (releaseId) =>
+    invoke(WorkflowService.InstallRegistryWorkflow, releaseId),
 }
+
+export type { RegistrySearchPageView, RegistryWorkflowReleaseView }
 
 export function onRunChanged(listener: (event: RunChangedEvent) => void): () => void {
   return Events.On('run:changed', (event: { data?: unknown }) => {

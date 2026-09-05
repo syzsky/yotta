@@ -35,6 +35,7 @@ func TestDesktopDevManifestRunsAsInvoker(t *testing.T) {
 func TestDesktopMainDelegatesEmbeddedResourcesAndReportsStartupFailure(t *testing.T) {
 	t.Setenv("YOTTA_REGISTRY_URL", "https://registry.example.test")
 	t.Setenv("YOTTA_REGISTRY_ALLOW_INSECURE_HTTP", "true")
+	t.Setenv("YOTTA_OIDC_CLIENT_ID", "yotta-desktop")
 	var stderr bytes.Buffer
 	exitCode := 0
 	desktopMain(func(config desktopapp.Config) error {
@@ -46,6 +47,9 @@ func TestDesktopMainDelegatesEmbeddedResourcesAndReportsStartupFailure(t *testin
 		}
 		if config.RegistryURL != "https://registry.example.test" || !config.RegistryAllowLoopbackHTTP {
 			t.Errorf("registry config was not delegated: %#v", config)
+		}
+		if config.OIDCClientID != "yotta-desktop" {
+			t.Errorf("OIDC config was not delegated: %#v", config)
 		}
 		return errors.New("boom")
 	}, &stderr, func(code int) { exitCode = code })

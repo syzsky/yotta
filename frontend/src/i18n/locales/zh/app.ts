@@ -536,6 +536,25 @@ export default {
     'workflow.bundle.failed': '工作流包操作 {operation} 未完成，请检查文件和磁盘状态后重试。',
     'workflow.run.failed': '工作流运行操作 {operation} 未完成，请刷新运行状态后重试。',
     'workflow.feature.unavailable': '工作流功能 {feature} 当前不可用，请重启 Yotta。',
+    'workflow.community.unavailable': '暂时无法连接社区服务，请稍后重试。你的输入已保留。',
+    'workflow.community.authentication_required':
+      '请登录后发表评论；登录已失效时，请退出后重新登录。',
+    'workflow.community.invalid': '评分须为 1～5 星，或不评分仅留言；内容不超过 4000 个字符。',
+    'workflow.community.own_rating': '作者不能给自己的作品打分，但可以参与讨论。',
+    'workflow.community.not_found': '这条评价或回复已不存在，请刷新讨论列表。',
+    'workflow.community.cancelled': '操作已取消，输入已保留。',
+    'workflow.registry.invalid_title': '市场名称须为 1～160 个字符，请修改名称后发布。',
+    'workflow.registry.invalid_summary': '简介须为 1～1000 个字符；较长内容请放到“详细说明”。',
+    'workflow.registry.invalid_presentation': '请检查更新说明、示例和截图说明的长度后发布。',
+    'workflow.registry.bundle_invalid':
+      '工作流文件未通过格式校验。请导出工作流，并附操作 ID 反馈；重复提交相同内容无法解决。',
+    'workflow.registry.invalid_listing':
+      '请检查图标、分类、标签和说明长度后重新发布。标签最多 16 个，每个最多 32 个字符。',
+    'workflow.registry.invalid_version': '版本号必须是三个非负整数，例如 1.0.0，请修改后重新发布。',
+    'workflow.registry.not_owner':
+      '只有原作者可以发布此工作流的新版本。请从工作流菜单选择“克隆为新作品”后再发布。',
+    'workflow.registry.local_changes':
+      '此工作流有本地修改或尚未关联安装记录。请先克隆保留修改，再处理原工作流的更新。',
     'workflow.registry.release_version_conflict': '这个版本号已经发布，请提高版本号后重试。',
     'workflow.registry.authentication_required': '请先登录，再发布工作流。',
     'workflow.registry.workflow_rejected': '这个工作流暂时无法发布，请检查内容后重试。',

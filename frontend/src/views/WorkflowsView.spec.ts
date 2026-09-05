@@ -4,8 +4,19 @@ import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(join(process.cwd(), 'src/views/WorkflowsView.vue'), 'utf8')
 const assetsSource = readFileSync(join(process.cwd(), 'src/views/AssetsView.vue'), 'utf8')
+const querySource = readFileSync(
+  join(process.cwd(), 'src/app/workflow-library/useWorkflowLibraryQuery.ts'),
+  'utf8',
+)
 
 describe('WorkflowsView entry points', () => {
+  it('publishes a local workflow through the user-facing market form', () => {
+    expect(source).toContain('data-testid="workflow-publish-submit"')
+    expect(source).toContain('workflowTransport.publishSourceToRegistry({')
+    expect(source).toContain("libraryMode.value = 'market'")
+    expect(source).toContain('publishFailure.value = errorMessage(error)')
+  })
+
   it('opens workflows by double-clicking the management row without a separate edit button', () => {
     expect(source).toContain('@dblclick="openWorkflow(source.workflowId)"')
     expect(source).not.toContain('data-testid="workflow-browse-list"')
@@ -46,13 +57,14 @@ describe('WorkflowsView entry points', () => {
 
   it('queries a server-side page and preserves explicit cross-page selection', () => {
     expect(source).toContain('workflowTransport.querySources')
-    expect(source).toContain('search: search.value')
-    expect(source).toContain("categoryFilter.value === allCategories ? '' : categoryFilter.value")
-    expect(source).toContain('tags: tagFilters.value')
-    expect(source).toContain('createdSince: rangeStart(createdRange.value)')
-    expect(source).toContain('updatedSince: rangeStart(updatedRange.value)')
-    expect(source).toContain('page: page.value')
-    expect(source).toContain('pageSize: pageSize.value')
+    expect(source).toContain('libraryQuery.request()')
+    expect(querySource).toContain('search: search.value')
+    expect(querySource).toContain("categoryFilter.value === allCategories ? ''")
+    expect(querySource).toContain('tags: [...tagFilters.value]')
+    expect(querySource).toContain('createdSince: rangeStart(createdRange.value)')
+    expect(querySource).toContain('updatedSince: rangeStart(updatedRange.value)')
+    expect(querySource).toContain('page: page.value')
+    expect(querySource).toContain('pageSize: pageSize.value')
     expect(source).toContain('toggleCurrentPage')
     expect(source).not.toContain('sources.value.slice(')
   })

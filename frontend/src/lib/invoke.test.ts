@@ -128,6 +128,14 @@ describe('normalizeError', () => {
 })
 
 describe('errorMessage', () => {
+  it('resolves dotted registry problem IDs to actionable copy', () => {
+    const message = errorMessage({
+      cause: { id: 'workflow.registry.release_version_conflict', operationId: 'shop-operation' },
+    })
+    expect(message).toContain('请提高版本号')
+    expect(message).toContain('shop-operation')
+    expect(message).not.toContain('操作未完成')
+  })
   it('validation 首条本地化 + 还有 N 个', () => {
     const e = {
       cause: { Errors: [{ code: 'MISSING_ENTRY_GRAPH' }, { code: 'UNKNOWN_NODE_TYPE' }] },

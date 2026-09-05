@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const maximumResponseBytes = int64(8 << 20)
@@ -37,6 +39,7 @@ type Options struct {
 }
 
 type PublishRequest struct {
+	Listing        Listing
 	IdempotencyKey string
 	ReleaseVersion string
 	Title          string
@@ -60,25 +63,29 @@ type ScreenshotUpload struct {
 }
 
 type Creator struct {
+	Picture     string `json:"picture,omitempty"`
 	UserKey     string `json:"userKey"`
 	DisplayName string `json:"displayName,omitempty"`
 }
 
 type WorkflowRelease struct {
-	ReleaseID          string       `json:"releaseId"`
-	PublisherNamespace string       `json:"publisherNamespace"`
-	WorkflowID         string       `json:"workflowId"`
-	ReleaseVersion     string       `json:"releaseVersion"`
-	SourceHash         string       `json:"sourceHash"`
-	BundleDigest       string       `json:"bundleDigest"`
-	Title              string       `json:"title"`
-	Summary            string       `json:"summary"`
-	ReleaseNotes       string       `json:"releaseNotes,omitempty"`
-	Examples           []Example    `json:"examples"`
-	Screenshots        []Screenshot `json:"screenshots"`
-	Creator            Creator      `json:"creator"`
-	Availability       string       `json:"availability"`
-	PublishedAt        string       `json:"publishedAt"`
+	Dependencies       []DependencySummary `json:"dependencies"`
+	Listing            Listing             `json:"listing"`
+	Facts              BundleFacts         `json:"facts"`
+	ReleaseID          string              `json:"releaseId"`
+	PublisherNamespace string              `json:"publisherNamespace"`
+	WorkflowID         string              `json:"workflowId"`
+	ReleaseVersion     string              `json:"releaseVersion"`
+	SourceHash         string              `json:"sourceHash"`
+	BundleDigest       string              `json:"bundleDigest"`
+	Title              string              `json:"title"`
+	Summary            string              `json:"summary"`
+	ReleaseNotes       string              `json:"releaseNotes,omitempty"`
+	Examples           []Example           `json:"examples"`
+	Screenshots        []Screenshot        `json:"screenshots"`
+	Creator            Creator             `json:"creator"`
+	Availability       string              `json:"availability"`
+	PublishedAt        string              `json:"publishedAt"`
 }
 
 type Screenshot struct {
@@ -92,6 +99,7 @@ type SearchResult struct {
 }
 
 type SearchPage struct {
+	Facets     Facets         `json:"facets"`
 	Items      []SearchResult `json:"items"`
 	NextCursor string         `json:"nextCursor,omitempty"`
 }
@@ -114,14 +122,16 @@ type InstallPlan struct {
 }
 
 type Problem struct {
-	Type   string `json:"type"`
-	Title  string `json:"title"`
-	Status int    `json:"status"`
-	Code   string `json:"code"`
-	Detail string `json:"detail"`
+	OperationID string `json:"operationId,omitempty"`
+	Type        string `json:"type"`
+	Title       string `json:"title"`
+	Status      int    `json:"status"`
+	Code        string `json:"code"`
+	Detail      string `json:"detail"`
 }
 
-func (problem Problem) Error() string { return problem.Code }
+func (problem Problem) Error() string         { return problem.Code }
+func (problem Problem) CorrelationID() string { return problem.OperationID }
 
 func New(options Options) (*Client, error) {
 	parsed, err := url.Parse(strings.TrimRight(strings.TrimSpace(options.BaseURL), "/"))
@@ -133,7 +143,7 @@ func New(options Options) (*Client, error) {
 	}
 	client := options.HTTPClient
 	if client == nil {
-		client = http.DefaultClient
+		client = &http.Client{Timeout: 60 * time.Second}
 	}
 	return &Client{baseURL: parsed.String(), http: client, tokens: options.Tokens}, nil
 }
@@ -166,6 +176,7 @@ func (client *Client) PublishWorkflow(ctx context.Context, input PublishRequest)
 	request.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	request.Header.Set("Authorization", "Bearer "+strings.TrimSpace(token))
 	request.Header.Set("Idempotency-Key", strings.TrimSpace(input.IdempotencyKey))
+	request.Header.Set("X-Request-ID", uuid.NewString())
 	response, err := client.http.Do(request)
 	if err != nil {
 		_ = reader.CloseWithError(err)
@@ -296,6 +307,13 @@ func writePublication(multipartWriter *multipart.Writer, pipe *io.PipeWriter, in
 	}
 	examples, err := json.Marshal(input.Examples)
 	if err != nil {
+		return closeWith(err)
+	}
+	listing, err := json.Marshal(input.Listing)
+	if err != nil {
+		return closeWith(err)
+	}
+	if err := multipartWriter.WriteField("listing", string(listing)); err != nil {
 		return closeWith(err)
 	}
 	if err := multipartWriter.WriteField("examples", string(examples)); err != nil {

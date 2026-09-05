@@ -144,7 +144,7 @@ export function errorMessage(e: unknown): string {
   const n = normalizeError(e)
   if (n.errors && n.errors.length > 0) {
     const first = n.errors[0]
-    const key = `error.${first.code}`
+    const key = `error[${JSON.stringify(first.code)}]`
     const head = te(key)
       ? t(key, (first.params ?? {}) as Record<string, unknown>)
       : t('error.UNEXPECTED_CODE', { code: first.code })
@@ -155,7 +155,7 @@ export function errorMessage(e: unknown): string {
     )
   }
   if (n.id) {
-    const key = `error.${n.id}`
+    const key = `error[${JSON.stringify(n.id)}]`
     const message = te(key)
       ? t(key, (n.params ?? {}) as Record<string, unknown>)
       : t('error.UNEXPECTED_CODE', { code: n.id })

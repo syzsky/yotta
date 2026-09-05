@@ -22,8 +22,10 @@ import (
 	"github.com/yottaapp/yotta/internal/apperr"
 	yottaapplication "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
+	"github.com/yottaapp/yotta/internal/communityclient"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/localruntime"
+	"github.com/yottaapp/yotta/internal/nativeoidc"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/registryclient"
 	"github.com/yottaapp/yotta/internal/securestore"
@@ -37,6 +39,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/snippet"
 	"github.com/yottaapp/yotta/internal/services/tools"
 	"github.com/yottaapp/yotta/internal/services/workflow"
+	"github.com/yottaapp/yotta/internal/storage"
 	storagemigrate "github.com/yottaapp/yotta/internal/storage/migrate"
 	"github.com/yottaapp/yotta/pkg/locale"
 	"github.com/yottaapp/yotta/pkg/screenshot"
@@ -44,12 +47,20 @@ import (
 )
 
 type Config struct {
+	HubURL                    string
+	HubAllowLoopbackHTTP      bool
 	Assets                    embed.FS
 	TrayIcon                  []byte
 	StorageRoot               string
 	RegistryURL               string
 	RegistryAllowLoopbackHTTP bool
 	RegistryTokens            registryclient.TokenSource
+	OIDCAuthorizationEndpoint string
+	OIDCTokenEndpoint         string
+	OIDCClientID              string
+	OIDCCallbackAddress       string
+	OIDCAudience              string
+	OIDCUserinfoEndpoint      string
 }
 
 func Run(config Config) error {
@@ -63,11 +74,19 @@ func Run(config Config) error {
 		return fmt.Errorf("resolve desktop instance identity: %w", err)
 	}
 	mainActivator := &mainWindowActivator{}
+	profileRoots, err := storage.Resolve(config.StorageRoot)
+	if err != nil {
+		return err
+	}
+	windowOptions := wailsWindowsOptions()
+	if windowOptions.WebviewUserDataPath == "" {
+		windowOptions.WebviewUserDataPath = filepath.Join(profileRoots.Cache, "webview2")
+	}
 	wailsApp := application.New(application.Options{
 		Name:         "Yotta",
 		Description:  "节点编排，自动执行",
 		MarshalError: apperr.Marshal,
-		Windows:      wailsWindowsOptions(),
+		Windows:      windowOptions,
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: instanceID,
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
@@ -276,14 +295,37 @@ func Run(config Config) error {
 		}),
 	}
 	if strings.TrimSpace(config.RegistryURL) != "" {
+		tokens := config.RegistryTokens
+		if tokens == nil && strings.TrimSpace(config.OIDCClientID) != "" {
+			session, sessionErr := nativeoidc.New(nativeoidc.Config{
+				AuthorizationEndpoint: config.OIDCAuthorizationEndpoint,
+				TokenEndpoint:         config.OIDCTokenEndpoint, ClientID: config.OIDCClientID,
+				Audience: config.OIDCAudience, Scopes: []string{"openid", "profile", "offline_access"},
+				CallbackAddress: config.OIDCCallbackAddress, Browser: wailsApp.Browser,
+				UserinfoEndpoint: config.OIDCUserinfoEndpoint,
+			})
+			if sessionErr != nil {
+				return fmt.Errorf("initialize native OIDC session: %w", sessionErr)
+			}
+			tokens = session
+			workflowOptions = append(workflowOptions, workflow.WithRegistryAccount(session))
+		}
 		registry, registryErr := registryclient.New(registryclient.Options{
-			BaseURL: config.RegistryURL, Tokens: config.RegistryTokens,
+			BaseURL: config.RegistryURL, Tokens: tokens,
 			AllowLoopbackHTTP: config.RegistryAllowLoopbackHTTP,
 		})
 		if registryErr != nil {
 			return fmt.Errorf("initialize Registry client: %w", registryErr)
 		}
 		workflowOptions = append(workflowOptions, workflow.WithRegistryClient(registry))
+		if config.HubURL != "" {
+			community, err := communityclient.New(config.HubURL, tokens, config.HubAllowLoopbackHTTP)
+			if err != nil {
+				return err
+			}
+			workflowOptions = append(workflowOptions, workflow.WithCommunity(community))
+		}
+		workflowOptions = append(workflowOptions, workflow.WithRegistryState(filepath.Join(roots.Data, "registry-installations.json")))
 	}
 	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflowOptions...)
 	if err != nil {

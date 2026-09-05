@@ -19,6 +19,7 @@ func TestRegistryErrorPreservesRecoverySemantics(t *testing.T) {
 		retryable bool
 	}{
 		{"conflict", registryclient.Problem{Code: "registry.release_version_conflict"}, "workflow.registry.release_version_conflict", apperr.CategoryDomain, false},
+		{"ownership", registryclient.Problem{Code: "registry.workflow_not_owner"}, "workflow.registry.not_owner", apperr.CategoryPolicy, false},
 		{"authentication", registryclient.Problem{Code: "registry.authentication_required"}, "workflow.registry.authentication_required", apperr.CategoryPolicy, false},
 		{"rejected", registryclient.Problem{Code: "registry.bundle_required"}, "workflow.registry.workflow_rejected", apperr.CategoryDomain, false},
 		{"capacity", registryclient.Problem{Code: "registry.bundle_too_large"}, "workflow.registry.bundle_too_large", apperr.CategoryValidation, false},
@@ -39,5 +40,13 @@ func TestRegistryErrorPreservesRecoverySemantics(t *testing.T) {
 				t.Fatalf("raw cause leaked into envelope: %s", encoded)
 			}
 		})
+	}
+}
+
+func TestRegistryErrorPreservesServerOperationID(t *testing.T) {
+	cause := registryclient.Problem{Code: "registry.invalid_summary", OperationID: "8968a822-0ce3-4c91-9a55-104a1f75b7bc"}
+	result := apperr.From(registryError("publish", cause))
+	if result.ID != "workflow.registry.invalid_summary" || result.OperationID != cause.OperationID || result.Retryable {
+		t.Fatalf("envelope=%#v", result)
 	}
 }

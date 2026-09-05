@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 153,
-    "models": 244
+    "methods": 168,
+    "models": 259
   },
   "services": [
     {
@@ -1557,6 +1557,12 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "CancelRegistryLogin",
+          "bindingId": "3317022726",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "CancelRun",
           "bindingId": "3107210619",
           "parameters": [
@@ -1579,6 +1585,18 @@
             }
           ],
           "returns": "$CancellablePromise<$models.CompileView>"
+        },
+        {
+          "name": "CloneSource",
+          "bindingId": "87210080",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SourceView>"
         },
         {
           "name": "CompileSource",
@@ -1656,6 +1674,47 @@
             }
           ],
           "returns": "$CancellablePromise<$models.DeleteSourceResult[]>"
+        },
+        {
+          "name": "DeleteWorkflowReply",
+          "bindingId": "2138188222",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "reply",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "DeleteWorkflowReview",
+          "bindingId": "1420737530",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "DiscoverRegistry",
+          "bindingId": "288391272",
+          "parameters": [
+            {
+              "name": "query",
+              "optional": false,
+              "type": "$models.RegistryQuery"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RegistrySearchPageView>"
         },
         {
           "name": "ExportRunTimeline",
@@ -1839,6 +1898,30 @@
           "returns": "$CancellablePromise<$models.SourceView[]>"
         },
         {
+          "name": "LoginRegistry",
+          "bindingId": "224102390",
+          "parameters": [],
+          "returns": "$CancellablePromise<nativeoidc$0.Profile>"
+        },
+        {
+          "name": "LogoutRegistry",
+          "bindingId": "2562791829",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "MyWorkflowReview",
+          "bindingId": "1822458291",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<communityclient$0.Review | null>"
+        },
+        {
           "name": "PreviewDeleteSources",
           "bindingId": "2449059483",
           "parameters": [
@@ -1887,6 +1970,30 @@
           "returns": "$CancellablePromise<$models.SourcePage>"
         },
         {
+          "name": "RegistryAccount",
+          "bindingId": "3328618722",
+          "parameters": [],
+          "returns": "$CancellablePromise<nativeoidc$0.Profile>"
+        },
+        {
+          "name": "RegistryInstallations",
+          "bindingId": "927537972",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.RegistryInstallation[]>"
+        },
+        {
+          "name": "RegistryWorkflowHistory",
+          "bindingId": "3699032966",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RegistryWorkflowReleaseView[]>"
+        },
+        {
           "name": "RepairSourceRecovery",
           "bindingId": "4160012847",
           "parameters": [
@@ -1929,6 +2036,40 @@
             }
           ],
           "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
+          "name": "ReplyToWorkflowReview",
+          "bindingId": "2622832644",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "parent",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "content",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<communityclient$0.Reply>"
+        },
+        {
+          "name": "SaveWorkflowReview",
+          "bindingId": "2890369716",
+          "parameters": [
+            {
+              "name": "draft",
+              "optional": false,
+              "type": "communityclient$0.Draft"
+            }
+          ],
+          "returns": "$CancellablePromise<communityclient$0.Review>"
         },
         {
           "name": "SearchRegistry",
@@ -2014,6 +2155,45 @@
             }
           ],
           "returns": "$CancellablePromise<$models.SourceView>"
+        },
+        {
+          "name": "WorkflowReviewReplies",
+          "bindingId": "4078516643",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "parent",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "cursor",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<communityclient$0.ReplyPage>"
+        },
+        {
+          "name": "WorkflowReviews",
+          "bindingId": "3766955726",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "cursor",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<communityclient$0.Page>"
         }
       ]
     }
@@ -3088,6 +3268,198 @@
       ]
     },
     {
+      "module": "internal/communityclient/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Author",
+          "fields": [
+            {
+              "name": "\"userKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"picture\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Draft",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"stars\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"content\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Page",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "Review[]"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "Summary"
+            },
+            {
+              "name": "\"nextCursor\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Reply",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"author\"",
+              "optional": false,
+              "type": "Author"
+            },
+            {
+              "name": "\"content\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ReplyPage",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "Reply[]"
+            },
+            {
+              "name": "\"nextCursor\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Review",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"author\"",
+              "optional": false,
+              "type": "Author"
+            },
+            {
+              "name": "\"stars\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"content\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"replies\"",
+              "optional": false,
+              "type": "Reply[]"
+            },
+            {
+              "name": "\"repliesCursor\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Summary",
+          "fields": [
+            {
+              "name": "\"average\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"ratingCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"discussionCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"distribution\"",
+              "optional": false,
+              "type": "number[]"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/datatype/models",
       "declarations": [
         {
@@ -3370,6 +3742,37 @@
       ]
     },
     {
+      "module": "internal/nativeoidc/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Profile",
+          "fields": [
+            {
+              "name": "\"user_key\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"picture\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"signingIn\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/nodecontract/models",
       "declarations": [
         {
@@ -3390,6 +3793,151 @@
               "name": "\"semanticDigest\"",
               "optional": false,
               "type": "artifact$0.Digest"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/registryclient/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "BundleFacts",
+          "fields": [
+            {
+              "name": "\"verified\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"resourceCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"targetProfileCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"credentialCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"dependencyCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"blobBytes\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DependencySummary",
+          "fields": [
+            {
+              "name": "\"packageId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"packageVersion\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Facets",
+          "fields": [
+            {
+              "name": "\"categories\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Listing",
+          "fields": [
+            {
+              "name": "\"icon\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"tags\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"instructions\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SearchOptions",
+          "fields": [
+            {
+              "name": "\"workflowIds\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "\"search\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"tag\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sort\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"cursor\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"limit\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         }
@@ -6895,6 +7443,21 @@
           "name": "PublishRegistryRequest",
           "fields": [
             {
+              "name": "\"previousReleaseId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"existingScreenshots\"",
+              "optional": true,
+              "type": "RegistryScreenshotView[]"
+            },
+            {
+              "name": "\"listing\"",
+              "optional": false,
+              "type": "registryclient$0.Listing"
+            },
+            {
               "name": "\"workflowId\"",
               "optional": false,
               "type": "string"
@@ -6952,6 +7515,11 @@
           "name": "RegistryCreatorView",
           "fields": [
             {
+              "name": "\"picture\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
               "name": "\"userKey\"",
               "optional": false,
               "type": "string"
@@ -6962,6 +7530,37 @@
               "type": "string"
             }
           ]
+        },
+        {
+          "kind": "class",
+          "name": "RegistryInstallation",
+          "fields": [
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sourceHash\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "type",
+          "name": "RegistryQuery",
+          "definition": "registryclient$0.SearchOptions"
         },
         {
           "kind": "class",
@@ -6984,6 +7583,11 @@
           "name": "RegistrySearchPageView",
           "fields": [
             {
+              "name": "\"facets\"",
+              "optional": false,
+              "type": "registryclient$0.Facets"
+            },
+            {
               "name": "\"items\"",
               "optional": false,
               "type": "RegistryWorkflowReleaseView[]"
@@ -6999,6 +7603,21 @@
           "kind": "class",
           "name": "RegistryWorkflowReleaseView",
           "fields": [
+            {
+              "name": "\"dependencies\"",
+              "optional": false,
+              "type": "registryclient$0.DependencySummary[]"
+            },
+            {
+              "name": "\"listing\"",
+              "optional": false,
+              "type": "registryclient$0.Listing"
+            },
+            {
+              "name": "\"facts\"",
+              "optional": false,
+              "type": "registryclient$0.BundleFacts"
+            },
             {
               "name": "\"releaseId\"",
               "optional": false,

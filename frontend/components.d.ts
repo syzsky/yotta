@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AccountAvatar: typeof import('./src/components/AccountAvatar.vue')['default']
     AdaptiveSelect: typeof import('./src/components/common/AdaptiveSelect.vue')['default']
     AlertBox: typeof import('./src/components/common/AlertBox.vue')['default']
     AppCard: typeof import('./src/components/common/AppCard.vue')['default']
@@ -40,6 +41,7 @@ declare module 'vue' {
     PickerMagnifier: typeof import('./src/components/tools/PickerMagnifier.vue')['default']
     PreciseRecordingWorkbench: typeof import('./src/components/recording/PreciseRecordingWorkbench.vue')['default']
     RecordingMetadataFields: typeof import('./src/components/recording/RecordingMetadataFields.vue')['default']
+    RegistryAccount: typeof import('./src/components/RegistryAccount.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ScheduleEditorPanel: typeof import('./src/components/schedules/ScheduleEditorPanel.vue')['default']
@@ -66,6 +68,7 @@ declare module 'vue' {
     UInput: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Input.vue')['default']
     UInputMenu: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/InputMenu.vue')['default']
     UInputNumber: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/InputNumber.vue')['default']
+    UInputTags: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/InputTags.vue')['default']
     UKbd: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Kbd.vue')['default']
     UModal: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Modal.vue')['default']
     UPagination: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Pagination.vue')['default']
@@ -78,7 +81,12 @@ declare module 'vue' {
     UTextarea: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
     UTooltip: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
     WorkflowHotkeyField: typeof import('./src/components/hotkeys/WorkflowHotkeyField.vue')['default']
+    WorkflowMarketDocument: typeof import('./src/components/workflow/WorkflowMarketDocument.vue')['default']
+    WorkflowMarketIcon: typeof import('./src/components/workflow/WorkflowMarketIcon.vue')['default']
+    WorkflowMarketPanel: typeof import('./src/components/workflow/WorkflowMarketPanel.vue')['default']
     WorkflowPickerModal: typeof import('./src/components/launcher/WorkflowPickerModal.vue')['default']
+    WorkflowReviews: typeof import('./src/components/workflow/WorkflowReviews.vue')['default']
+    WorkflowVersionInput: typeof import('./src/components/workflow/WorkflowVersionInput.vue')['default']
     YottaMark: typeof import('./src/components/common/YottaMark.vue')['default']
   }
 }

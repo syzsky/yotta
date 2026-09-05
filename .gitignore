@@ -60,6 +60,7 @@ flightdeck/tmp
 
 # User Data
 settings.json
+.env.local
 
 
 tmp

@@ -11,6 +11,7 @@ import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 
 const virtualTablerIconNames = 'virtual:tabler-icon-names'
 const resolvedVirtualTablerIconNames = `\0${virtualTablerIconNames}`
+const virtualTablerPacks = 'virtual:tabler-icon-packs'
 const require = createRequire(import.meta.url)
 const tablerIconsPath = require.resolve('@iconify-json/tabler/icons.json')
 const nodeAuthoringPath = fileURLToPath(
@@ -25,13 +26,43 @@ function tablerIconNamesPlugin(): Plugin {
     name: 'yotta:tabler-icon-names',
     resolveId(id) {
       if (id === virtualTablerIconNames) return resolvedVirtualTablerIconNames
+      if (id === virtualTablerPacks || id.startsWith(virtualTablerPacks + '/')) return `\0${id}`
     },
     load(id) {
+      if (id === `\0${virtualTablerPacks}` || id.startsWith(`\0${virtualTablerPacks}/`))
+        return buildTablerIconPackModule(id)
       if (id !== resolvedVirtualTablerIconNames) return
       generatedModule ??= buildTablerIconNamesModule()
       return generatedModule
     },
   }
+}
+
+async function buildTablerIconPackModule(id: string): Promise<string> {
+  const parsed = JSON.parse(await readFile(tablerIconsPath, 'utf8')) as {
+    icons: Record<string, unknown>
+    width?: number
+    height?: number
+  }
+  const names = Object.keys(parsed.icons).sort()
+  const packSize = 128
+  if (id === `\0${virtualTablerPacks}`) {
+    const lookup = Object.fromEntries(
+      names.map((name, index) => [name, Math.floor(index / packSize)]),
+    )
+    const loaders = Array.from(
+      { length: Math.ceil(names.length / packSize) },
+      (_, index) => `()=>import('${virtualTablerPacks}/${index}')`,
+    )
+    return `export const lookup=${JSON.stringify(lookup)};export const packs=[${loaders.join(',')}];`
+  }
+  const index = Number(id.slice(id.lastIndexOf('/') + 1))
+  if (!Number.isInteger(index) || index < 0 || index >= Math.ceil(names.length / packSize))
+    throw new Error('invalid local icon pack')
+  const icons = Object.fromEntries(
+    names.slice(index * packSize, (index + 1) * packSize).map((name) => [name, parsed.icons[name]]),
+  )
+  return `export default ${JSON.stringify({ prefix: 'tabler', width: parsed.width || 24, height: parsed.height || 24, icons })};`
 }
 
 async function buildTablerIconNamesModule(): Promise<string> {
