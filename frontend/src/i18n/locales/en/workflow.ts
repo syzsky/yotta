@@ -252,8 +252,10 @@ export default {
       sign_out: 'Sign out',
       waiting_login:
         'Finish signing in in your browser. You can cancel; this ends automatically after two minutes.',
-      open_installed: 'Open installed',
-      update: 'Update and open',
+      open_installed: 'Open',
+      update: 'Update',
+      installed_refresh_failed:
+        'Installed, but the status could not be refreshed. Reopen the marketplace to check it.',
       clone: 'Clone as a new work',
       mode_label: 'Workflow source',
       local: 'Local workflows',
@@ -264,7 +266,7 @@ export default {
       empty_description: 'Try another task or search term.',
       select_title: 'Choose a Workflow',
       select_description: 'Review its details, examples, and version, then install once.',
-      install: 'Install and open',
+      install: 'Install',
       release_notes: 'What changed',
       examples: 'Examples',
       publish_title: 'Publish Workflow',

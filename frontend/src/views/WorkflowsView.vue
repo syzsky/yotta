@@ -478,7 +478,7 @@
       </footer>
     </main>
 
-    <WorkflowMarketPanel v-else />
+    <WorkflowMarketPanel v-else @installed="load" />
 
     <BaseModal
       :open="publishAuthOpen"

@@ -26,7 +26,7 @@
             /></template>
           </UInput>
         </form>
-        <div class="mt-3 grid grid-cols-2 gap-2">
+        <div class="mt-2 grid grid-cols-2 gap-2">
           <UFormField :label="t('workflow.market.category')" size="sm"
             ><AdaptiveSelect
               v-model="categorySelection"
@@ -45,16 +45,21 @@
               @update:model-value="search"
           /></UFormField>
         </div>
-        <AdaptiveSelect
+        <UFormField
           v-if="facets.tags.length"
-          v-model="tagSelection"
-          :items="tagItems"
-          data-testid="market-tag"
-          :aria-label="t('workflow.market.tags')"
+          :label="t('workflow.market.tags')"
           size="sm"
-          width-mode="fill"
           class="mt-2"
-        />
+        >
+          <AdaptiveSelect
+            v-model="tagSelection"
+            :items="tagItems"
+            data-testid="market-tag"
+            :aria-label="t('workflow.market.tags')"
+            size="sm"
+            width-mode="fill"
+          />
+        </UFormField>
         <div class="mt-3 flex items-center gap-1" :aria-label="t('workflow.market.filter')">
           <button
             v-for="option in filters"
@@ -71,7 +76,7 @@
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto">
         <div v-if="loading" class="space-y-3 p-4">
-          <USkeleton v-for="index in 4" :key="index" class="h-20 rounded-md" />
+          <USkeleton v-for="index in 4" :key="index" class="h-16 rounded-md" />
         </div>
         <div v-else-if="failure" role="alert" class="space-y-3 p-4 text-sm text-error">
           <p class="whitespace-pre-wrap">{{ failure }}</p>
@@ -99,30 +104,35 @@
           <span class="market-workflow-icon"
             ><WorkflowMarketIcon :name="marketIcon(item)" class="size-6"
           /></span>
-          <span class="min-w-0 flex-1">
-            <span class="flex items-start justify-between gap-2"
-              ><strong class="line-clamp-2 text-sm font-semibold leading-5 text-highlighted">{{
-                item.title
-              }}</strong
-              ><UIcon
+          <span class="market-result-body">
+            <span class="market-result-heading">
+              <strong class="market-result-title" :title="item.title">{{ item.title }}</strong>
+              <UIcon
                 v-if="installationFor(item)"
-                :name="!hasUpdate(item) ? 'i-tabler-circle-check' : 'i-tabler-refresh'"
-                class="mt-0.5 size-4 shrink-0 text-primary"
+                :name="hasUpdate(item) ? 'i-tabler-refresh' : 'i-tabler-circle-check'"
+                class="size-3.5 shrink-0 text-primary"
                 :aria-label="
                   t(
-                    !hasUpdate(item)
-                      ? 'workflow.market.installed'
-                      : 'workflow.market.update_available',
+                    hasUpdate(item)
+                      ? 'workflow.market.update_available'
+                      : 'workflow.market.installed',
                   )
                 "
-            /></span>
-            <span class="mt-1 block truncate text-xs text-muted"
-              >{{ creator(item) }} <span aria-hidden="true">·</span> {{ item.releaseVersion }}</span
-            >
-            <span class="mt-1.5 line-clamp-2 text-xs leading-5 text-toned">{{ item.summary }}</span>
-            <span v-if="item.listing?.category" class="mt-2 inline-block text-[11px] text-muted">{{
-              item.listing.category
-            }}</span>
+              />
+            </span>
+            <span class="market-result-summary" :title="item.summary">{{ item.summary }}</span>
+            <span class="market-result-meta">
+              <span class="market-result-author" :title="creator(item)">{{ creator(item) }}</span>
+              <span
+                v-if="item.listing?.category"
+                class="market-result-category"
+                :title="t('workflow.market.category') + ': ' + item.listing.category"
+              >
+                <UIcon name="i-tabler-folder" class="size-3 shrink-0" /><span class="truncate">{{
+                  item.listing.category
+                }}</span>
+              </span>
+            </span>
           </span>
         </button>
         <div v-if="nextCursor" class="p-3">
@@ -149,7 +159,9 @@
             <h2 class="break-words text-2xl font-semibold leading-tight text-highlighted">
               {{ selected.title }}
             </h2>
-            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+            <div
+              class="market-author-row mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted"
+            >
               <AccountAvatar
                 data-testid="market-creator-avatar"
                 v-if="selected.creator.picture"
@@ -168,64 +180,46 @@
                 }}</span
               >
             </div>
-            <div
-              v-if="selected.listing?.category || selected.listing?.tags?.length"
-              class="mt-3 flex flex-wrap gap-2"
-            >
-              <button
-                v-if="selected.listing.category"
-                type="button"
-                class="market-tag"
-                @click="applyCategory(selected.listing.category)"
-              >
-                {{ selected.listing.category }}</button
-              ><button
-                v-for="value in selected.listing.tags"
-                :key="value"
-                type="button"
-                class="market-tag"
-                @click="applyTag(value)"
-              >
-                #{{ value }}
-              </button>
-            </div>
-            <p class="mt-3 max-w-[72ch] whitespace-pre-wrap text-sm leading-6 text-toned">
+            <p class="mt-2 max-w-[72ch] whitespace-pre-wrap text-sm leading-6 text-toned">
               {{ selected.summary }}
             </p>
-            <div class="mt-5 flex flex-wrap items-center gap-3">
-              <UButton
-                :icon="
-                  installed && !hasUpdate(selected)
-                    ? 'i-tabler-arrow-up-right'
-                    : installed
-                      ? 'i-tabler-refresh'
-                      : 'i-tabler-download'
-                "
-                :loading="installing"
-                size="md"
-                @click="install"
-                >{{
-                  t(
-                    installed && !hasUpdate(selected)
-                      ? 'workflow.market.open_installed'
-                      : installed
-                        ? 'workflow.market.update'
-                        : 'workflow.market.install',
-                  )
-                }}</UButton
-              >
-              <span v-if="installed" class="text-xs text-muted">{{
-                t('workflow.market.installed_version', { version: installed.releaseVersion })
-              }}</span>
-            </div>
-            <p
-              v-if="installFailure"
-              role="alert"
-              class="mt-4 whitespace-pre-wrap text-sm leading-6 text-error"
-            >
-              {{ installFailure }}
-            </p>
           </div>
+          <div class="market-header-actions">
+            <div class="flex items-center gap-2">
+              <UButton
+                v-if="!installed || hasUpdate(selected)"
+                data-testid="market-install"
+                :icon="installed ? 'i-tabler-refresh' : 'i-tabler-download'"
+                :loading="installing && installingReleaseId === selected.releaseId"
+                :disabled="installing"
+                size="sm"
+                @click="install"
+              >
+                {{ t(installed ? 'workflow.market.update' : 'workflow.market.install') }}
+              </UButton>
+              <UButton
+                v-if="installed"
+                data-testid="market-open"
+                icon="i-tabler-arrow-up-right"
+                color="neutral"
+                variant="outline"
+                :disabled="installing"
+                size="sm"
+                @click="openInstalled"
+                >{{ t('workflow.market.open_installed') }}</UButton
+              >
+            </div>
+            <span v-if="installed" role="status" class="text-xs text-muted">{{
+              t('workflow.market.installed_version', { version: installed.releaseVersion })
+            }}</span>
+          </div>
+          <p
+            v-if="installFailure"
+            role="alert"
+            class="market-install-feedback whitespace-pre-wrap text-sm leading-6 text-error"
+          >
+            {{ installFailure }}
+          </p>
         </header>
         <div class="market-content-tabs" :aria-label="t('workflow.market.details')">
           <button
@@ -356,6 +350,35 @@
                 <dt>{{ t('workflow.market.creator') }}</dt>
                 <dd>{{ creator(selected) }}</dd>
               </div>
+              <div v-if="selected.listing?.category" class="market-taxonomy-group">
+                <dt class="market-taxonomy-label">{{ t('workflow.market.category') }}</dt>
+                <dd>
+                  <button
+                    type="button"
+                    class="market-category"
+                    @click="applyCategory(selected.listing.category)"
+                  >
+                    <UIcon name="i-tabler-folder" class="size-3.5 shrink-0" /><span>{{
+                      selected.listing.category
+                    }}</span>
+                  </button>
+                </dd>
+              </div>
+              <div v-if="selected.listing?.tags?.length" class="market-taxonomy-group">
+                <dt class="market-taxonomy-label">{{ t('workflow.market.tags') }}</dt>
+                <dd class="market-tag-list">
+                  <button
+                    v-for="value in selected.listing.tags"
+                    :key="value"
+                    type="button"
+                    class="market-tag"
+                    @click="applyTag(value)"
+                  >
+                    <span class="market-tag-hash" aria-hidden="true">#</span
+                    ><span class="market-tag-text">{{ value }}</span>
+                  </button>
+                </dd>
+              </div>
               <div v-if="selected.facts?.verified">
                 <dt>{{ t('workflow.market.requirements') }}</dt>
                 <dd>
@@ -436,6 +459,9 @@ const query = ref(''),
   tag = ref(''),
   sort = ref('updated'),
   nextCursor = ref('')
+const emit = defineEmits<{ installed: [] }>()
+const installingReleaseId = ref('')
+const lastInstallIssue = ref({ releaseId: '', message: '' })
 const items = ref<RegistryWorkflowReleaseView[]>([])
 const selected = ref<RegistryWorkflowReleaseView | null>(null)
 const loading = ref(false),
@@ -482,13 +508,21 @@ function select(item: RegistryWorkflowReleaseView) {
   if (item.workflowId !== selected.value?.workflowId) reviewSummary.value = null
   selected.value = item
   detailTab.value = 'overview'
-  installFailure.value = ''
+  installFailure.value =
+    lastInstallIssue.value.releaseId === item.releaseId ? lastInstallIssue.value.message : ''
   history.value = []
   void refreshCreator()
 }
 watch(visibleItems, (values) => {
-  if (!values.some((item) => item.releaseId === selected.value?.releaseId))
-    selected.value = values[0] ?? null
+  if (!values.some((item) => item.releaseId === selected.value?.releaseId)) {
+    if (values[0]) select(values[0])
+    else {
+      selected.value = null
+      history.value = []
+      detailTab.value = 'overview'
+      installFailure.value = ''
+    }
+  }
 })
 async function search() {
   await load(false)
@@ -567,22 +601,38 @@ async function showHistory() {
     if (selected.value?.workflowId === id) historyLoading.value = false
   }
 }
+async function openInstalled() {
+  const local = installed.value
+  if (local && !installing.value) {
+    try {
+      await router.push('/workflows/' + local.workflowId + '/edit')
+    } catch (error) {
+      installFailure.value = errorMessage(error)
+    }
+  }
+}
 async function install() {
   const target = selected.value
-  if (!target || installing.value) return
+  if (!target || installing.value || (installed.value && !hasUpdate(target))) return
   installing.value = true
+  installingReleaseId.value = target.releaseId
   installFailure.value = ''
+  lastInstallIssue.value = { releaseId: '', message: '' }
+  let completed = false
   try {
-    if (installed.value && !hasUpdate(target)) {
-      await router.push('/workflows/' + installed.value.workflowId + '/edit')
-      return
-    }
-    const source = await workflowTransport.installRegistryWorkflow(target.releaseId)
-    await router.push('/workflows/' + source.workflowId + '/edit')
+    await workflowTransport.installRegistryWorkflow(target.releaseId)
+    completed = true
+    emit('installed')
+    const current = await shopTransport.installations()
+    if (!marketDisposed) installations.value = current
   } catch (error) {
-    installFailure.value = errorMessage(error)
+    const message =
+      (completed ? t('workflow.market.installed_refresh_failed') + '\n' : '') + errorMessage(error)
+    lastInstallIssue.value = { releaseId: target.releaseId, message }
+    if (selected.value?.releaseId === target.releaseId) installFailure.value = message
   } finally {
     installing.value = false
+    installingReleaseId.value = ''
   }
 }
 let creatorRefreshing = false,
@@ -637,17 +687,62 @@ watch(filter, () => void search())
   color: var(--ui-text);
   font-size: 12px;
 }
-.market-tag {
-  border: 1px solid var(--ui-border);
-  border-radius: 4px;
-  padding: 2px 8px;
-  background: var(--ui-bg-muted);
-  color: var(--ui-text-toned);
+.market-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  color: var(--ui-text);
   font-size: 12px;
+  line-height: 20px;
+  text-align: left;
 }
+.market-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+}
+.market-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--ui-text-toned);
+  text-align: left;
+}
+.market-tag-hash {
+  font-size: 10px;
+  line-height: inherit;
+  color: var(--ui-text-muted);
+}
+.market-tag-text {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.market-category:hover,
 .market-tag:hover {
-  border-color: var(--ui-primary);
   color: var(--ui-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.market-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  padding-top: 2px;
+  position: sticky;
+  top: 0;
+}
+.market-install-feedback {
+  grid-column: 2 / -1;
+}
+.market-author-row :deep(.account-avatar) {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
 }
 .market-browser {
   display: grid;
@@ -682,23 +777,81 @@ watch(filter, () => void search())
   display: flex;
   gap: 12px;
   width: 100%;
-  padding: 16px 14px;
+  height: 72px;
+  align-items: center;
+  padding: 8px 12px;
   text-align: left;
-  border-bottom: 1px solid var(--ui-border-muted);
+}
+.market-result-body {
+  display: grid;
+  grid-template-rows: repeat(3, 18px);
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.market-result-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.market-result-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ui-text-highlighted);
+}
+.market-result-title,
+.market-result-summary,
+.market-result-author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 18px;
+}
+.market-result-summary {
+  font-size: 12px;
+  color: var(--ui-text-toned);
+}
+.market-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.market-result-author {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ui-text-muted);
+}
+.market-result-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  max-width: 100px;
+  padding: 0 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: 3px;
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-toned);
+  font-size: 10px;
+  line-height: 15px;
 }
 .market-result:hover {
   background: var(--ui-surface-hover);
 }
 .market-result.is-selected {
   background: color-mix(in oklab, var(--ui-primary) 9%, var(--ui-bg-muted));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 28%, transparent);
 }
 .market-workflow-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   color: var(--ui-primary);
   background: var(--ui-bg);
@@ -717,16 +870,17 @@ watch(filter, () => void search())
   padding: 28px 32px 0;
 }
 .market-detail-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px 16px;
 }
 .market-detail-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   flex-shrink: 0;
   border: 1px solid var(--ui-border);
   border-radius: 12px;
@@ -736,7 +890,7 @@ watch(filter, () => void search())
 .market-content-tabs {
   display: flex;
   gap: 24px;
-  margin-top: 28px;
+  margin-top: 18px;
   border-bottom: 1px solid var(--ui-border);
 }
 .market-content-tabs button {
@@ -849,7 +1003,8 @@ button:focus-visible {
     padding: 24px 20px;
   }
   .market-detail-header {
-    gap: 16px;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 12px;
   }
   .market-detail-icon {
     width: 48px;
