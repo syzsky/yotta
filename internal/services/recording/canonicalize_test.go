@@ -1,11 +1,45 @@
 package recording
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 )
+
+func TestCanonicalizeRepeatedPressHeldAtStopCanBeEncoded(t *testing.T) {
+	for _, button := range []bool{false, true} {
+		name := "key"
+		down, up, code := inputclip.EventTypeKeyDown, inputclip.EventTypeKeyUp, int32('A')
+		if button {
+			name = "mouse button"
+			down, up, code = inputclip.EventTypeMouseBtnDown, inputclip.EventTypeMouseBtnUp, int32(HookBtnLeft)
+		}
+		t.Run(name, func(t *testing.T) {
+			result := &StopResult{
+				Meta: inputclip.ClipMeta{RecordingMode: inputclip.RecordingModePrecise, MouseMode: "absolute", BaseResolution: [2]int{1920, 1080}},
+				Events: []inputclip.Event{
+					{TUs: 10, Type: down, A: code},
+					{TUs: 20, Type: up, A: code},
+					{TUs: 30, Type: down, A: code},
+				},
+			}
+			if err := canonicalizeStopResult(result); err != nil {
+				t.Fatal(err)
+			}
+			clip := &inputclip.InputClip{Meta: result.Meta, Events: result.Events}
+			clip.UpdateDuration()
+			var encoded bytes.Buffer
+			if err := inputclip.Encode(&encoded, clip); err != nil {
+				t.Fatalf("repeated press held at stop cannot be saved: %v", err)
+			}
+			if len(result.Events) != 4 {
+				t.Fatalf("expected one final release, got %d events", len(result.Events))
+			}
+		})
+	}
+}
 
 func TestCanonicalizeSimpleRecordingUsesExplicitPolicyAndBalancesInput(t *testing.T) {
 	result := &StopResult{

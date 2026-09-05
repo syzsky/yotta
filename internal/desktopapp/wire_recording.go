@@ -15,6 +15,7 @@ import (
 
 type recordingTargetAcquirer interface {
 	AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error)
+	ActivateRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error)
 }
 
 // recordingCalibrationTargets keeps target-specific playback calibration as
@@ -31,6 +32,10 @@ func (targets *recordingCalibrationTargets) AcquireRecordingTarget(ctx context.C
 		return window, counts360, release, err
 	}
 	return window, targets.activeCounts360(), release, nil
+}
+
+func (targets *recordingCalibrationTargets) ActivateRecordingTarget(ctx context.Context, slot string) (target.WindowHandle, int, func(), error) {
+	return targets.targets.ActivateRecordingTarget(ctx, slot)
 }
 
 // recordingHkAdapter 拿开始/停录/暂停热键 VK (读 hotkey registry) + mouseMode (读 settings)。

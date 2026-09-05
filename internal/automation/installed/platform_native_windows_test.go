@@ -259,7 +259,8 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer driver.Close()
+	recordingProvider := &provider{profile: profile, driver: driver}
+	defer recordingProvider.CloseHost()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -270,6 +271,30 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	metadata, err := winutil.WindowMetadata(uintptr(windows.primary))
 	if err != nil || metadata.Title != nativeFixtureTitle || metadata.Class != windows.className {
 		t.Fatalf("exact native metadata=%#v error=%v", metadata, err)
+	}
+	// Preparing a recording must leave the user's current window alone.
+	if err := winutil.BringToFront(uintptr(windows.secondary)); err != nil {
+		t.Fatal(err)
+	}
+	authoring, err := NewAuthoringTargets(authoringTestGeneration(t, "fixture", profile, recordingProvider))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, _, release, err := authoring.AcquireRecordingTarget(ctx, "fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if prepared.HWND != uintptr(windows.primary) || winutil.ForegroundWindow() != uintptr(windows.secondary) {
+		t.Fatal("recording preparation changed foreground window")
+	}
+	activated, _, release, err := authoring.ActivateRecordingTarget(ctx, "fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if activated.HWND != prepared.HWND || winutil.ForegroundWindow() != prepared.HWND {
+		t.Fatal("recording capture did not activate the prepared window")
 	}
 
 	setNativeFixtureTitle(t, windows.primary, "Yotta Native Fixture Dynamic  ")

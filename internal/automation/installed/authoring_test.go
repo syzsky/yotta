@@ -2,6 +2,7 @@ package installed
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/yottaapp/yotta/internal/automation/target"
@@ -72,6 +73,33 @@ func TestAuthoringTargetsReplacePublishesNewGenerationToExistingHandle(t *testin
 	}
 }
 
+func TestRecordingPreparationDoesNotRequireForegroundPermission(t *testing.T) {
+	profile, _ := testProfile(t)
+	driver := &fakeDriver{
+		window:                 target.WindowHandle{HWND: 42, ClientW: 1920, ClientH: 1080},
+		recordingActivationErr: errors.New("SetForegroundWindow rejected the request"),
+	}
+	targets, err := NewAuthoringTargets(authoringTestGeneration(t, "game", profile, &provider{profile: profile, driver: driver}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	window, _, release, err := targets.AcquireRecordingTarget(context.Background(), "game")
+	if err != nil {
+		t.Fatalf("available game rejected during recording preparation: %v", err)
+	}
+	defer release()
+	if window.HWND != 42 || driver.recordingActivations != 0 {
+		t.Fatalf("preparation window=%+v activations=%d", window, driver.recordingActivations)
+	}
+	_, _, activationRelease, err := targets.ActivateRecordingTarget(context.Background(), "game")
+	if activationRelease != nil {
+		activationRelease()
+	}
+	if !errors.Is(err, driver.recordingActivationErr) || driver.recordingActivations != 1 {
+		t.Fatalf("capture activation must still report real failure: %v, calls=%d", err, driver.recordingActivations)
+	}
+}
+
 func TestRecordingTargetLeasePinsExactGenerationUntilSessionRelease(t *testing.T) {
 	profile, _ := testProfile(t)
 	driver := &fakeDriver{window: target.WindowHandle{HWND: 42, ClientW: 1280, ClientH: 720}}
@@ -85,7 +113,7 @@ func TestRecordingTargetLeasePinsExactGenerationUntilSessionRelease(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if window.HWND != 42 || counts360 != int(desktopPayload(t, profile).MouseCounts360) || driver.operation != OperationActivate || driver.recordingActivations != 1 {
+	if window.HWND != 42 || counts360 != int(desktopPayload(t, profile).MouseCounts360) || driver.recordingActivations != 0 {
 		t.Fatalf("recording target window=%+v counts360=%d operation=%q", window, counts360, driver.operation)
 	}
 	if err := generation.Retire(); err != nil {

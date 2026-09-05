@@ -93,12 +93,18 @@ func (s *memoryMacroStore) Save(value *macro.Macro) (*macro.Macro, error) {
 }
 
 type recordingTargetResolver struct {
-	window     target.WindowHandle
-	windows    []target.WindowHandle
-	resolveErr error
-	counts360  int
-	released   int
-	calls      int
+	window      target.WindowHandle
+	windows     []target.WindowHandle
+	resolveErr  error
+	counts360   int
+	released    int
+	calls       int
+	activations int
+}
+
+func (r *recordingTargetResolver) ActivateRecordingTarget(ctx context.Context, slot string) (target.WindowHandle, int, func(), error) {
+	r.activations++
+	return r.AcquireRecordingTarget(ctx, slot)
 }
 
 func (r *recordingTargetResolver) AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error) {
@@ -288,7 +294,7 @@ func TestServiceStartArmsThenCountsDownBeforeRecorderCapture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != "" || recorder.hwnd != 0 || watch == nil {
+	if id != "" || recorder.hwnd != 0 || watch == nil || targets.activations != 0 {
 		t.Fatalf("armed id=%q hwnd=%d watch=%+v", id, recorder.hwnd, watch)
 	}
 	if state := service.GetState(); state.Phase != PhaseArmed || state.TargetSlot != "editor" || state.CountdownEndsAtMs != 0 {
@@ -308,7 +314,7 @@ func TestServiceStartArmsThenCountsDownBeforeRecorderCapture(t *testing.T) {
 	if err := service.Cancel(); err != nil {
 		t.Fatal(err)
 	}
-	if targets.calls != 2 || targets.released != 2 {
+	if targets.calls != 2 || targets.released != 2 || targets.activations != 1 {
 		t.Fatalf("recording target calls=%d releases=%d, want 2/2", targets.calls, targets.released)
 	}
 }
@@ -577,6 +583,35 @@ func TestServiceRejectsUntrustedOrUnusableStartTargets(t *testing.T) {
 			_, err := service.Start(StartArgs{TargetSlot: "editor", Mode: inputclip.RecordingModeSimple})
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("Start() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestRecordingTargetFailurePreservesDiagnosticCause(t *testing.T) {
+	cause := errors.New("SetForegroundWindow rejected the request")
+	for _, operation := range []string{"validate", "simple", "precise"} {
+		t.Run(operation, func(t *testing.T) {
+			service := NewService(&resultRecorder{}, nil, nil, nil, nil, &recordingTargetResolver{resolveErr: cause})
+			var err error
+			if operation == "validate" {
+				err = service.ValidateTarget("editor")
+			} else {
+				mode := inputclip.RecordingModeSimple
+				if operation == "precise" {
+					mode = inputclip.RecordingModePrecise
+				}
+				_, err = service.Start(StartArgs{TargetSlot: "editor", Mode: mode})
+			}
+			if !errors.Is(err, cause) || !strings.Contains(err.Error(), cause.Error()) {
+				t.Fatalf("target failure lost its diagnostic cause: %v", err)
+			}
+			envelope := apperr.From(err)
+			if envelope.ID != apperr.CodeRecordingTargetUnavailable || envelope.Category != apperr.CategoryDomain || envelope.Retryable || envelope.OperationID == "" {
+				t.Fatalf("unexpected target failure envelope: %+v", envelope)
+			}
+			if strings.Contains(string(apperr.Marshal(err)), cause.Error()) {
+				t.Fatal("native cause leaked into product transport")
 			}
 		})
 	}

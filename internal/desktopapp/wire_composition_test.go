@@ -20,6 +20,10 @@ import (
 
 type fixedRecordingTargetResolver struct{ counts360 int }
 
+func (resolver fixedRecordingTargetResolver) ActivateRecordingTarget(ctx context.Context, slot string) (target.WindowHandle, int, func(), error) {
+	return resolver.AcquireRecordingTarget(ctx, slot)
+}
+
 func (resolver fixedRecordingTargetResolver) AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error) {
 	return target.WindowHandle{HWND: 1, ClientW: 1280, ClientH: 720}, resolver.counts360, func() {}, nil
 }

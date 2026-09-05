@@ -101,9 +101,19 @@ func (targets AuthoringTargets) Activate(ctx context.Context, slot string) error
 	return provider.driver.Execute(ctx, OperationActivate, struct{}{})
 }
 
-// AcquireRecordingTarget activates and resolves a desktop target while keeping
-// its exact installation generation alive for the caller's native session.
+// AcquireRecordingTarget resolves a desktop target without changing focus. The
+// user switches to the target after arming; foreground permission is not a
+// prerequisite for preparing a recording session.
 func (targets AuthoringTargets) AcquireRecordingTarget(ctx context.Context, slot string) (target.WindowHandle, int, func(), error) {
+	return targets.acquireRecordingTarget(ctx, slot, false)
+}
+
+// ActivateRecordingTarget brings the target forward immediately before capture.
+func (targets AuthoringTargets) ActivateRecordingTarget(ctx context.Context, slot string) (target.WindowHandle, int, func(), error) {
+	return targets.acquireRecordingTarget(ctx, slot, true)
+}
+
+func (targets AuthoringTargets) acquireRecordingTarget(ctx context.Context, slot string, activate bool) (target.WindowHandle, int, func(), error) {
 	provider, release, err := targets.provider(slot)
 	if err != nil {
 		return target.WindowHandle{}, 0, nil, err
@@ -120,7 +130,9 @@ func (targets AuthoringTargets) AcquireRecordingTarget(ctx context.Context, slot
 		return fail(errors.New("recording requires a desktop automation target"))
 	}
 	var resolved target.Target
-	if activator, ok := provider.driver.(recordingTargetActivator); ok {
+	if !activate {
+		resolved, err = provider.driver.ResolveTarget(ctx)
+	} else if activator, ok := provider.driver.(recordingTargetActivator); ok {
 		resolved, err = activator.ActivateAndResolveTarget(ctx)
 	} else {
 		if err := provider.driver.Execute(ctx, OperationActivate, struct{}{}); err != nil {

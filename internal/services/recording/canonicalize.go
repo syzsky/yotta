@@ -118,12 +118,14 @@ func canonicalizeStopResult(result *StopResult) error {
 			key := keyOrder[index]
 			if _, active := activeKeys[key]; active {
 				appendEvent(inputclip.Event{TUs: lastUs, Type: inputclip.EventTypeKeyUp, A: key})
+				delete(activeKeys, key)
 			}
 		}
 		for index := len(buttonOrder) - 1; index >= 0; index-- {
 			button := buttonOrder[index]
 			if down, active := activeButtons[button]; active {
 				appendEvent(inputclip.Event{TUs: lastUs, Type: inputclip.EventTypeMouseBtnUp, A: button, B: down.B, C: down.C})
+				delete(activeButtons, button)
 			}
 		}
 	}

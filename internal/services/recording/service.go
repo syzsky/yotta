@@ -47,6 +47,7 @@ type macroStore interface {
 // TargetResolver provides trusted local recording access to installed targets.
 type TargetResolver interface {
 	AcquireRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error)
+	ActivateRecordingTarget(context.Context, string) (target.WindowHandle, int, func(), error)
 }
 
 // Service wails3 RPC 入口.
@@ -208,9 +209,8 @@ func (s *Service) shutdown() {
 	close(s.shutdownDone)
 }
 
-// ValidateTarget resolves and activates one installed target before countdown.
-// 前端在 3s 倒计时**之前**调: 没设/找不到窗口立刻报错 (不用等录完), 成功则游戏已置前台省去用户 Alt-Tab.
-// 纯预检 — 不装 hook 不起 recorder. Start 内仍保留同样校验作 race 兜底 (倒计时期间窗口可能消失).
+// ValidateTarget checks target availability without changing focus or starting
+// input capture. The user switches to the target after the session is armed.
 func (s *Service) ValidateTarget(targetSlot string) error {
 	if targetSlot == "" {
 		return apperr.New(apperr.CodeAutomationTargetSlotRequired, nil)
@@ -220,7 +220,7 @@ func (s *Service) ValidateTarget(targetSlot string) error {
 	}
 	_, _, release, err := s.targets.AcquireRecordingTarget(context.Background(), targetSlot)
 	if err != nil {
-		return apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": targetSlot})
+		return fmt.Errorf("%w: %w", apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": targetSlot}), err)
 	}
 	if release == nil {
 		return errors.New("installed target resolver returned no recording lease")
@@ -276,7 +276,7 @@ func (s *Service) start(args StartArgs) (string, error) {
 	}
 	wh, targetCounts360, release, err := s.targets.AcquireRecordingTarget(context.Background(), args.TargetSlot)
 	if err != nil {
-		return "", apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": args.TargetSlot})
+		return "", fmt.Errorf("%w: %w", apperr.New(apperr.CodeRecordingTargetUnavailable, map[string]any{"targetSlot": args.TargetSlot}), err)
 	}
 	if release == nil {
 		return "", errors.New("installed target resolver returned no recording lease")
@@ -367,7 +367,7 @@ func (s *Service) finishCountdown(generation uint64) {
 		return
 	}
 	prepared := s.armed
-	reactivated, _, release, activateErr := s.targets.AcquireRecordingTarget(context.Background(), prepared.targetSlot)
+	reactivated, _, release, activateErr := s.targets.ActivateRecordingTarget(context.Background(), prepared.targetSlot)
 	if release != nil {
 		release()
 	}
