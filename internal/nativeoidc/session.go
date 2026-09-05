@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/yottaapp/yotta/internal/securestore"
 	"io"
 	"net"
 	"net/http"
@@ -20,8 +21,12 @@ import (
 type Browser interface{ OpenURL(string) error }
 
 var ErrAuthenticationRequired = errors.New("native session requires explicit sign-in")
+var ErrCredentialStorage = errors.New("saved account could not be removed")
 
 type Config struct {
+	Credentials           securestore.Store
+	CredentialScope       string
+	AccountURL            string
 	AuthorizationEndpoint string
 	TokenEndpoint         string
 	ClientID              string
@@ -35,22 +40,24 @@ type Config struct {
 }
 
 type Session struct {
-	config       Config
-	client       *http.Client
-	mu           sync.Mutex
-	token        string
-	refreshToken string
-	expiresAt    time.Time
-	stateMu      sync.Mutex
-	cancel       context.CancelFunc
-	profile      Profile
+	credentialsLoaded bool
+	config            Config
+	client            *http.Client
+	mu                sync.Mutex
+	token             string
+	refreshToken      string
+	expiresAt         time.Time
+	stateMu           sync.Mutex
+	cancel            context.CancelFunc
+	profile           Profile
 }
 
 type Profile struct {
-	UserKey   string `json:"user_key"`
-	Name      string `json:"name"`
-	Picture   string `json:"picture"`
-	SigningIn bool   `json:"signingIn"`
+	SessionOnly bool   `json:"sessionOnly"`
+	UserKey     string `json:"user_key"`
+	Name        string `json:"name"`
+	Picture     string `json:"picture"`
+	SigningIn   bool   `json:"signingIn"`
 }
 
 func (session *Session) Profile() Profile {
@@ -69,17 +76,30 @@ func (session *Session) CancelLogin() {
 	}
 }
 
-func (session *Session) Logout() {
+func (session *Session) Logout() error {
 	session.CancelLogin()
 	session.mu.Lock()
 	defer session.mu.Unlock()
+	if session.config.Credentials != nil {
+		if err := session.config.Credentials.Delete(session.credentialKey()); err != nil && !errors.Is(err, securestore.ErrNotFound) && !errors.Is(err, securestore.ErrUnavailable) {
+			return errors.Join(ErrCredentialStorage, err)
+		}
+	}
+	session.credentialsLoaded = true
 	session.token, session.refreshToken = "", ""
 	session.stateMu.Lock()
 	session.profile = Profile{}
 	session.stateMu.Unlock()
+	return nil
 }
 
 func New(config Config) (*Session, error) {
+	if config.AccountURL != "" {
+		u, err := url.Parse(config.AccountURL)
+		if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Host == "" || (u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()).IsLoopback()))) {
+			return nil, errors.New("invalid account center URL")
+		}
+	}
 	for _, endpoint := range []string{config.AuthorizationEndpoint, config.TokenEndpoint} {
 		parsed, err := url.Parse(endpoint)
 		if err != nil || !parsed.IsAbs() || parsed.Host == "" {
@@ -119,19 +139,32 @@ func (session *Session) Login(ctx context.Context) (string, error) {
 	session.cancel = cancel
 	session.stateMu.Unlock()
 	defer func() { cancel(); session.stateMu.Lock(); session.cancel = nil; session.stateMu.Unlock() }()
-	return session.tokenLocked(ctx, true)
+	token, err := session.tokenLocked(ctx, true)
+	if err != nil {
+		return "", err
+	}
+	if err := session.fetchProfileLocked(ctx, token); err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 func (session *Session) tokenLocked(ctx context.Context, interactive bool) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
+	session.restoreLocked()
 	if session.token != "" && time.Until(session.expiresAt) > time.Minute {
 		return session.token, nil
 	}
 	if session.refreshToken != "" {
 		if token, err := session.refresh(ctx); err == nil {
 			return token, nil
+		} else if !errors.Is(err, ErrAuthenticationRequired) {
+			return "", err // Offline/5xx/cancellation must not erase remembered login.
+		}
+		if session.config.Credentials != nil {
+			_ = session.config.Credentials.Delete(session.credentialKey())
 		}
 		session.token = ""
 		session.refreshToken = ""
@@ -210,27 +243,6 @@ func (session *Session) login(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if session.config.UserinfoEndpoint != "" {
-			request, err := http.NewRequestWithContext(ctx, http.MethodGet, session.config.UserinfoEndpoint, nil)
-			if err != nil {
-				return "", err
-			}
-			request.Header.Set("Authorization", "Bearer "+token)
-			response, err := session.client.Do(request)
-			if err != nil {
-				session.token, session.refreshToken = "", ""
-				return "", err
-			}
-			defer response.Body.Close()
-			var profile Profile
-			if response.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&profile) != nil || profile.UserKey == "" {
-				session.token, session.refreshToken = "", ""
-				return "", errors.New("native OIDC profile retrieval failed")
-			}
-			session.stateMu.Lock()
-			session.profile = profile
-			session.stateMu.Unlock()
-		}
 		return token, nil
 	}
 }
@@ -261,6 +273,16 @@ func (session *Session) requestToken(ctx context.Context, form url.Values) (stri
 		return "", err
 	}
 	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		var problem struct {
+			Code string `json:"error"`
+		}
+		_ = json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&problem)
+		if (response.StatusCode == 400 || response.StatusCode == 401) && (problem.Code == "invalid_grant" || problem.Code == "invalid_token") {
+			return "", ErrAuthenticationRequired
+		}
+		return "", errors.New("native OIDC token service unavailable")
+	}
 	var token struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
@@ -274,6 +296,7 @@ func (session *Session) requestToken(ctx context.Context, form url.Values) (stri
 		session.refreshToken = token.RefreshToken
 	}
 	session.expiresAt = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
+	session.persistLocked()
 	return session.token, nil
 }
 

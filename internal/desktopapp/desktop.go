@@ -61,6 +61,7 @@ type Config struct {
 	OIDCCallbackAddress       string
 	OIDCAudience              string
 	OIDCUserinfoEndpoint      string
+	AccountURL                string
 }
 
 func Run(config Config) error {
@@ -298,6 +299,7 @@ func Run(config Config) error {
 		tokens := config.RegistryTokens
 		if tokens == nil && strings.TrimSpace(config.OIDCClientID) != "" {
 			session, sessionErr := nativeoidc.New(nativeoidc.Config{
+				Credentials: securestore.New(), CredentialScope: filepath.Clean(roots.Data), AccountURL: config.AccountURL,
 				AuthorizationEndpoint: config.OIDCAuthorizationEndpoint,
 				TokenEndpoint:         config.OIDCTokenEndpoint, ClientID: config.OIDCClientID,
 				Audience: config.OIDCAudience, Scopes: []string{"openid", "profile", "offline_access"},

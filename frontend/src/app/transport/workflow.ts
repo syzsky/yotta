@@ -49,6 +49,8 @@ export const communityTransport = {
 import type { SearchOptions } from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
 
 export const shopTransport = {
+  refreshAccount: () => invoke(WorkflowService.RefreshRegistryAccount),
+  openAccountCenter: () => invoke(WorkflowService.OpenAccountCenter),
   discover: (query: SearchOptions) => invoke(WorkflowService.DiscoverRegistry, query),
   history: (workflowId: string) => invoke(WorkflowService.RegistryWorkflowHistory, workflowId),
   chooseScreenshots: () =>

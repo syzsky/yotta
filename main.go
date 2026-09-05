@@ -36,6 +36,7 @@ func desktopMainWithReporter(start func(desktopapp.Config) error, stderr io.Writ
 		OIDCAuthorizationEndpoint: endpoints["YOTTA_OIDC_AUTHORIZATION_ENDPOINT"],
 		OIDCTokenEndpoint:         endpoints["YOTTA_OIDC_TOKEN_ENDPOINT"],
 		OIDCUserinfoEndpoint:      endpoints["YOTTA_OIDC_USERINFO_ENDPOINT"],
+		AccountURL:                endpoints["YOTTA_ACCOUNT_URL"],
 		OIDCClientID:              endpoints["YOTTA_OIDC_CLIENT_ID"],
 		OIDCCallbackAddress:       endpoints["YOTTA_OIDC_CALLBACK_ADDRESS"],
 		OIDCAudience:              endpoints["YOTTA_REGISTRY_AUDIENCE"],

@@ -184,6 +184,8 @@ export default {
       member: 'Member',
     },
     market: {
+      account_center: 'Account center',
+      session_only: 'Sign-in is temporary. Sign in again after restarting.',
       login_before_publish: 'Sign in to publish a workflow',
       login_keep_draft: 'Sign in again and keep this draft',
       latest_version: 'Highest published version {version}',
@@ -244,7 +246,6 @@ export default {
         'Enter three non-negative integers, such as 1.0.0, with no leading zeros or other characters.',
       version_hint: 'Use major.minor.patch. A published version cannot be overwritten.',
       release_notes_placeholder: 'What has been added or fixed?',
-      account_id: 'Account {id}',
       account_hint: 'Sign in to publish and manage your work',
       account_title: 'Sign in to Yotta',
       sign_in: 'Sign in',

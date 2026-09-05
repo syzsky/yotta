@@ -11,7 +11,10 @@ export function mountAvatarPreview(picture: string) {
     name: 'Avatar test',
     picture,
     signingIn: false,
+    sessionOnly: false,
   })
+  shopTransport.refreshAccount = shopTransport.account
+  shopTransport.openAccountCenter = async () => {}
   const host = document.createElement('div')
   host.style.cssText = 'position:fixed;top:0;right:0;height:56px;display:flex;z-index:10'
   document.body.append(host)

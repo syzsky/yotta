@@ -1,89 +1,50 @@
 <template>
-  <UPopover :content="{ align: 'end', sideOffset: 8 }">
+  <UPopover v-model:open="menuOpen" :content="{ align: 'end', sideOffset: 8 }">
     <button
       data-testid="registry-account"
+      @click="syncProfile"
       type="button"
       class="flex w-14 items-center justify-center transition-colors hover:bg-elevated focus-visible:outline-2 focus-visible:outline-primary"
       :aria-label="
-        profile.user_key ? profile.name || profile.user_key : t('workflow.market.sign_in')
+        profile.user_key
+          ? profile.name || t('workflow.community.member')
+          : t('workflow.market.sign_in')
       "
     >
       <AccountAvatar :name="profile.name" :user-key="profile.user_key" :picture="profile.picture" />
     </button>
     <template #content>
-      <div class="w-72 space-y-3 p-3">
-        <div class="flex items-center gap-3 border-b border-default px-1 pb-4 pt-1">
-          <AccountAvatar
-            :name="profile.name"
-            :user-key="profile.user_key"
-            :picture="profile.picture"
-            large
-          />
-          <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-highlighted">
-              {{ profile.name || profile.user_key || t('workflow.market.account_title') }}
-            </p>
-            <p class="mt-1 truncate text-xs text-muted">
-              {{
-                profile.user_key
-                  ? t('workflow.market.account_id', { id: profile.user_key })
-                  : t('workflow.market.account_hint')
-              }}
-            </p>
-          </div>
-        </div>
-        <p v-if="profile.signingIn" class="text-sm text-muted" role="status">
-          {{ t('workflow.market.waiting_login') }}
-        </p>
-        <p v-if="failure" class="whitespace-pre-wrap text-sm text-error" role="alert">
-          {{ failure }}
-        </p>
-        <UButton
-          v-if="profile.signingIn"
-          block
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-x"
-          class="justify-start"
-          @click="cancel"
-          >{{ t('common.cancel') }}</UButton
-        >
-        <UButton
-          v-else-if="profile.user_key"
-          block
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-logout"
-          class="justify-start"
-          @click="logout"
-          >{{ t('workflow.market.sign_out') }}</UButton
-        >
-        <UButton
-          v-else
-          block
-          variant="ghost"
-          icon="i-tabler-login"
-          class="justify-start"
-          :loading="busy"
-          @click="login"
-          >{{ t('workflow.market.sign_in') }}</UButton
-        >
-      </div>
+      <RegistryAccountMenu
+        v-if="menuOpen"
+        :profile="profile"
+        :busy="busy"
+        :syncing="syncing"
+        :failure="failure"
+        @login="accountAction(shopTransport.login)"
+        @logout="accountAction(shopTransport.logout)"
+        @cancel="cancel"
+        @center="openAccountCenter"
+      />
     </template>
   </UPopover>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { shopTransport } from '@/app/transport/shop'
 import { errorMessage } from '@/lib/invoke'
 import AccountAvatar from '@/components/AccountAvatar.vue'
 
+const RegistryAccountMenu = defineAsyncComponent(() => import('./RegistryAccountMenu.vue'))
+const menuOpen = ref(false)
 const { t } = useI18n()
-const profile = ref({ user_key: '', name: '', picture: '', signingIn: false })
+const profile = ref({ user_key: '', name: '', picture: '', signingIn: false, sessionOnly: false })
 const failure = ref('')
 const busy = ref(false)
+const syncing = ref(false)
+let disposed = false,
+  lastSync = 0
 let timer: ReturnType<typeof setInterval> | undefined
 let refreshing = false
 async function refresh() {
@@ -97,11 +58,12 @@ async function refresh() {
     refreshing = false
   }
 }
-async function login() {
+async function accountAction(action: () => Promise<unknown>) {
+  if (busy.value || syncing.value) return
   busy.value = true
   failure.value = ''
   try {
-    profile.value = await shopTransport.login()
+    await action()
   } catch (error) {
     failure.value = errorMessage(error)
   } finally {
@@ -117,17 +79,40 @@ async function cancel() {
     failure.value = errorMessage(error)
   }
 }
-async function logout() {
+async function syncProfile() {
+  if (syncing.value || busy.value || profile.value.signingIn) return
+  syncing.value = true
+  lastSync = Date.now()
   try {
-    await shopTransport.logout()
-    await refresh()
+    const current = await shopTransport.refreshAccount()
+    if (!disposed) {
+      profile.value = current
+      failure.value = ''
+    }
+  } catch (error) {
+    if (!disposed) failure.value = errorMessage(error)
+  } finally {
+    syncing.value = false
+  }
+}
+async function openAccountCenter() {
+  try {
+    await shopTransport.openAccountCenter()
   } catch (error) {
     failure.value = errorMessage(error)
   }
 }
+function onFocus() {
+  if (Date.now() - lastSync > 1000) void syncProfile()
+}
 onMounted(() => {
-  void refresh()
+  void syncProfile()
   timer = setInterval(() => void refresh(), 1500)
+  window.addEventListener('focus', onFocus)
 })
-onUnmounted(() => clearInterval(timer))
+onUnmounted(() => {
+  disposed = true
+  clearInterval(timer)
+  window.removeEventListener('focus', onFocus)
+})
 </script>

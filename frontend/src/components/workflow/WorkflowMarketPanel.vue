@@ -151,6 +151,7 @@
             </h2>
             <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
               <AccountAvatar
+                data-testid="market-creator-avatar"
                 v-if="selected.creator.picture"
                 :picture="selected.creator.picture"
                 :name="creator(selected)"
@@ -384,7 +385,7 @@
 <script setup lang="ts">
 import { isNewerRelease } from '@/app/workflow-library/releaseVersion'
 import WorkflowMarketIcon from './WorkflowMarketIcon.vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { workflowTransport, type RegistryWorkflowReleaseView } from '@/app/transport/workflow'
@@ -483,6 +484,7 @@ function select(item: RegistryWorkflowReleaseView) {
   detailTab.value = 'overview'
   installFailure.value = ''
   history.value = []
+  void refreshCreator()
 }
 watch(visibleItems, (values) => {
   if (!values.some((item) => item.releaseId === selected.value?.releaseId))
@@ -583,7 +585,44 @@ async function install() {
     installing.value = false
   }
 }
-onMounted(search)
+let creatorRefreshing = false,
+  marketDisposed = false
+async function refreshCreator() {
+  const target = selected.value
+  if (!target || loading.value || creatorRefreshing || marketDisposed) return
+  const generation = queryGeneration
+  creatorRefreshing = true
+  try {
+    const page = await shopTransport.discover({
+      workflowIds: [target.workflowId],
+      search: '',
+      category: '',
+      tag: '',
+      sort: 'updated',
+      cursor: '',
+      limit: 1,
+    })
+    if (marketDisposed || generation !== queryGeneration) return
+    const current = page.items[0]?.creator
+    if (!current || current.userKey !== target.creator.userKey) return
+    for (const item of [...items.value, ...history.value])
+      if (item.creator.userKey === current.userKey) item.creator = { ...current }
+    if (selected.value?.creator.userKey === current.userKey) selected.value.creator = { ...current }
+  } catch {
+    /* Keep the last known public profile; browsing remains usable. */
+  } finally {
+    creatorRefreshing = false
+  }
+}
+onMounted(() => {
+  void search()
+  window.addEventListener('focus', refreshCreator)
+})
+onUnmounted(() => {
+  marketDisposed = true
+  queryGeneration++
+  window.removeEventListener('focus', refreshCreator)
+})
 watch(filter, () => void search())
 </script>
 

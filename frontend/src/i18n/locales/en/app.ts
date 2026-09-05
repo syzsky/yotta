@@ -613,6 +613,10 @@ export default {
     'workflow.feature.unavailable': 'Workflow feature {feature} is unavailable. Restart Yotta.',
     'workflow.community.unavailable':
       'The community service is unavailable. Try again later; your input is preserved.',
+    'workflow.account.unavailable':
+      'Account service unavailable. Check your connection and retry. Saved sign-in is retained.',
+    'workflow.account.sign_out_failed':
+      'Saved sign-in could not be cleared. Sign-out is not complete; please try again.',
     'workflow.community.authentication_required':
       'Sign in to post. If your session has expired, sign out and sign in again.',
     'workflow.community.invalid':

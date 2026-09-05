@@ -3,11 +3,11 @@
     <img
       v-if="picture && !failed"
       :src="picture"
-      :alt="name || userKey || ''"
+      :alt="name || ''"
       referrerpolicy="no-referrer"
       @error="failed = true"
     />
-    <span v-else-if="userKey" class="font-semibold">{{ initials }}</span>
+    <span v-else-if="initials" class="font-semibold">{{ initials }}</span>
     <UIcon v-else name="i-tabler-user" :class="large ? 'size-6' : 'size-5'" />
   </span>
 </template>
@@ -16,7 +16,7 @@ import { computed, ref, watch } from 'vue'
 const props = defineProps<{ name?: string; userKey?: string; picture?: string; large?: boolean }>()
 const failed = ref(false)
 const initials = computed(() =>
-  Array.from((props.name || props.userKey || '').trim())
+  Array.from((props.name || '').trim())
     .slice(0, 2)
     .join('')
     .toUpperCase(),

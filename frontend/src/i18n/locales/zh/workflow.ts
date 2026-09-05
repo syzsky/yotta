@@ -181,6 +181,8 @@ export default {
       member: '用户',
     },
     market: {
+      account_center: '用户中心',
+      session_only: '登录状态未保存，关闭应用后需重新登录。',
       login_before_publish: '登录后发布工作流',
       login_keep_draft: '重新登录，保留当前内容',
       latest_version: '当前最高版本 {version}',
@@ -239,7 +241,6 @@ export default {
       invalid_version: '请填写三个非负整数，例如 1.0.0；不允许前导零或其他字符。',
       version_hint: '版本格式为主版本.次版本.修订号。发布后不可覆盖同一版本。',
       release_notes_placeholder: '这次新增或修复了什么？',
-      account_id: '账号 {id}',
       account_hint: '登录后发布和管理你的作品',
       account_title: '登录 Yotta 账号',
       sign_in: '登录',

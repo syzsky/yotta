@@ -537,6 +537,8 @@ export default {
     'workflow.run.failed': '工作流运行操作 {operation} 未完成，请刷新运行状态后重试。',
     'workflow.feature.unavailable': '工作流功能 {feature} 当前不可用，请重启 Yotta。',
     'workflow.community.unavailable': '暂时无法连接社区服务，请稍后重试。你的输入已保留。',
+    'workflow.account.unavailable': '账号服务暂不可用，请检查网络后重试。登录状态已保留。',
+    'workflow.account.sign_out_failed': '无法清除已保存的登录状态，退出尚未完成。请重试退出登录。',
     'workflow.community.authentication_required':
       '请登录后发表评论；登录已失效时，请退出后重新登录。',
     'workflow.community.invalid': '评分须为 1～5 星，或不评分仅留言；内容不超过 4000 个字符。',

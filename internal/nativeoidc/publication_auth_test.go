@@ -10,7 +10,10 @@ import (
 )
 
 func TestTokenNeverOpensBrowserForMissingOrExpiredSession(t *testing.T) {
-	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "invalid_grant", 401) }))
+	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(401)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+	}))
 	defer identity.Close()
 	for _, expired := range []bool{false, true} {
 		browserCalls := 0

@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 168,
+    "methods": 170,
     "models": 259
   },
   "services": [
@@ -1922,6 +1922,12 @@
           "returns": "$CancellablePromise<communityclient$0.Review | null>"
         },
         {
+          "name": "OpenAccountCenter",
+          "bindingId": "609585402",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "PreviewDeleteSources",
           "bindingId": "2449059483",
           "parameters": [
@@ -1968,6 +1974,12 @@
             }
           ],
           "returns": "$CancellablePromise<$models.SourcePage>"
+        },
+        {
+          "name": "RefreshRegistryAccount",
+          "bindingId": "4075725571",
+          "parameters": [],
+          "returns": "$CancellablePromise<nativeoidc$0.Profile>"
         },
         {
           "name": "RegistryAccount",
@@ -3748,6 +3760,11 @@
           "kind": "class",
           "name": "Profile",
           "fields": [
+            {
+              "name": "\"sessionOnly\"",
+              "optional": false,
+              "type": "boolean"
+            },
             {
               "name": "\"user_key\"",
               "optional": false,

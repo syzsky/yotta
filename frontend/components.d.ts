@@ -42,6 +42,7 @@ declare module 'vue' {
     PreciseRecordingWorkbench: typeof import('./src/components/recording/PreciseRecordingWorkbench.vue')['default']
     RecordingMetadataFields: typeof import('./src/components/recording/RecordingMetadataFields.vue')['default']
     RegistryAccount: typeof import('./src/components/RegistryAccount.vue')['default']
+    RegistryAccountMenu: typeof import('./src/components/RegistryAccountMenu.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ScheduleEditorPanel: typeof import('./src/components/schedules/ScheduleEditorPanel.vue')['default']

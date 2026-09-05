@@ -21,6 +21,11 @@ describe('account avatar', () => {
     props.picture = 'https://account.example/media/new'
     await nextTick()
     expect(host.querySelector('img')?.getAttribute('src')).toContain('/new')
+    props.name = ''
+    props.picture = ''
+    await nextTick()
+    expect(host.textContent).not.toContain('user-1')
+    expect(host.textContent).toBe('')
     app.unmount()
   })
 })
