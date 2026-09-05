@@ -942,6 +942,34 @@ func TestEngineUsesInstructionSignalChannels(t *testing.T) {
 	}
 }
 
+func TestEngineConnectsEffectToNewTypedSwitch(t *testing.T) {
+	builtins, projection := testContracts(t)
+	ids := []string{"delay", "switch"}
+	engine, err := authoring.New(builtins.Catalog, projection, func() string {
+		id := ids[0]
+		ids = ids[1:]
+		return id
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := engine.Apply(emptySource(), []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.DelayNodeID, Handle: "delay"}},
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.SwitchNodeID, Handle: "switch"}},
+		{Kind: authoring.CommandConnect, Connect: &authoring.EdgeCommand{GraphID: "main", Edge: patchEdge(schema.Edge{
+			Channel: schema.EdgeExec,
+			From:    schema.Endpoint{NodeID: "$delay", PortID: "done"},
+			To:      schema.Endpoint{NodeID: "$switch", PortID: "in"},
+		})}},
+	})
+	if err != nil {
+		t.Fatalf("connect run root to switch: %v", err)
+	}
+	if got := result.Source.Graphs[0].Edges; len(got) != 1 || got[0].To.PortID != "in" {
+		t.Fatalf("switch edge = %#v", got)
+	}
+}
+
 func TestEngineEditsStateNodesAndDisconnectsAtomically(t *testing.T) {
 	builtins, projection := testContracts(t)
 	ids := []string{"node-read", "node-concat", "node-delay"}

@@ -222,6 +222,10 @@ func OpenProgram(raw []byte, trustedCatalog nodecatalog.Snapshot, validators con
 				return ProgramSnapshot{}, errors.New("program node lock mismatch")
 			}
 			machine := entry.Contract.Machine()
+			machine, err = nodeinstance.Resolve(machine, node.Config)
+			if err != nil {
+				return ProgramSnapshot{}, errors.New("program effective contract config is invalid")
+			}
 			if !reflect.DeepEqual(machine.Ports, node.Ports) || !reflect.DeepEqual(machine.Execution, node.Execution) ||
 				!reflect.DeepEqual(machine.Instruction, node.Instruction) ||
 				!reflect.DeepEqual(machine.HostFeatureRequirements, node.HostFeatures) {

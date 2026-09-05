@@ -369,6 +369,9 @@ func TestCompileResolvesDynamicSwitchPortsIntoProgram(t *testing.T) {
 	if len(switchNode.Ports.DataInputs) != 3 {
 		t.Fatalf("effective switch ports = %#v", switchNode.Ports)
 	}
+	if _, err := OpenProgram(program.Artifact(), builtins.Catalog, builtins.ConfigValidators, testDigest(t, "dynamic-switch")); err != nil {
+		t.Fatalf("strict-open dynamic Switch Program: %v", err)
+	}
 }
 
 func TestProgramNodeViewsAreDefensive(t *testing.T) {

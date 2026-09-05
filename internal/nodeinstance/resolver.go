@@ -4,6 +4,7 @@
 package nodeinstance
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -48,6 +49,12 @@ func SwitchCaseCount(config map[string]any) (int, error) {
 			return 0, errors.New("switch case count must be an integer")
 		}
 		count = int(typed)
+	case json.Number:
+		parsed, err := typed.Int64()
+		if err != nil {
+			return 0, errors.New("switch case count must be an integer")
+		}
+		count = int(parsed)
 	default:
 		return 0, errors.New("switch case count must be an integer")
 	}
