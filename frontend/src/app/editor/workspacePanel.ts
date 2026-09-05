@@ -1,1 +1,7 @@
-export type WorkflowWorkspacePanel = 'graphs' | 'macro' | 'clip' | 'template' | 'snippets'
+export type WorkflowWorkspacePanel =
+  | 'graphs'
+  | 'variables'
+  | 'macro'
+  | 'clip'
+  | 'template'
+  | 'snippets'

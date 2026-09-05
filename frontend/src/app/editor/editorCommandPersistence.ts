@@ -32,13 +32,32 @@ export function toWorkflowPatch(pending: readonly PendingEditorCommand[]): Workf
       command: expandedCommand,
     }))
   })
+  const added = new Set(
+    expanded.flatMap(({ graphId, command }) =>
+      command.kind === 'add-node' && command.nodeId ? [nodeKey(graphId, command.nodeId)] : [],
+    ),
+  )
+  const removed = new Set(
+    expanded.flatMap(({ graphId, command }) =>
+      command.kind === 'remove-node' ? [nodeKey(graphId, command.nodeId)] : [],
+    ),
+  )
+  const canceled = new Set([...added].filter((key) => removed.has(key)))
+  const compacted = expanded.filter(({ graphId, command }) => {
+    if (command.kind === 'remove-node') return !canceled.has(nodeKey(graphId, command.nodeId))
+    return ![...removed].some(
+      (key) =>
+        key.startsWith(`${graphId}\u0000`) &&
+        commandReferencesNode(command, key.slice(graphId.length + 1)),
+    )
+  })
   const generated = new Set(
-    expanded.flatMap(({ command }) =>
+    compacted.flatMap(({ command }) =>
       command.kind === 'add-node' && command.nodeId ? [command.nodeId] : [],
     ),
   )
   const nodeRef = (nodeId: string): string => (generated.has(nodeId) ? `$${nodeId}` : nodeId)
-  return expanded.map(({ graphId, command }): WorkflowPatchCommand => {
+  return compacted.map(({ graphId, command }): WorkflowPatchCommand => {
     switch (command.kind) {
       case 'rename-workflow':
         return { kind: command.kind, renameWorkflow: { name: command.name } }
@@ -315,6 +334,42 @@ export function toWorkflowPatch(pending: readonly PendingEditorCommand[]): Workf
         throw new Error('batch must be expanded before persistence')
     }
   })
+}
+
+function nodeKey(graphId: string, nodeId: string): string {
+  return `${graphId}\u0000${nodeId}`
+}
+
+function commandReferencesNode(command: EditorCommand, nodeId: string): boolean {
+  switch (command.kind) {
+    case 'add-node':
+    case 'upgrade-node-contract':
+    case 'remove-node':
+    case 'move-node':
+    case 'set-node-label':
+    case 'set-node-disabled':
+    case 'set-config':
+    case 'clear-config':
+    case 'bind-value':
+    case 'bind-blob':
+    case 'bind-resource':
+    case 'bind-default':
+    case 'clear-binding':
+      return command.nodeId === nodeId
+    case 'connect':
+    case 'disconnect':
+    case 'set-edge-reroutes':
+      return command.edge.from.nodeId === nodeId || command.edge.to.nodeId === nodeId
+    case 'update-graph-interface':
+      return (
+        command.inputs.some((port) => port.nodeId === nodeId) ||
+        command.outputs.some((port) => port.nodeId === nodeId) ||
+        command.entries.some((entry) => entry.nodeId === nodeId) ||
+        command.exits.some((exit) => exit.endpoint.nodeId === nodeId)
+      )
+    default:
+      return false
+  }
 }
 
 export function expandEditorCommand(command: EditorCommand): EditorCommand[] {

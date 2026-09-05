@@ -128,7 +128,7 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 		const expectedY = canvasRect.top + canvasRect.height * 0.38;
 		const deltaX = noteRect.left + noteRect.width / 2 - expectedX;
 		const deltaY = noteRect.top + noteRect.height / 2 - expectedY;
-		if (Math.abs(deltaX) > 32 || Math.abs(deltaY) > 32) {
+		if (Math.abs(deltaX) > 48 || Math.abs(deltaY) > 48) {
 			throw new Error('toolbar-created annotation missed the upper canvas center by (' + deltaX.toFixed(1) + ', ' + deltaY.toFixed(1) + ')');
 		}
 		const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;

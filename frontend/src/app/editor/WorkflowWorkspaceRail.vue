@@ -45,6 +45,7 @@ const workspaceItems = computed<
   }>
 >(() => [
   workspaceItem('graphs', 'workflow.graphs.manager', 'i-tabler-folders'),
+  workspaceItem('variables', 'workflow.state_panel.title', 'i-tabler-variable'),
   workspaceItem('macro', 'assets.tabs.macros', 'i-tabler-list-details'),
   workspaceItem('clip', 'assets.tabs.clips', 'i-tabler-route-alt-left'),
   workspaceItem('template', 'assets.tabs.templates', 'i-tabler-photo'),

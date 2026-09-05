@@ -668,13 +668,10 @@ import { useRouter } from 'vue-router'
 import {
   backend,
   type AndroidAppDescriptor,
-  type AndroidAutomationTargetProfile,
   type AndroidDeviceDescriptor,
   type AutomationTargetHealth,
   type AutomationTargetTypeDescriptor,
   type BrowserTargetDescriptor,
-  type BrowserAutomationTargetProfile,
-  type DesktopAutomationTargetProfile,
   type InstalledAutomationTargetProfile,
 } from '@/lib/backend'
 import { errorMessage } from '@/lib/invoke'
@@ -684,40 +681,23 @@ import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { useWailsEvent } from '@/composables/useWailsEvent'
 import { matchingInstalledApplications } from '@/settings/windowTargetCapture'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
-
-type InputBackend = DesktopAutomationTargetProfile['inputBackend'] | ''
-type CaptureBackend = DesktopAutomationTargetProfile['captureBackend'] | ''
-type WindowTitleMatch = DesktopAutomationTargetProfile['windowTitleMatch']
-type WindowSelection = DesktopAutomationTargetProfile['windowSelection']
-interface AutomationTargetDraft {
-  slot: string
-  label: string
-  targetKind: InstalledAutomationTargetProfile['targetKind']
-  adapterKind: InstalledAutomationTargetProfile['adapterKind']
-  profileVersion: string
-  applicationSlot: string
-  windowTitle: string
-  windowTitleMatch: WindowTitleMatch
-  windowSelection: WindowSelection
-  windowClass: string
-  inputBackend: InputBackend
-  captureBackend: CaptureBackend
-  mouseCounts360: number
-  mouseCalibrationMode: 'active' | 'custom'
-  resolveTimeoutMilliseconds: number
-  adbSerial: string
-  adbProduct: string
-  adbModel: string
-  adbDevice: string
-  androidPackage: string
-  browserEndpoint: string
-  browserTargetId: string
-  browserWebSocketUrl: string
-  browserTitle: string
-  browserUrl: string
-  profile: Record<string, string | number>
-  persisted: boolean
-}
+import {
+  defaultTargetProfile as defaultProfile,
+  draftFromProfile,
+  isAndroidTarget as isAndroid,
+  isBrowserTarget as isBrowser,
+  isDesktopTarget as isDesktop,
+  numberProfileValue,
+  profileFieldOptions,
+  stringProfileValue,
+  targetDraftComplete,
+  targetMetadata as metadata,
+  type AutomationTargetDraft,
+  type CaptureBackend,
+  type InputBackend,
+  type WindowSelection,
+  type WindowTitleMatch,
+} from '@/app/settings/automationTargetDraft'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -857,57 +837,8 @@ onBeforeUnmount(() => {
 function toggleExpanded(slot: string) {
   expandedSlot.value = expandedSlot.value === slot ? '' : slot
 }
-function profileFieldOptions(
-  targetType: AutomationTargetTypeDescriptor | undefined,
-  fieldID: string,
-): string[] {
-  return targetType?.fields.find((field) => field.id === fieldID)?.options ?? []
-}
-function draftFromProfile(target: InstalledAutomationTargetProfile): AutomationTargetDraft {
-  const profile = target.profile as Partial<
-    DesktopAutomationTargetProfile & AndroidAutomationTargetProfile & BrowserAutomationTargetProfile
-  >
-  return {
-    slot: target.slot,
-    label: target.label,
-    targetKind: target.targetKind,
-    adapterKind: target.adapterKind,
-    profileVersion: target.profileVersion,
-    applicationSlot: profile.applicationSlot ?? '',
-    windowTitle: profile.windowTitle ?? '',
-    windowTitleMatch: profile.windowTitleMatch ?? 'exact',
-    windowSelection: profile.windowSelection ?? 'unique',
-    windowClass: profile.windowClass ?? '',
-    inputBackend: profile.inputBackend ?? '',
-    captureBackend: profile.captureBackend ?? '',
-    mouseCounts360: profile.mouseCounts360 ?? 0,
-    mouseCalibrationMode: (profile.mouseCounts360 ?? 0) > 0 ? 'custom' : 'active',
-    resolveTimeoutMilliseconds: profile.resolveTimeoutMilliseconds ?? 3000,
-    adbSerial: profile.adbSerial ?? '',
-    adbProduct: profile.adbProduct ?? '',
-    adbModel: profile.adbModel ?? '',
-    adbDevice: profile.adbDevice ?? '',
-    androidPackage: profile.androidPackage ?? '',
-    browserEndpoint: profile.browserEndpoint ?? '',
-    browserTargetId: profile.browserTargetId ?? '',
-    browserWebSocketUrl: profile.browserWebSocketUrl ?? '',
-    browserTitle: profile.browserTitle ?? '',
-    browserUrl: profile.browserUrl ?? '',
-    profile: editableProfile(profile),
-    persisted: true,
-  }
-}
 function applicationLabel(slot: string) {
   return applications.value.find((application) => application.slot === slot)?.label ?? slot
-}
-function isDesktop(target: AutomationTargetDraft): boolean {
-  return target.targetKind === 'desktop-window' && target.adapterKind === 'win32'
-}
-function isAndroid(target: AutomationTargetDraft): boolean {
-  return target.targetKind === 'android-device' && target.adapterKind === 'android-adb'
-}
-function isBrowser(target: AutomationTargetDraft): boolean {
-  return target.targetKind === 'browser-cdp' && target.adapterKind === 'browser-cdp'
 }
 function targetSummary(target: AutomationTargetDraft): string {
   if (isDesktop(target)) return applicationLabel(target.applicationSlot)
@@ -917,14 +848,6 @@ function targetSummary(target: AutomationTargetDraft): string {
     return `${target.adbModel || t('settingsAutomation.android.unselected')} · ${target.adbSerial || '—'}`
   return targetTypeFor(target)?.profileKind ?? `${target.targetKind} · ${target.adapterKind}`
 }
-function editableProfile(source: Record<string, unknown>): Record<string, string | number> {
-  return Object.fromEntries(
-    Object.entries(source).filter((entry): entry is [string, string | number] => {
-      const value = entry[1]
-      return typeof value === 'string' || typeof value === 'number'
-    }),
-  )
-}
 function targetTypeFor(target: AutomationTargetDraft): AutomationTargetTypeDescriptor | undefined {
   return targetTypes.value.find(
     (candidate) =>
@@ -933,14 +856,6 @@ function targetTypeFor(target: AutomationTargetDraft): AutomationTargetTypeDescr
 }
 function targetFields(target: AutomationTargetDraft) {
   return targetTypeFor(target)?.fields ?? []
-}
-function stringProfileValue(target: AutomationTargetDraft, fieldID: string): string {
-  const value = target.profile[fieldID]
-  return typeof value === 'string' ? value : value == null ? '' : String(value)
-}
-function numberProfileValue(target: AutomationTargetDraft, fieldID: string): number {
-  const value = target.profile[fieldID]
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 function setProfileValue(
   target: AutomationTargetDraft,
@@ -1062,58 +977,6 @@ async function duplicateTarget(source: AutomationTargetDraft) {
   expandedSlot.value = slot
   await commit()
 }
-function metadata(target: AutomationTargetDraft): InstalledAutomationTargetProfile {
-  const common = {
-    slot: target.slot,
-    label: target.label.trim(),
-    targetKind: target.targetKind,
-    adapterKind: target.adapterKind,
-    profileVersion: target.profileVersion,
-  }
-  if (isDesktop(target))
-    return {
-      ...common,
-      profile: {
-        applicationSlot: target.applicationSlot,
-        windowTitle: target.windowTitle,
-        windowTitleMatch: target.windowTitleMatch,
-        windowSelection: target.windowSelection,
-        windowClass: target.windowClass,
-        inputBackend: target.inputBackend as DesktopAutomationTargetProfile['inputBackend'],
-        captureBackend: target.captureBackend as DesktopAutomationTargetProfile['captureBackend'],
-        mouseCounts360: target.mouseCalibrationMode === 'active' ? 0 : target.mouseCounts360,
-        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
-      },
-    }
-  if (isBrowser(target))
-    return {
-      ...common,
-      profile: {
-        browserEndpoint: target.browserEndpoint.trim(),
-        browserTargetId: target.browserTargetId.trim(),
-        browserWebSocketUrl: target.browserWebSocketUrl.trim(),
-        browserTitle: target.browserTitle.trim(),
-        browserUrl: target.browserUrl.trim(),
-        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
-      },
-    }
-  if (isAndroid(target))
-    return {
-      ...common,
-      profile: {
-        adbSerial: target.adbSerial.trim(),
-        adbProduct: target.adbProduct.trim(),
-        adbModel: target.adbModel.trim(),
-        adbDevice: target.adbDevice.trim(),
-        androidPackage: target.androidPackage.trim(),
-        resolveTimeoutMilliseconds: target.resolveTimeoutMilliseconds,
-      },
-    }
-  return {
-    ...common,
-    profile: { ...target.profile },
-  }
-}
 async function commit(): Promise<boolean> {
   if (draft.value.some((target) => !targetComplete(target))) return false
   const ok = await store.patchAutomationTargets(draft.value.map(metadata))
@@ -1135,49 +998,7 @@ function openInputCalibration(): void {
   void router.push({ path: '/settings', query: { section: 'input' } })
 }
 function targetComplete(target: AutomationTargetDraft): boolean {
-  if (isBrowser(target)) {
-    return Boolean(
-      target.label.trim() && target.browserEndpoint?.trim() && target.browserTargetId?.trim(),
-    )
-  }
-  if (isAndroid(target)) {
-    return Boolean(target.label.trim() && target.adbSerial && target.androidPackage?.trim())
-  }
-  if (!isDesktop(target)) {
-    const type = targetTypeFor(target)
-    return Boolean(
-      target.label.trim() &&
-      type &&
-      type.fields
-        .filter((field) => field.required)
-        .every((field) => {
-          const value = target.profile[field.id]
-          if (field.kind === 'installation-slot')
-            return (
-              typeof value === 'string' &&
-              applications.value.some((application) => application.slot === value)
-            )
-          return typeof value === 'number' ? Number.isFinite(value) : Boolean(value?.trim())
-        }),
-    )
-  }
-  return Boolean(
-    target.label.trim() &&
-    target.applicationSlot &&
-    applications.value.some((application) => application.slot === target.applicationSlot) &&
-    target.windowTitle.trim() &&
-    target.windowClass.trim(),
-  )
-}
-
-function defaultProfile(type: AutomationTargetTypeDescriptor): Record<string, string | number> {
-  return Object.fromEntries(
-    type.fields.map((field) => [
-      field.id,
-      field.options?.[0] ??
-        (field.kind === 'duration-ms' ? 3000 : field.kind === 'integer' ? 0 : ''),
-    ]),
-  )
+  return targetDraftComplete(target, applications.value, targetTypeFor(target))
 }
 
 async function refreshBrowserTargets(target: AutomationTargetDraft): Promise<void> {

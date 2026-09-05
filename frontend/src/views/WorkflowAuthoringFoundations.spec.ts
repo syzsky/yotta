@@ -8,6 +8,7 @@ describe('workflow authoring foundations', () => {
   it('opens a completed recording from the authoritative pending state only once', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const recordingController = readSource('src/app/editor/EditorRecordingController.ts')
+    const recordingDialogs = readSource('src/app/editor/WorkflowRecordingDialogs.vue')
     const assets = readSource('src/views/AssetsView.vue')
     const recordingMetadata = readSource('src/components/recording/RecordingMetadataFields.vue')
     expect(editor).not.toContain('if (payload) openRecordingPreview(payload)')
@@ -18,16 +19,16 @@ describe('workflow authoring foundations', () => {
     expect(recordingController).toContain('!editorActive')
     expect(recordingController).toContain("snapshot.invocation !== 'editor'")
     expect(editor).toContain('onDeactivated(() =>')
-    const recordingModal = editor.slice(
-      editor.indexOf(':open="!!recordingEditor.pending"'),
-      editor.indexOf(':open="!!macroEditing"'),
+    const recordingModal = recordingDialogs.slice(
+      recordingDialogs.indexOf(':open="!!recording.pending"'),
+      recordingDialogs.indexOf(':open="!!macroEditing"'),
     )
     expect(recordingModal).toContain('size="3xl"')
     expect(recordingModal).not.toContain('\n      tall')
     expect(recordingModal).not.toContain("t('recordingSave.optional_metadata')")
     expect(recordingModal).toContain('<RecordingMetadataFields')
-    expect(editor).toContain('const RecordingMetadataFields = defineAsyncComponent(')
-    expect(editor).not.toContain('<UInputMenu')
+    expect(editor).toContain('const WorkflowRecordingDialogs = defineAsyncComponent(')
+    expect(recordingDialogs).not.toContain('<UInputMenu')
     expect(recordingMetadata).toContain(':create-item="\'always\'"')
     expect(recordingMetadata).toContain('@create="createCategory"')
     expect(recordingMetadata).toContain('@create="createTag"')
@@ -38,25 +39,27 @@ describe('workflow authoring foundations', () => {
   it('keeps node creation contextual without a permanent catalog sidebar', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
     const assist = readSource('src/app/editor/WorkflowCanvasAssistToolbar.vue')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
+    const editorDrop = readSource('src/app/editor/useWorkflowEditorDrop.ts')
     const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     expect(source).not.toContain('v-model="catalogQuery"')
     expect(source).not.toContain('v-for="group in catalogGroups"')
     expect(source).not.toContain('data-testid="workflow-workspace-nodes"')
-    expect(source).toContain('<WorkflowCanvasAssistToolbar')
+    expect(canvas).toContain('<WorkflowCanvasAssistToolbar')
     expect(assist).toContain('test-id="workflow-canvas-add-node"')
     expect(assist).toContain('test-id="workflow-annotation-add"')
     expect(assist).toContain('data-testid="workflow-canvas-assist-compact"')
     expect(assist).toContain('@click="emit(\'update-collapsed\', !collapsed)"')
-    expect(source).toContain('v-if="!canvasAssist.hidden"')
-    expect(source).toContain('data-testid="workflow-canvas-assist-visibility"')
-    expect(source).toContain('@click="setCanvasAssistHidden(!canvasAssist.hidden)"')
+    expect(canvas).toContain('v-if="!canvasAssist.hidden"')
+    expect(canvas).toContain('data-testid="workflow-canvas-assist-visibility"')
+    expect(canvas).toContain("emit('update-assist-hidden', !canvasAssist.hidden)")
     expect(source).not.toContain('workflow-graph-add-call')
     expect(source).toContain('GRAPH_CALL_DRAG_FORMAT')
-    expect(source).toContain('getData(GRAPH_CALL_DRAG_FORMAT)')
-    expect(source).toContain('addGraphCall(graphCallID, position)')
-    expect(source).toContain('@add-node="openQuickAddFromAssist"')
+    expect(editorDrop).toContain('getData(GRAPH_CALL_DRAG_FORMAT)')
+    expect(editorDrop).toContain('options.addGraphCall(graphCallID, position)')
+    expect(canvas).toContain("emit('quick-add')")
     expect(keyboard).toContain("event.key === 'Tab'")
-    expect(source).toContain('data-testid="workflow-empty-canvas"')
+    expect(canvas).toContain('data-testid="workflow-empty-canvas"')
     expect(source).toContain('addNode(RUN_STARTED_NODE_ID')
   })
 
@@ -64,28 +67,39 @@ describe('workflow authoring foundations', () => {
     const source = readSource('src/views/WorkflowEditorView.vue')
     const selection = readSource('src/app/editor/EditorSelectionController.ts')
     const keyboard = readSource('src/app/editor/editorKeyboard.ts')
-    expect(source).toContain(':delete-key-code="null"')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
+    const edges = readSource('src/app/editor/useWorkflowEdgeInteractions.ts')
+    expect(canvas).toContain(':delete-key-code="null"')
     expect(keyboard).toContain("event.key === 'Delete' || event.key === 'Backspace'")
     expect(keyboard).toContain(
       'target?.matches(\'input, textarea, select, [contenteditable="true"]\')',
     )
     expect(source).toContain('createEditorSelectionController({')
     expect(selection).toContain("applyCommand({ kind: 'remove-nodes'")
-    expect(source).toContain("applyCommand({ kind: 'disconnect'")
+    expect(edges).toContain("applyCommand({ kind: 'disconnect'")
     expect(source).toContain('@edge-click="selectEdge"')
   })
 
-  it('keeps workflow state outside the selected-node inspector', () => {
+  it('keeps variables in the primary workspace rail and outside the selected-node inspector', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const inspector = readSource('src/app/editor/WorkflowInspector.vue')
+    const rail = readSource('src/app/editor/WorkflowWorkspaceRail.vue')
+    const toolbarModel = readSource('src/app/editor/editorToolbarModel.ts')
     const generatedField = readSource('src/app/editor/GeneratedFieldEditor.vue')
     expect(editor).toContain('<WorkflowStatePanel')
+    expect(editor).toContain("workspacePanel === 'variables'")
+    expect(rail).toContain("workspaceItem('variables', 'workflow.state_panel.title'")
+    expect(toolbarModel).not.toContain("action('toggle-state'")
     expect(inspector).not.toContain("kind: 'add-state-variable'")
     expect(inspector).toContain('<WorkflowAuthoringSurfaceItem')
     expect(readSource('src/app/editor/WorkflowAuthoringSurfaceItem.vue')).toContain(
       "path: '/settings', query: { section: targetSettingsSection }",
     )
     expect(inspector).toContain('projectionDescription')
+    expect(inspector).toContain('@update:model-value="setLabel"')
+    expect(readSource('src/app/editor/WorkflowNode.vue')).toContain(
+      "t('workflow.node.labeled_title'",
+    )
     expect(generatedField).toContain('<USelectMenu')
     expect(generatedField).toContain("t('workflow.inspector.search_target')")
     expect(generatedField).toContain(':virtualize="selectItems.length > 40"')
@@ -93,10 +107,11 @@ describe('workflow authoring foundations', () => {
 
   it('separates editable macros, precise clips, templates, and recording entry points', () => {
     const source = readSource('src/views/AssetsView.vue')
+    const browse = readSource('src/app/asset-library/useAssetLibraryBrowse.ts')
     const router = readSource('src/router/index.ts')
     expect(router).toContain("path: '/assets'")
     expect(source).toContain("openResourceAction(activeTab === 'macros' ? 'macro' : 'precise')")
-    expect(source).toContain("activeTab.value === 'macros' ? 'macro'")
+    expect(browse).toContain("activeTab.value === 'macros'")
     expect(source).toContain('<MacroActionEditor')
     expect(source).toContain("openScreenPicker('template_save'")
     expect(source).toContain('backend.assets.updateMeta')
@@ -109,7 +124,10 @@ describe('workflow authoring foundations', () => {
     const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
     const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')
     const resourceController = readSource('src/app/editor/EditorResourceController.ts')
+    const resourceAuthoring = readSource('src/app/editor/useWorkflowResourceAuthoring.ts')
     const recordingController = readSource('src/app/editor/EditorRecordingController.ts')
+    const recordingDialogs = readSource('src/app/editor/WorkflowRecordingDialogs.vue')
+    const editorDrop = readSource('src/app/editor/useWorkflowEditorDrop.ts')
 
     expect(editor).toContain('<WorkflowResourceDock')
     expect(editor).toContain('const WorkflowResourceDock = defineAsyncComponent(')
@@ -117,22 +135,21 @@ describe('workflow authoring foundations', () => {
       "import WorkflowResourceDock from '@/app/editor/WorkflowResourceDock.vue'",
     )
     expect(editor).toContain('@capture-template="openTemplateCapture"')
-    expect(editor).toContain("? 'workflow_resource_version' : 'workflow_resource'")
-    expect(editor).toContain("'workflow_resource_version'")
+    expect(resourceAuthoring).toContain("? 'workflow_resource_version' : 'workflow_resource'")
+    expect(resourceAuthoring).toContain("'workflow_resource_version'")
     expect(editor).toContain('@recapture-workflow-resource="openTemplateRecapture"')
     expect(editor).toContain(
       '@create-workflow-resource-variant="openTemplateCapture($event, \'append\')"',
     )
-    expect(editor).toContain(
-      'applyCapturedImageVersion(intent.resource, captured, intent.mode, intent.variantId)',
-    )
+    expect(resourceAuthoring).toContain('applyCapturedImageVersion(')
+    expect(resourceAuthoring).toContain('intent.variantId')
     expect(dock).toContain("label: t('assets.templates.manage_variants')")
     expect(dock).not.toContain("label: t('workflow.resources.create_version')")
     expect(recordingController).toContain("destination: 'workflow-resource'")
-    expect(editor).toContain('snapshotGlobalAssetByID(guid)')
+    expect(editorDrop).toContain('snapshotGlobalAssetByID(guid)')
     expect(editor).toContain('@use="useWorkspaceResource"')
-    expect(editor).toContain('session.insertLinearDraft(')
-    expect(editor).toContain("kind: 'bind-blob'")
+    expect(resourceAuthoring).toContain('session.insertLinearDraft(')
+    expect(resourceAuthoring).toContain("kind: 'bind-blob'")
     expect(dock).toContain('pageSize = ref(20)')
     expect(dock).toContain('assets.query(')
     expect(dock).toContain("emit('start-recording'")
@@ -163,23 +180,23 @@ describe('workflow authoring foundations', () => {
     expect(resourceController).toContain('options.port.openWorkflow(copy(resource))')
     expect(resourceController).toContain('options.port.rewriteWorkflow(copy(editing.resource)')
     expect(resourceController).toContain('options.replaceWorkflowResource(editing.resource.id')
-    expect(editor).toContain(':workflow-resource="workflowClipEditing.resource"')
+    expect(recordingDialogs).toContain(':workflow-resource="workflowClipEditing.resource"')
     expect(dock).toContain("allCategoriesValue = '__yotta_all_categories__'")
     expect(dock).not.toContain("value: ''")
     expect(toolbar).not.toContain('workflow-macro-recording-start')
   })
 
   it('shares a scannable resource list and lets resources be dragged onto the canvas', () => {
-    const editor = readSource('src/views/WorkflowEditorView.vue')
     const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
     const assets = readSource('src/views/AssetsView.vue')
+    const editorDrop = readSource('src/app/editor/useWorkflowEditorDrop.ts')
 
     expect(dock).toContain('<AssetLibraryList')
     expect(assets).toContain('<AssetLibraryList')
     expect(dock).toContain('draggable')
     expect(dock).toContain('RESOURCE_DRAG_FORMAT')
-    expect(editor).toContain('RESOURCE_DRAG_FORMAT')
-    expect(editor).toContain('dropWorkspaceResource')
+    expect(editorDrop).toContain('RESOURCE_DRAG_FORMAT')
+    expect(editorDrop).toContain('dropWorkspaceResource')
   })
 
   it('offers save, discard, and cancel when leaving a dirty workflow', () => {
@@ -271,12 +288,10 @@ describe('workflow authoring foundations', () => {
 
   it('switches from Run State to node properties without overriding a hidden Inspector preference', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
-    const selectNode = editor.slice(
-      editor.indexOf('function selectNode('),
-      editor.indexOf('function selectNodeForContextMenu'),
-    )
-    expect(selectNode).toContain('statePanelOpen.value = false')
-    expect(selectNode).toContain('if (inspectorAutoOpen.value) inspectorSidebarOpen.value = true')
+    const canvasGestures = readSource('src/app/editor/useWorkflowCanvasGestures.ts')
+    expect(canvasGestures).toContain('options.showNodeInspector()')
+    expect(editor).toContain('statePanelOpen.value = false')
+    expect(editor).toContain('if (inspectorAutoOpen.value) inspectorSidebarOpen.value = true')
     expect(editor).toContain('function setInspectorVisibility(')
     expect(editor).toContain('inspectorAutoOpen.value = open')
   })
@@ -300,6 +315,7 @@ describe('workflow authoring foundations', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const toolbar = readSource('src/app/editor/WorkflowEditorToolbar.vue')
     const panel = readSource('src/app/editor/WorkflowGraphInterfacePanel.vue')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
 
     expect(toolbar).toContain('<slot name="breadcrumbs" />')
     expect(toolbar).toContain('data-testid="workflow-editor-editing"')
@@ -307,8 +323,8 @@ describe('workflow authoring foundations', () => {
       toolbar.indexOf('data-testid="workflow-editor-actions"'),
     )
     expect(editor).toContain('<template #breadcrumbs>')
-    expect(editor).toContain('data-testid="workflow-canvas-ai"')
-    expect(editor).toContain('data-testid="workflow-target-default"')
+    expect(canvas).toContain('data-testid="workflow-canvas-ai"')
+    expect(canvas).toContain('data-testid="workflow-target-default"')
     expect(editor).toContain(':callable-graph-ids="callableGraphIds"')
     expect(panel).toContain('data-testid="workflow-graph-infer-interface"')
     expect(panel).toContain(':label="t(\'workflow.graphs.infer_interface\')"')
@@ -358,18 +374,18 @@ describe('workflow authoring foundations', () => {
 
   it('uses the same unified editor from the workflow resource dock', () => {
     const dock = readSource('src/app/editor/WorkflowResourceDock.vue')
-    const editor = readSource('src/views/WorkflowEditorView.vue')
+    const recordingDialogs = readSource('src/app/editor/WorkflowRecordingDialogs.vue')
     const menu = dock.slice(
       dock.indexOf('function itemMenu'),
       dock.indexOf('async function duplicateWorkflowResource'),
     )
-    const globalEditor = editor.slice(
-      editor.indexOf(':open="!!macroEditing"'),
-      editor.indexOf(':open="!!workflowMacroEditing"'),
+    const globalEditor = recordingDialogs.slice(
+      recordingDialogs.indexOf(':open="!!macroEditing"'),
+      recordingDialogs.indexOf(':open="!!workflowMacroEditing"'),
     )
-    const workflowEditor = editor.slice(
-      editor.indexOf(':open="!!workflowMacroEditing"'),
-      editor.indexOf(':open="!!workflowClipEditing"'),
+    const workflowEditor = recordingDialogs.slice(
+      recordingDialogs.indexOf(':open="!!workflowMacroEditing"'),
+      recordingDialogs.indexOf(':open="!!workflowClipEditing"'),
     )
 
     expect(menu).not.toContain("t('assets.macros.edit_actions')")
@@ -419,13 +435,15 @@ describe('workflow authoring foundations', () => {
 
   it('scales the asset library with server paging, cross-page batches, and guarded cleanup', () => {
     const source = readSource('src/views/AssetsView.vue')
-    expect(source).toContain('assets.query')
-    expect(source).toContain('page: page.value')
-    expect(source).toContain('pageSize: pageSize.value')
-    expect(source).toContain('toggleCurrentPage')
+    const browse = readSource('src/app/asset-library/useAssetLibraryBrowse.ts')
+    expect(source).toContain('useAssetLibraryBrowse({')
+    expect(browse).toContain('options.queryAssets')
+    expect(browse).toContain('page: page.value')
+    expect(browse).toContain('pageSize: pageSize.value')
+    expect(browse).toContain('toggleCurrentPage')
     expect(source).toContain('backend.assets.batchUpdateMeta')
     expect(source).toContain('backend.assets.batchDelete')
-    expect(source).toContain('retainFailedSelection')
+    expect(browse).toContain('retainFailedSelection')
     expect(source).toContain('backend.assets.previewCleanup')
     expect(source).toContain('backend.assets.commitCleanup(preview.token)')
   })
@@ -484,12 +502,16 @@ describe('workflow authoring foundations', () => {
   it('offers compatible nodes when a typed connection ends on the canvas', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const menu = readSource('src/app/editor/WorkflowConnectionMenu.vue')
+    const authoring = readSource('src/app/editor/useWorkflowConnectionAuthoring.ts')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
+    const edges = readSource('src/app/editor/useWorkflowEdgeInteractions.ts')
     expect(editor).toContain(':is-valid-connection="isValidConnection"')
     expect(editor).toContain('@connect-start="startConnection"')
     expect(editor).toContain('@connect-end="endConnection"')
-    expect(editor).toContain('<WorkflowConnectionMenu')
-    expect(editor).toContain('session.insertConnectedNode(')
-    expect(editor).toContain('targetHandle: edgeTargetHandle(edge)')
+    expect(canvas).toContain('<WorkflowConnectionMenu')
+    expect(editor).toContain('useWorkflowConnectionAuthoring({')
+    expect(authoring).toContain('options.session.insertConnectedNode(')
+    expect(edges).toContain('targetHandle: targetHandle(edge)')
     expect(editor).not.toContain('if (source.channel !== target.channel) return null')
     expect(menu).toContain('@keydown="onListKeydown"')
     expect(menu).toContain('numberedSelectionIndex(event, visibleCandidates.value.length)')
@@ -501,10 +523,12 @@ describe('workflow authoring foundations', () => {
   it('restores multi-selection, atomic batch editing, snapping, and auto-layout', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const canvasLayout = readSource('src/app/editor/EditorCanvasLayoutController.ts')
+    const canvasGestures = readSource('src/app/editor/useWorkflowCanvasGestures.ts')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
     expect(editor).toContain('@nodes-change="handleNodesChange"')
-    expect(editor).toContain('<WorkflowSelectionToolbar')
-    expect(editor).toContain('marqueeSelectionActive')
-    expect(editor).toContain('if (!marqueeSelectionActive) return')
+    expect(canvas).toContain('<WorkflowSelectionToolbar')
+    expect(canvasGestures).toContain('marqueeActive')
+    expect(canvasGestures).toContain('if (!marqueeActive) return')
     expect(editor).toContain('createEditorCanvasLayoutController({')
     expect(canvasLayout).toContain("applyCommand({ kind: 'move-nodes'")
     expect(canvasLayout).toContain('snapNodePosition(')
@@ -518,11 +542,13 @@ describe('workflow authoring foundations', () => {
   it('projects subgraph boundaries from the canonical Source interface', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const boundary = readSource('src/app/editor/workflowGraphBoundary.ts')
+    const authoring = readSource('src/app/editor/useWorkflowConnectionAuthoring.ts')
     const panel = readSource('src/app/editor/WorkflowGraphInterfacePanel.vue')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
 
-    expect(editor).toContain('<WorkflowGraphBoundary')
+    expect(canvas).toContain('<WorkflowGraphBoundary')
     expect(editor).toContain('<WorkflowGraphInterfacePanel')
-    expect(editor).toContain('session.bindGraphBoundary(boundary)')
+    expect(authoring).toContain('options.session.bindGraphBoundary(boundary)')
     expect(boundary).toContain("type: 'graph-boundary'")
     expect(boundary).not.toContain("kind: 'add-node'")
     expect(panel).toContain('graph.entries')
@@ -533,13 +559,14 @@ describe('workflow authoring foundations', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const boundary = readSource('src/app/editor/WorkflowGraphBoundary.vue')
     const panel = readSource('src/app/editor/WorkflowGraphInterfacePanel.vue')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
 
     expect(editor).toContain('canInferGraphInterface')
     expect(editor).toContain(':infer-disabled="!canInferGraphInterface.valid"')
     expect(panel).toContain(':disabled="inferDisabled"')
-    expect(editor).toContain('v-if="session.currentGraph?.kind === \'main\'"')
-    expect(editor).toContain('data-testid="workflow-subgraph-empty-hint"')
-    expect(editor).toContain('pointer-events-none')
+    expect(canvas).toContain("graphKind === 'main'")
+    expect(canvas).toContain('data-testid="workflow-subgraph-empty-hint"')
+    expect(canvas).toContain('pointer-events-none')
     expect(boundary).toContain('min-w-0 truncate')
   })
 
@@ -547,10 +574,12 @@ describe('workflow authoring foundations', () => {
     const editor = readSource('src/views/WorkflowEditorView.vue')
     const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     const toolbarModel = readSource('src/app/editor/editorToolbarModel.ts')
+    const nodeSearch = readSource('src/app/editor/useWorkflowNodeSearch.ts')
     expect(toolbarModel).toContain("testId: 'workflow-find-node'")
     expect(keyboard).toContain("if (key === 'f')")
-    expect(editor).toContain('session.source?.graphs')
-    expect(editor).toContain('await focusNode([result.graphId], result.nodeId)')
+    expect(editor).toContain('useWorkflowNodeSearch({')
+    expect(nodeSearch).toContain('options.source.value?.graphs')
+    expect(nodeSearch).toContain('await options.focusNode([result.graphId], result.nodeId)')
   })
 
   it('opens contextual quick add from Tab and inserts snippets through safe shortcuts', () => {
@@ -558,9 +587,11 @@ describe('workflow authoring foundations', () => {
     const keyboard = readSource('src/app/editor/editorKeyboard.ts')
     const quickAdd = readSource('src/app/editor/WorkflowQuickAddMenu.vue')
     const snippetModal = readSource('src/app/editor/WorkflowSnippetModal.vue')
-    expect(editor).toContain('<WorkflowQuickAddMenu')
+    const dialogs = readSource('src/app/editor/WorkflowEditorDialogs.vue')
+    const canvas = readSource('src/app/editor/WorkflowEditorCanvas.vue')
+    expect(dialogs).toContain('<WorkflowQuickAddMenu')
     expect(keyboard).toContain("event.key === 'Tab'")
-    expect(editor).toContain('@pointermove.capture="trackCanvasPointer"')
+    expect(canvas).toContain("emit('track-pointer', $event)")
     expect(editor).toContain('shortcutFromKeyboardEvent(event)')
     expect(editor).toContain('useSnippet(action.snippetID, canvasInsertionPosition())')
     expect(quickAdd).toContain('workflow-quick-add-search')
@@ -570,8 +601,20 @@ describe('workflow authoring foundations', () => {
     expect(quickAdd).not.toContain('{{ item.categoryLabel }}')
     expect(quickAdd).toContain('<Teleport to="body">')
     expect(quickAdd).toContain('@mouseenter="previewCategory(entry.value)"')
-    expect(editor).toContain(':anchor="quickAddAnchor"')
+    expect(dialogs).toContain(':anchor="quickAddAnchor"')
     expect(snippetModal).toContain('<HotkeyCaptureInput')
+  })
+
+  it('keeps edge highlighting, additive selection, and batch insertion visible in the editor', () => {
+    const quickAdd = readSource('src/app/editor/useWorkflowQuickAdd.ts')
+    const selection = readSource('src/app/editor/EditorSelectionController.ts')
+    const styles = readSource('src/views/WorkflowEditorView.css')
+    const edges = readSource('src/app/editor/useWorkflowEdgeInteractions.ts')
+    expect(edges).toContain('selectedEdgeIds.value.has(edgeId(edge))')
+    expect(edges).toContain('source?.ctrlKey || source?.metaKey')
+    expect(quickAdd).toContain('session.insertNodesIntoSignalEdges(')
+    expect(selection).toContain("kind: 'select-edge'")
+    expect(styles).toContain('.vue-flow__edge.selected .vue-flow__edge-path')
   })
 
   it('uses the viewport-native context menu instead of a node-local hidden anchor', () => {

@@ -841,11 +841,14 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import MacroActionEditor from '@/components/recording/MacroActionEditor.vue'
 import PreciseRecordingWorkbench from '@/components/recording/PreciseRecordingWorkbench.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
+import {
+  useAssetLibraryBrowse,
+  type AssetLibraryTab,
+} from '@/app/asset-library/useAssetLibraryBrowse'
 
-type AssetTab = 'macros' | 'clips' | 'templates'
+type AssetTab = AssetLibraryTab
 type ResourceAction = 'macro' | 'precise' | 'template' | 'blank-macro' | 'recapture'
 type AssetColumn = 'category' | 'tags' | 'details' | 'createdAt'
-type DateRange = 'all' | 'today' | '7d' | '30d' | '90d'
 type AssetItem = {
   id: string
   kind: AssetTab
@@ -860,7 +863,6 @@ type AssetItem = {
   source: AssetSummary
 }
 type AssetMetadataDraft = { category: string; tags: string[] }
-const allCategories = '__all__'
 const defaultColumns: AssetColumn[] = ['category', 'tags', 'details', 'createdAt']
 
 const { t } = useI18n()
@@ -868,25 +870,51 @@ const toast = useToast()
 const { confirm } = useConfirm()
 const settings = useSettingsStore()
 const assets = useAssetsStore()
+const assetBrowse = useAssetLibraryBrowse({
+  queryAssets: (query) => assets.query(query),
+  recentGUIDs: () => assets.recentGUIDs ?? [],
+  translate: (key, params) => t(key, params ?? {}),
+  showError,
+})
+const {
+  activeTab,
+  queryInput,
+  categoryFilter,
+  tagFilters,
+  createdRange,
+  categories,
+  tags,
+  sort,
+  page,
+  pageSize,
+  total,
+  assetPage,
+  loading,
+  selected,
+  selectedRows,
+  hasLibraryFilters,
+  resultStart,
+  resultEnd,
+  allCurrentPageSelected,
+  sortItems,
+  createdRangeItems,
+  pageSizeItems,
+  categoryFilterItems,
+  tagOptions,
+  refresh: refreshAssets,
+  applyQuery,
+  changeQuery,
+  resetLibraryFilters,
+  goToPage,
+  toggleAsset,
+  toggleCurrentPage,
+  clearSelection,
+  retainFailedSelection,
+} = assetBrowse
 const recording = useRecordingStore()
 const { starting: recordingStarting, start: beginRecording } = useRecordingStart()
 const { show: showRecordingStartError } = useRecordingStartFeedback()
-const activeTab = ref<AssetTab>('macros')
-const queryInput = ref('')
-const query = ref('')
-const categoryFilter = ref(allCategories)
-const tagFilters = ref<string[]>([])
-const createdRange = ref<DateRange>('all')
-const categories = ref<Array<{ value: string; count: number }>>([])
-const tags = ref<Array<{ value: string; count: number }>>([])
-const sort = ref('recent_desc')
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
 const visibleColumns = ref<AssetColumn[]>(loadColumns())
-const assetPage = ref<AssetSummary[]>([])
-const loading = ref(false)
-const selected = ref<Record<string, AssetSummary>>({})
 const batchEditing = ref(false)
 const batchBusy = ref(false)
 const batchDraft = reactive(createBatchMetadataDraft())
@@ -941,47 +969,6 @@ const recordingDraft = reactive({ name: '', description: '', category: '', tags:
 const createdCategories = ref<string[]>([])
 const createdTags = ref<string[]>([])
 const previewStates = reactive<Record<string, 'loading' | 'ready' | 'unavailable'>>({})
-const selectedRows = computed(() => Object.values(selected.value))
-const hasLibraryFilters = computed(() =>
-  Boolean(
-    query.value ||
-    categoryFilter.value !== allCategories ||
-    tagFilters.value.length ||
-    createdRange.value !== 'all',
-  ),
-)
-const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
-const resultStart = computed(() => (total.value ? (page.value - 1) * pageSize.value + 1 : 0))
-const resultEnd = computed(() => Math.min(page.value * pageSize.value, total.value))
-const allCurrentPageSelected = computed(
-  () => assetPage.value.length > 0 && assetPage.value.every((asset) => selected.value[asset.guid]),
-)
-const sortItems = computed(() => [
-  { label: t('assets.sort_recent_desc'), value: 'recent_desc' },
-  { label: t('assets.sort_name_asc'), value: 'name_asc' },
-  { label: t('assets.sort_name_desc'), value: 'name_desc' },
-  { label: t('assets.sort_created_desc'), value: 'created_desc' },
-])
-const createdRangeItems = computed(() => [
-  { label: t('assets.created_any'), value: 'all' },
-  { label: t('assets.created_today'), value: 'today' },
-  { label: t('assets.created_days', { n: 7 }), value: '7d' },
-  { label: t('assets.created_days', { n: 30 }), value: '30d' },
-  { label: t('assets.created_days', { n: 90 }), value: '90d' },
-])
-const pageSizeItems = [
-  { label: '20', value: 20 },
-  { label: '50', value: 50 },
-  { label: '100', value: 100 },
-]
-const categoryFilterItems = computed(() => [
-  { label: t('assets.all_categories'), value: allCategories },
-  ...categories.value.map((item) => ({
-    label: `${item.value} (${item.count})`,
-    value: item.value,
-  })),
-])
-const tagOptions = computed(() => tags.value.map((item) => item.value))
 const columnOptions = computed<Array<{ key: AssetColumn; label: string }>>(() => [
   { key: 'category', label: t('common.category') },
   { key: 'tags', label: t('common.tags') },
@@ -1249,83 +1236,6 @@ watch(
   },
 )
 
-async function refreshAssets(): Promise<void> {
-  loading.value = true
-  try {
-    const result = await assets.query({
-      search: query.value,
-      kind:
-        activeTab.value === 'macros' ? 'macro' : activeTab.value === 'clips' ? 'clip' : 'template',
-      category: categoryFilter.value === allCategories ? '' : categoryFilter.value.trim(),
-      tags: tagFilters.value,
-      createdSince: rangeStart(createdRange.value),
-      sort: sort.value,
-      page: page.value,
-      pageSize: pageSize.value,
-      thumbnailBudget: pageSize.value,
-      recentGUIDs: assets.recentGUIDs,
-    })
-    assetPage.value = result?.items ?? []
-    total.value = result?.total ?? 0
-    categories.value = result?.categories ?? []
-    tags.value = result?.tags ?? []
-    if (page.value > pageCount.value) {
-      page.value = pageCount.value
-      await refreshAssets()
-    }
-  } catch (error) {
-    showError(t('assets.load_failed'), error)
-  } finally {
-    loading.value = false
-  }
-}
-
-async function applyQuery(): Promise<void> {
-  query.value = queryInput.value.trim()
-  page.value = 1
-  await refreshAssets()
-}
-
-async function changeQuery(): Promise<void> {
-  page.value = 1
-  await refreshAssets()
-}
-
-async function resetLibraryFilters(): Promise<void> {
-  queryInput.value = ''
-  query.value = ''
-  categoryFilter.value = allCategories
-  tagFilters.value = []
-  createdRange.value = 'all'
-  await changeQuery()
-}
-
-async function goToPage(next: number): Promise<void> {
-  if (next < 1 || next > pageCount.value || next === page.value) return
-  page.value = next
-  await refreshAssets()
-}
-
-function toggleAsset(asset: AssetSummary, checked: boolean): void {
-  const next = { ...selected.value }
-  if (checked) next[asset.guid] = asset
-  else delete next[asset.guid]
-  selected.value = next
-}
-
-function toggleCurrentPage(checked: boolean): void {
-  const next = { ...selected.value }
-  for (const asset of assetPage.value) {
-    if (checked) next[asset.guid] = asset
-    else delete next[asset.guid]
-  }
-  selected.value = next
-}
-
-function clearSelection(): void {
-  selected.value = {}
-}
-
 function setColumnVisible(column: AssetColumn, visible: boolean): void {
   const current = new Set(visibleColumns.value)
   if (visible) current.add(column)
@@ -1345,14 +1255,6 @@ function loadColumns(): AssetColumn[] {
   } catch {
     return [...defaultColumns]
   }
-}
-
-function rangeStart(range: DateRange): string {
-  if (range === 'all') return ''
-  const start = new Date()
-  if (range === 'today') start.setHours(0, 0, 0, 0)
-  else start.setDate(start.getDate() - Number.parseInt(range, 10))
-  return start.toISOString()
 }
 
 function openBatchEdit(): void {
@@ -1418,15 +1320,6 @@ async function deleteSelected(): Promise<void> {
   } finally {
     batchBusy.value = false
   }
-}
-
-function retainFailedSelection(guids: string[]): void {
-  const failed = new Set(guids)
-  selected.value = Object.fromEntries(
-    selectedRows.value
-      .filter((asset) => failed.has(asset.guid))
-      .map((asset) => [asset.guid, asset]),
-  )
 }
 
 async function startRecording(mode: RecordingMode): Promise<void> {

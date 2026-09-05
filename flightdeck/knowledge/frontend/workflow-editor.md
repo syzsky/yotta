@@ -8,6 +8,11 @@
 | 当前 Source、revision、selection domain、undo/save commands | `frontend/src/app/editor/EditorSession.ts` |
 | 创建 session 与 transport | `createEditorSession.ts`、`frontend/src/app/transport/workflow.ts` |
 | layout、selection、run、resource 等动作 | `Editor*Controller.ts` |
+| 面板布局、节点搜索、连线创作、Runtime Workbench | `useEditorPanelLayout.ts`、`useWorkflowNodeSearch.ts`、`useWorkflowConnectionAuthoring.ts`、`useWorkflowRuntimeWorkbench.ts` |
+| 子图接口/调用/定义生命周期 | `useWorkflowSubgraphManagement.ts` |
+| Workflow Resource 捕获/绑定与 Snippet 创作 | `useWorkflowResourceAuthoring.ts`、`useWorkflowSnippetAuthoring.ts` |
+| Quick Add、Canvas 手势/辅助、变量创作、拖放与连线投影 | `useWorkflowQuickAdd.ts`、`useWorkflowCanvasGestures.ts`、`useWorkflowCanvasAssist.ts`、`useWorkflowStateAuthoring.ts`、`useWorkflowEditorDrop.ts`、`useWorkflowEdgeInteractions.ts` |
+| Vue Flow 画布、创作对话层、录制与资源编辑对话层 | `WorkflowEditorCanvas.vue`、`WorkflowEditorDialogs.vue`、`WorkflowRecordingDialogs.vue` |
 | Source node → Vue Flow node 投影 | `workflowFlowProjection.ts` |
 | canvas gesture props | `workflowCanvasInteraction.ts` |
 | node/inspector/value editor | `frontend/src/app/editor/WorkflowNode.vue`、`WorkflowInspector.vue`、`WorkflowValueEditor.vue` |
@@ -19,7 +24,8 @@ revision CAS、保存、运行或资源副作用重新塞进 Vue component watch
 
 - Workflow Source/EditorSession 是持久事实；只有 drag-stop、typed patch 等明确 command 才写回 position、
   config、edge 或 selection domain。
-- Vue Flow store 拥有瞬时 drag position、marquee 和 selected state。外部 `flowNodes` projection 不携带
+- Vue Flow store 拥有瞬时 drag position、marquee 和 selected state。拆出 Canvas component 后，父级通过
+  `flow-init` 使用真实 Canvas store，不能继续使用父级预创建的同名 store。外部 `flowNodes` projection 不携带
   `selected`，也不能在每次 Source/selection refresh 用旧 position 覆盖内部 live position。
 - 拖拽中的位置来自 `event.node.position` 或 live gesture overlay；不能从外部 computed nodes 回读。
 - 当前 graph 共用一台 Vue Flow camera；切 graph 时保存/恢复 graph viewport，不能为嵌套层级创建第二个

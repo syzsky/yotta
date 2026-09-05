@@ -818,23 +818,48 @@ export class EditorSession {
     nodeTypeId: string,
     position: { x: number; y: number },
   ): string {
-    if (edge.channel === 'data') throw new Error('data edges require an explicit typed insertion')
+    return this.insertNodesIntoSignalEdges([edge], nodeTypeId, [position])[0]!
+  }
+
+  insertNodesIntoSignalEdges(
+    edges: Edge[],
+    nodeTypeId: string,
+    positions: Array<{ x: number; y: number }>,
+  ): string[] {
+    if (!edges.length || edges.length !== positions.length) {
+      throw new Error('selected signal edges and insertion positions must align')
+    }
+    if (edges.some((edge) => edge.channel === 'data')) {
+      throw new Error('data edges require an explicit typed insertion')
+    }
     const graph = this.currentGraph
     const projection = this.projections.get(nodeTypeId)
     if (!graph || !projection) throw new Error('workflow node projection is unavailable')
-    const input = projection.signals.find(
-      (signal) => signal.direction === 'input' && signal.channel === edge.channel,
-    )
-    const output = projection.signals.find(
-      (signal) => signal.direction === 'output' && signal.channel === edge.channel,
-    )
-    if (!input || !output) throw new Error('node cannot be inserted into the selected signal edge')
-    const nodeId = uniqueNodeId(graph, this.idFactory)
-    this.apply({
-      kind: 'batch',
-      commands: [
+    const shadow = clone(graph)
+    const nodeIds: string[] = []
+    const commands: EditorCommand[] = []
+    for (const [index, edge] of edges.entries()) {
+      const input = projection.signals.find(
+        (signal) => signal.direction === 'input' && signal.channel === edge.channel,
+      )
+      const output = projection.signals.find(
+        (signal) => signal.direction === 'output' && signal.channel === edge.channel,
+      )
+      if (!input || !output) {
+        throw new Error('node cannot be inserted into every selected signal edge')
+      }
+      const nodeId = uniqueNodeId(shadow, this.idFactory)
+      nodeIds.push(nodeId)
+      shadow.nodes.push({
+        id: nodeId,
+        nodeRef: clone(projection.nodeRef),
+        position: clone(positions[index]!),
+        config: {},
+        bindings: {},
+      })
+      commands.push(
         { kind: 'disconnect', edge: clone(edge) },
-        { kind: 'add-node', nodeTypeId, nodeId, position: clone(position) },
+        { kind: 'add-node', nodeTypeId, nodeId, position: clone(positions[index]!) },
         {
           kind: 'connect',
           edge: {
@@ -851,9 +876,10 @@ export class EditorSession {
             to: clone(edge.to),
           },
         },
-      ],
-    })
-    return nodeId
+      )
+    }
+    this.apply({ kind: 'batch', commands })
+    return nodeIds
   }
 
   moveNodes(positions: Array<{ nodeId: string; position: { x: number; y: number } }>): void {
@@ -1220,6 +1246,12 @@ export class EditorSession {
           },
           'workflow.checkDraft',
         )
+      }
+      if (commands.length === 0) {
+        const persisted = await this.transport.getSource(this.workflowId)
+        this.acceptSource(persisted)
+        this.phase = 'ready'
+        return persisted
       }
       let patched
       try {

@@ -22,7 +22,7 @@ describe('SettingsView navigation', () => {
     expect(source).toContain('class="settings-shell"')
     expect(source).toContain(':data-settings-theme="activeKey"')
     expect(source).toContain('class="settings-tabpanel')
-    expect(source).toContain('<SettingsPageHeader')
+    expect(source).not.toContain('<SettingsPageHeader')
     expect(source).toContain('<KeepAlive>')
   })
 })

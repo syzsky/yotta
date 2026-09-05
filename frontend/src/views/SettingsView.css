@@ -119,51 +119,6 @@
     background: color-mix(in oklab, var(--settings-accent) 1%, var(--ui-bg));
   }
 
-  .settings-page-header {
-    flex: none;
-    border-bottom: 1px solid var(--settings-section-border);
-    background: color-mix(in oklab, var(--settings-accent) 2.5%, var(--ui-surface));
-  }
-
-  .settings-page-header__inner {
-    display: flex;
-    width: 100%;
-    max-width: 1040px;
-    margin-inline: auto;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 24px 32px 20px;
-  }
-
-  .settings-page-header__icon {
-    display: flex;
-    width: 40px;
-    height: 40px;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid color-mix(in oklab, var(--settings-accent) 28%, var(--ui-border));
-    border-radius: 10px;
-    color: var(--settings-accent);
-    background: color-mix(in oklab, var(--settings-accent) 9%, var(--ui-bg));
-  }
-
-  .settings-page-header__title {
-    color: var(--ui-text-highlighted);
-    font-size: 18px;
-    font-weight: 650;
-    line-height: 24px;
-  }
-
-  .settings-page-header__description {
-    max-width: 68ch;
-    margin-top: 4px;
-    color: color-mix(in oklab, var(--settings-accent) 10%, var(--ui-text-muted));
-    font-size: 12px;
-    line-height: 18px;
-  }
-
   .settings-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(160px, auto);
@@ -412,7 +367,6 @@
       display: none;
     }
 
-    .settings-page-header__inner,
     .settings-page {
       padding-inline: 20px;
     }

@@ -45,6 +45,14 @@ describe('settings visual system', () => {
     expect(automation).toContain('class="settings-collection"')
   })
 
+  it('starts settings content directly without a redundant page header', () => {
+    const view = readSource('src/views/SettingsView.vue')
+    const styles = readSource('src/views/SettingsView.css')
+    expect(view).not.toContain('SettingsPageHeader')
+    expect(styles).not.toContain('.settings-page-header')
+    expect(view).toContain('class="settings-tabpanel min-h-0 min-w-0 flex-1 overflow-auto')
+  })
+
   it('keeps double-click editing as an accelerator with a visible edit command', () => {
     const applications = readSource('src/views/SettingsApplications.vue')
     const automation = readSource('src/views/SettingsAutomation.vue')

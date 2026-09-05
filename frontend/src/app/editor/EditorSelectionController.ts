@@ -8,6 +8,7 @@ export type EditorSelectionCommand =
   | { kind: 'copy' }
   | { kind: 'cut' }
   | { kind: 'paste' }
+  | { kind: 'select-edge'; edgeId: string; additive: boolean }
   | { kind: 'select-inserted'; nodeIds: string[] }
 
 interface WorkflowSelectionClipboard {
@@ -23,7 +24,7 @@ interface EditorSelectionDependencies<TFlowNode> {
   session: EditorSession
   selectedNodeId: Ref<string>
   selectedNodeIds: Ref<Set<string>>
-  selectedEdgeId: Ref<string>
+  selectedEdgeIds: Ref<Set<string>>
   selectedFlowNodes: () => TFlowNode[]
   findNode: (nodeId: string) => TFlowNode | undefined
   addSelectedNodes: (nodes: TFlowNode[]) => void
@@ -62,6 +63,9 @@ export function createEditorSelectionController<TFlowNode>(
       case 'paste':
         await pasteSelection()
         return
+      case 'select-edge':
+        selectEdge(command.edgeId, command.additive)
+        return
       case 'select-inserted':
         await selectInsertedNodes(command.nodeIds)
     }
@@ -71,7 +75,7 @@ export function createEditorSelectionController<TFlowNode>(
     deps.removeSelectedNodes(deps.selectedFlowNodes())
     deps.selectedNodeId.value = ''
     deps.selectedNodeIds.value = new Set()
-    deps.selectedEdgeId.value = ''
+    deps.selectedEdgeIds.value = new Set()
   }
 
   function removeSelection(): void {
@@ -96,7 +100,8 @@ export function createEditorSelectionController<TFlowNode>(
       deps.selectedNodeIds.value = new Set()
       return
     }
-    if (deps.selectedEdgeId.value) deps.disconnectEdge(deps.selectedEdgeId.value)
+    for (const edgeId of deps.selectedEdgeIds.value) deps.disconnectEdge(edgeId)
+    deps.selectedEdgeIds.value = new Set()
   }
 
   function duplicateSelection(): void {
@@ -161,6 +166,21 @@ export function createEditorSelectionController<TFlowNode>(
     if (nodes.length) deps.addSelectedNodes(nodes)
     deps.selectedNodeIds.value = new Set(nodeIds)
     deps.selectedNodeId.value = nodeIds.at(-1) ?? ''
+    deps.selectedEdgeIds.value = new Set()
+  }
+
+  function selectEdge(edgeId: string, additive: boolean): void {
+    deps.removeSelectedNodes(deps.selectedFlowNodes())
+    deps.selectedNodeId.value = ''
+    deps.selectedNodeIds.value = new Set()
+    if (!additive) {
+      deps.selectedEdgeIds.value = new Set([edgeId])
+      return
+    }
+    const selected = new Set(deps.selectedEdgeIds.value)
+    if (selected.has(edgeId)) selected.delete(edgeId)
+    else selected.add(edgeId)
+    deps.selectedEdgeIds.value = selected
   }
 
   return { execute }

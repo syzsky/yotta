@@ -13,6 +13,8 @@ const workbench = read('WorkflowRuntimeWorkbench.vue')
 const node = read('WorkflowNode.vue')
 const valueEditor = read('WorkflowValueEditor.vue')
 const durationEditor = read('DurationValueEditor.vue')
+const runtimeWorkbench = read('useWorkflowRuntimeWorkbench.ts')
+const canvas = read('WorkflowEditorCanvas.vue')
 const editor = readFileSync(join(process.cwd(), 'src/views/WorkflowEditorView.vue'), 'utf8')
 
 describe('workflow runtime inspection UI', () => {
@@ -30,7 +32,7 @@ describe('workflow runtime inspection UI', () => {
     expect(editor).toContain('breakpoints: debugBreakpoints()')
     expect(runController).toContain('dependencies.session.startDebug(breakpoints)')
     expect(runController).toContain('dependencies.session.controlDebug(action)')
-    expect(editor).toContain('breakpointKeys')
+    expect(runtimeWorkbench).toContain('breakpointKeys')
     expect(debuggerPanel).toContain("emit('step')")
     expect(debuggerPanel).toContain("emit('continue')")
     expect(debuggerPanel).toContain("emit('pause')")
@@ -69,8 +71,8 @@ describe('workflow runtime inspection UI', () => {
   })
 
   it('represents an unset target through the placeholder instead of an invalid empty select item', () => {
-    expect(editor).toContain('workflow.target_default.placeholder')
-    expect(editor).toContain('workflow.target_default.clear')
+    expect(canvas).toContain('workflow.target_default.placeholder')
+    expect(canvas).toContain('workflow.target_default.clear')
     expect(editor).not.toContain("label: t('workflow.target_default.none'), value: ''")
   })
 

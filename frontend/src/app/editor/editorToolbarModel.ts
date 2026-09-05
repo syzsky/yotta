@@ -266,10 +266,7 @@ export function buildEditorToolbarModel(context: EditorToolbarContext): EditorTo
       active: context.aiPanelOpen,
     }),
     tools: [
-      [
-        action('toggle-inspector', { active: context.inspectorOpen }),
-        action('toggle-state', { active: context.statePanelOpen }),
-      ],
+      [action('toggle-inspector', { active: context.inspectorOpen })],
       executionTools,
       [action('settings'), action('reload')],
     ],

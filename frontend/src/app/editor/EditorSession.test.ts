@@ -109,6 +109,82 @@ describe('EditorSession', () => {
     expect(session.dirty).toBe(true)
   })
 
+  it('does not persist stale commands for a temporary node that was removed before save', async () => {
+    const source = emptySource()
+    source.graphs[0]!.nodes.push({
+      id: 'start',
+      nodeRef: runStarted.nodeRef,
+      position: { x: 0, y: 0 },
+      config: {},
+      bindings: {},
+    })
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport, () => 'temporary_delay')
+    await session.load(source.workflow.id)
+
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: delay.nodeRef.nodeTypeId,
+      position: { x: 200, y: 0 },
+    })
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'exec',
+        from: { nodeId: 'start', portId: 'started' },
+        to: { nodeId: 'temporary_delay', portId: 'in' },
+      },
+    })
+    session.removeNodes(['temporary_delay'])
+
+    await session.save()
+
+    expect(transport.applyPatch).not.toHaveBeenCalled()
+    expect(session.dirty).toBe(false)
+    expect(session.currentGraph?.nodes.map((candidate) => candidate.id)).toEqual(['start'])
+  })
+
+  it('drops earlier edge commands when an existing node is removed before save', async () => {
+    const source = emptySource()
+    source.graphs[0]!.nodes.push(
+      {
+        id: 'start',
+        nodeRef: runStarted.nodeRef,
+        position: { x: 0, y: 0 },
+        config: {},
+        bindings: {},
+      },
+      {
+        id: 'existing_delay',
+        nodeRef: delay.nodeRef,
+        position: { x: 200, y: 0 },
+        config: {},
+        bindings: { 'duration-milliseconds': { kind: 'value', value: 50 } },
+      },
+    )
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+
+    session.apply({
+      kind: 'connect',
+      edge: {
+        channel: 'exec',
+        from: { nodeId: 'start', portId: 'started' },
+        to: { nodeId: 'existing_delay', portId: 'in' },
+      },
+    })
+    session.removeNodes(['existing_delay'])
+    await session.save()
+
+    expect(transport.applyPatch).toHaveBeenCalledWith(source.workflow.id, 0, [
+      {
+        kind: 'remove-node',
+        removeNode: { graphId: 'main', nodeId: 'existing_delay' },
+      },
+    ])
+  })
+
   it('refreshes stale node contracts before saving and running an open editor session', async () => {
     const source = emptySource()
     const staleDigest = `sha256:${'c'.repeat(64)}`
@@ -838,6 +914,48 @@ describe('EditorSession', () => {
     session.undo()
     expect(session.currentGraph?.nodes.map((node) => node.id)).toEqual(['first', 'second'])
     expect(session.currentGraph?.edges).toEqual([edge])
+  })
+
+  it('inserts one node into each selected signal edge as one undoable edit', async () => {
+    const source = emptySource()
+    const ids = ['first_a', 'second_a', 'first_b', 'second_b', 'inserted_a', 'inserted_b']
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => ids.shift() ?? 'unused',
+    )
+    await session.load(source.workflow.id)
+    for (const position of [0, 500, 200, 700]) {
+      session.apply({
+        kind: 'add-node',
+        nodeTypeId: delay.nodeRef.nodeTypeId,
+        position: { x: position, y: position >= 200 && position < 500 ? 200 : 0 },
+      })
+    }
+    const edges = [
+      {
+        channel: 'exec' as const,
+        from: { nodeId: 'first_a', portId: 'done' },
+        to: { nodeId: 'second_a', portId: 'in' },
+      },
+      {
+        channel: 'exec' as const,
+        from: { nodeId: 'first_b', portId: 'done' },
+        to: { nodeId: 'second_b', portId: 'in' },
+      },
+    ]
+    session.applyBatch(edges.map((edge) => ({ kind: 'connect', edge })))
+
+    expect(
+      session.insertNodesIntoSignalEdges(edges, delay.nodeRef.nodeTypeId, [
+        { x: 250, y: 0 },
+        { x: 450, y: 200 },
+      ]),
+    ).toEqual(['inserted_a', 'inserted_b'])
+    expect(session.currentGraph?.nodes).toHaveLength(6)
+    expect(session.currentGraph?.edges).toHaveLength(4)
+    session.undo()
+    expect(session.currentGraph?.nodes).toHaveLength(4)
+    expect(session.currentGraph?.edges).toEqual(edges)
   })
 
   it('inserts an invoke node directly from a failure output', async () => {
@@ -2379,5 +2497,8 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     chooseRunTimelineDestination: vi.fn(async () => ''),
     exportRunTimeline: vi.fn(async () => ({ path: '', entries: run.timelineTotal })),
     getAuthoringProjection: vi.fn(async () => JSON.stringify(authoring)),
+    searchRegistry: vi.fn(async () => ({ items: [], facets: { categories: [], tags: [] } })),
+    publishSourceToRegistry: vi.fn(async () => ({}) as never),
+    installRegistryWorkflow: vi.fn(async () => saved),
   }
 }

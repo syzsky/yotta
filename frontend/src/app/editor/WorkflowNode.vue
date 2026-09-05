@@ -259,10 +259,13 @@ const emit = defineEmits<{
 const { t, te } = useI18n()
 
 const title = computed(() => {
-  if (props.node.label) return props.node.label
-  if (props.projection.titleKey && te(props.projection.titleKey))
-    return t(props.projection.titleKey)
-  return props.node.nodeRef.nodeTypeId.split('/').filter(Boolean).at(-2) ?? props.node.id
+  const typeTitle =
+    props.projection.titleKey && te(props.projection.titleKey)
+      ? t(props.projection.titleKey)
+      : (props.node.nodeRef.nodeTypeId.split('/').filter(Boolean).at(-2) ?? props.node.id)
+  return props.node.label
+    ? t('workflow.node.labeled_title', { label: props.node.label, type: typeTitle })
+    : typeTitle
 })
 
 const iconName = computed(() => `i-tabler-${props.projection.icon || 'box'}`)

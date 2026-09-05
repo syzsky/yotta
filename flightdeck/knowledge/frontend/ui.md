@@ -21,7 +21,7 @@
   真正需要原生 drag/canvas/semantic element 时可以用裸 HTML，但视觉仍走 semantic token。
 - 普通 modal 使用 `BaseModal`；特殊 command palette、重型 asset browser 或独立 frameless window 可以有
   自己的结构，但不能复制一套全局 modal/颜色规范。
-- 设置页使用 `SettingsPageHeader`、`SettingsSection`、`SettingsRow` 等共享层级；section 内字段不重复套
+- 设置页使用左侧导航、`SettingsSection`、`SettingsRow` 等共享层级；section 内字段不重复套
   完整 card。短数值/端口控件显式限制宽度，长文本/普通表单默认占满可用宽度。
 - 一个任务区只有一个明确主操作；选择态、错误态和禁用态除颜色外还要有文字、图标、边框或形状线索。
 

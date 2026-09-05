@@ -49,7 +49,6 @@ declare module 'vue' {
     ScheduleListPanel: typeof import('./src/components/schedules/ScheduleListPanel.vue')['default']
     SearchableSelect: typeof import('./src/components/common/SearchableSelect.vue')['default']
     SectionHeader: typeof import('./src/components/common/SectionHeader.vue')['default']
-    SettingsPageHeader: typeof import('./src/components/settings/SettingsPageHeader.vue')['default']
     SettingsRestartBadge: typeof import('./src/components/settings/SettingsRestartBadge.vue')['default']
     SettingsRow: typeof import('./src/components/settings/SettingsRow.vue')['default']
     SettingsSaveStatus: typeof import('./src/components/settings/SettingsSaveStatus.vue')['default']

@@ -17,12 +17,12 @@ function createFixture() {
   } as unknown as EditorSession
   const selectedNodeId = ref('')
   const selectedNodeIds = ref(new Set(['node-a', 'call-a', 'note-a']))
-  const selectedEdgeId = ref('')
+  const selectedEdgeIds = ref(new Set<string>())
   const controller = createEditorSelectionController({
     session,
     selectedNodeId,
     selectedNodeIds,
-    selectedEdgeId,
+    selectedEdgeIds,
     selectedFlowNodes: () => [],
     findNode: () => undefined,
     addSelectedNodes: vi.fn(),
@@ -38,7 +38,7 @@ function createFixture() {
   return {
     commands,
     controller,
-    selectedEdgeId,
+    selectedEdgeIds,
     selectedNodeId,
     selectedNodeIds,
   }
@@ -61,7 +61,7 @@ describe('EditorSelectionController', () => {
   it('removes the selected edge when no canvas item is selected', async () => {
     const fixture = createFixture()
     fixture.selectedNodeIds.value = new Set()
-    fixture.selectedEdgeId.value = 'edge-a'
+    fixture.selectedEdgeIds.value = new Set(['edge-a', 'edge-b'])
     const disconnectEdge = vi.fn()
     const controller = createEditorSelectionController({
       session: {
@@ -69,7 +69,7 @@ describe('EditorSelectionController', () => {
       } as unknown as EditorSession,
       selectedNodeId: fixture.selectedNodeId,
       selectedNodeIds: fixture.selectedNodeIds,
-      selectedEdgeId: fixture.selectedEdgeId,
+      selectedEdgeIds: fixture.selectedEdgeIds,
       selectedFlowNodes: () => [],
       findNode: () => undefined,
       addSelectedNodes: vi.fn(),
@@ -82,7 +82,9 @@ describe('EditorSelectionController', () => {
 
     await controller.execute({ kind: 'remove' })
 
-    expect(disconnectEdge).toHaveBeenCalledWith('edge-a')
+    expect(disconnectEdge).toHaveBeenNthCalledWith(1, 'edge-a')
+    expect(disconnectEdge).toHaveBeenNthCalledWith(2, 'edge-b')
+    expect(fixture.selectedEdgeIds.value.size).toBe(0)
   })
 
   it('clears both Vue Flow and editor selection state', async () => {
@@ -93,7 +95,7 @@ describe('EditorSelectionController', () => {
       session: {} as EditorSession,
       selectedNodeId: ref('node-a'),
       selectedNodeIds: fixture.selectedNodeIds,
-      selectedEdgeId: ref('edge-a'),
+      selectedEdgeIds: ref(new Set(['edge-a'])),
       selectedFlowNodes: () => flowNodes,
       findNode: () => undefined,
       addSelectedNodes: vi.fn(),
@@ -108,5 +110,18 @@ describe('EditorSelectionController', () => {
 
     expect(removeSelectedNodes).toHaveBeenCalledWith(flowNodes)
     expect(fixture.selectedNodeIds.value.size).toBe(0)
+  })
+
+  it('supports single and additive edge selection', async () => {
+    const fixture = createFixture()
+    fixture.selectedNodeIds.value = new Set(['node-a'])
+
+    await fixture.controller.execute({ kind: 'select-edge', edgeId: 'edge-a', additive: false })
+    await fixture.controller.execute({ kind: 'select-edge', edgeId: 'edge-b', additive: true })
+    expect(fixture.selectedEdgeIds.value).toEqual(new Set(['edge-a', 'edge-b']))
+    expect(fixture.selectedNodeIds.value.size).toBe(0)
+
+    await fixture.controller.execute({ kind: 'select-edge', edgeId: 'edge-a', additive: true })
+    expect(fixture.selectedEdgeIds.value).toEqual(new Set(['edge-b']))
   })
 })

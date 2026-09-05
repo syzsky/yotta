@@ -3,6 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const source = readFileSync(join(process.cwd(), 'src/views/SettingsAutomation.vue'), 'utf8')
+const draftModel = readFileSync(
+  join(process.cwd(), 'src/app/settings/automationTargetDraft.ts'),
+  'utf8',
+)
 
 describe('SettingsAutomation', () => {
   it('binds configured adapter-specific exact targets behind slots without extra consent', () => {
@@ -29,8 +33,8 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('startWin32WindowTargetCapture')
     expect(source).toContain('cancelWin32WindowTargetCapture')
     expect(source).toContain("useWailsEvent<unknown>('win32windowtarget:captured'")
-    expect(source).toContain('target.windowTitle.trim()')
-    expect(source).toContain('target.windowClass.trim()')
+    expect(draftModel).toContain('target.windowTitle.trim()')
+    expect(draftModel).toContain('target.windowClass.trim()')
     expect(source).toContain('@click="duplicateTarget(target)"')
     expect(source).toContain("addTarget('android-device')")
     expect(source).toContain('backend.automation.listADBDevices()')
@@ -38,22 +42,22 @@ describe('SettingsAutomation', () => {
     expect(source).toContain(':virtualize="androidAppItems(target.adbSerial).length > 40"')
     expect(source).toContain('backend.automation.checkTargetHealth(target.slot)')
     expect(source).toContain('target.adbProduct = selected.product')
-    expect(source).toContain('target.androidPackage?.trim()')
+    expect(draftModel).toContain('target.androidPackage.trim()')
     expect(source).toContain("addTarget('browser-page')")
     expect(source).toContain('backend.automation.listBrowserTargets')
     expect(source).toContain('target.browserWebSocketUrl = selected.webSocketDebuggerUrl')
-    expect(source).toContain('target.browserTargetId?.trim()')
-    expect(source).toContain('target.browserEndpoint?.trim()')
+    expect(draftModel).toContain('target.browserTargetId.trim()')
+    expect(draftModel).toContain('target.browserEndpoint.trim()')
     expect(source).toContain('genericTargetTypes')
     expect(source).toContain('v-for="field in targetFields(target)"')
-    expect(source).toContain('profile: { ...target.profile }')
+    expect(draftModel).toContain('profile: { ...target.profile }')
   })
 
   it('preserves the exact captured Win32 title and class identity', () => {
-    expect(source).toContain('windowTitle: target.windowTitle,')
-    expect(source).toContain('windowClass: target.windowClass,')
-    expect(source).not.toContain('windowTitle: target.windowTitle.trim(),')
-    expect(source).not.toContain('windowClass: target.windowClass.trim(),')
+    expect(draftModel).toContain('windowTitle: target.windowTitle,')
+    expect(draftModel).toContain('windowClass: target.windowClass,')
+    expect(draftModel).not.toContain('windowTitle: target.windowTitle.trim(),')
+    expect(draftModel).not.toContain('windowClass: target.windowClass.trim(),')
     expect(source).toContain("target.windowTitleMatch = 'exact'")
     expect(source).toContain('v-model="target.windowTitleMatch"')
     expect(source).toContain("profileFieldOptions(desktopTargetType.value, 'windowTitleMatch')")
@@ -85,8 +89,10 @@ describe('SettingsAutomation', () => {
     expect(source).toContain('data-testid="automation-target-calibration-inheritance"')
     expect(source).toContain('store.activeMouseCounts360')
     expect(source).toContain('store.data?.ui.activeMouseProfile')
-    expect(source).toContain("mouseCalibrationMode: 'active' | 'custom'")
-    expect(source).toContain("target.mouseCalibrationMode === 'active' ? 0 : target.mouseCounts360")
+    expect(draftModel).toContain("mouseCalibrationMode: 'active' | 'custom'")
+    expect(draftModel).toContain(
+      "target.mouseCalibrationMode === 'active' ? 0 : target.mouseCounts360",
+    )
     expect(source).toContain("query: { section: 'input' }")
   })
 })

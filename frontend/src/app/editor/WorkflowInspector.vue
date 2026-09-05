@@ -49,7 +49,7 @@
           :model-value="node.label || ''"
           :placeholder="t('workflow.inspector.label_placeholder')"
           class="w-full"
-          @change="setLabel"
+          @update:model-value="setLabel"
         />
       </section>
 
@@ -253,12 +253,12 @@ function groupTitle(group: AuthoringGroup): string {
   return t(`workflow.inspector.group_${group}`)
 }
 
-function setLabel(event: Event): void {
+function setLabel(value: string | number): void {
   if (!props.node) return
   emit('command', {
     kind: 'set-node-label',
     nodeId: props.node.id,
-    label: (event.target as HTMLInputElement).value,
+    label: String(value),
   })
 }
 </script>

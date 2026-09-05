@@ -248,7 +248,7 @@ func run(
 		return err
 	}
 	if err := waitUntil(ctx, client, func(state pageState) bool {
-		return state.NodeAddTrigger && state.GraphManager && state.WorkspaceTools == 5 &&
+		return state.NodeAddTrigger && state.GraphManager && state.WorkspaceTools >= 5 &&
 			state.AppContextTitle == ""
 	}); err != nil {
 		return fmt.Errorf("open focused workflow editor: %w", err)
@@ -502,7 +502,7 @@ func run(
 	if err := exerciseDebugger(ctx, client); err != nil {
 		return err
 	}
-	if err := clickRequired(ctx, client, "workflow-state-open"); err != nil {
+	if err := clickRequired(ctx, client, "workflow-workspace-variables"); err != nil {
 		return err
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool { return current.WorkflowState }); err != nil {
@@ -514,7 +514,7 @@ func run(
 	if err := capture(ctx, client, runStateScreenshot); err != nil {
 		return err
 	}
-	if err := clickRequired(ctx, client, "workflow-state-open"); err != nil {
+	if err := clickRequired(ctx, client, "workflow-workspace-graphs"); err != nil {
 		return err
 	}
 	if err := exerciseMultigraph(ctx, client, subgraphScreenshot); err != nil {
@@ -599,7 +599,7 @@ func run(
 	}
 	if err := waitUntil(ctx, client, func(current pageState) bool {
 		return current.ResourceDock && current.ResourceKind == "macro" &&
-			current.ResourceCreate && current.WorkspaceTools == 5
+			current.ResourceCreate && current.WorkspaceTools >= 5
 	}); err != nil {
 		return fmt.Errorf("open macro workspace tool: %w", err)
 	}

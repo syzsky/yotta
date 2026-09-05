@@ -329,6 +329,11 @@ import ScheduleEditorPanel from '@/components/schedules/ScheduleEditorPanel.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
+import {
+  filterSchedules,
+  scheduleFacets,
+  type ScheduleDateRange,
+} from '@/app/schedule-library/scheduleLibraryModel'
 
 type ScheduleColumn =
   | 'category'
@@ -338,7 +343,7 @@ type ScheduleColumn =
   | 'createdAt'
   | 'updatedAt'
   | 'lastFiredAt'
-type DateRange = 'all' | 'today' | '7d' | '30d' | '90d'
+type DateRange = ScheduleDateRange
 
 const defaultColumns: ScheduleColumn[] = [
   'category',
@@ -377,10 +382,10 @@ const createdCategories = ref<string[]>([])
 const createdTags = ref<string[]>([])
 
 const categories = computed(() =>
-  facetValues(store.list.flatMap((schedule) => [schedule.category ?? ''])),
+  scheduleFacets(store.list.flatMap((schedule) => [schedule.category ?? ''])),
 )
 const categoryOptions = computed(() => categories.value.map((item) => item.value))
-const tags = computed(() => facetValues(store.list.flatMap((schedule) => schedule.tags ?? [])))
+const tags = computed(() => scheduleFacets(store.list.flatMap((schedule) => schedule.tags ?? [])))
 const tagOptions = computed(() => tags.value.map((item) => item.value))
 const selectedRows = computed(() => Object.values(selected.value))
 const categoryFilterItems = computed(() => [
@@ -447,34 +452,16 @@ const hasFilters = computed(() =>
   ),
 )
 const filteredSchedules = computed(() => {
-  const query = search.value.trim().toLocaleLowerCase()
-  const createdSince = rangeStart(createdRange.value)
-  const updatedSince = rangeStart(updatedRange.value)
-  return [...store.list]
-    .filter((schedule) => {
-      if (statusFilter.value === 'enabled' && !schedule.enabled) return false
-      if (statusFilter.value === 'disabled' && schedule.enabled) return false
-      if (
-        categoryFilter.value !== allCategories &&
-        (schedule.category ?? '').toLocaleLowerCase() !== categoryFilter.value.toLocaleLowerCase()
-      )
-        return false
-      const scheduleTags = new Set((schedule.tags ?? []).map((tag) => tag.toLocaleLowerCase()))
-      if (tagFilters.value.some((tag) => !scheduleTags.has(tag.toLocaleLowerCase()))) return false
-      if (createdSince && Date.parse(schedule.createdAt) < createdSince) return false
-      if (updatedSince && Date.parse(schedule.updatedAt) < updatedSince) return false
-      if (!query) return true
-      return [
-        schedule.name,
-        schedule.description,
-        schedule.category,
-        schedule.id,
-        ...(schedule.tags ?? []),
-      ]
-        .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase().includes(query))
-    })
-    .sort(compareSchedules)
+  return filterSchedules(store.list, {
+    search: search.value,
+    status: statusFilter.value,
+    category: categoryFilter.value,
+    allCategories,
+    tags: tagFilters.value,
+    createdRange: createdRange.value,
+    updatedRange: updatedRange.value,
+    sort: sort.value,
+  })
 })
 const pageCount = computed(() =>
   Math.max(1, Math.ceil(filteredSchedules.value.length / pageSize.value)),
@@ -768,36 +755,6 @@ function dateRangeItems(kind: 'created' | 'updated') {
     { label: t(`schedule.${prefix}_days`, { n: 30 }), value: '30d' },
     { label: t(`schedule.${prefix}_days`, { n: 90 }), value: '90d' },
   ]
-}
-
-function rangeStart(range: DateRange): number {
-  if (range === 'all') return 0
-  const start = new Date()
-  if (range === 'today') start.setHours(0, 0, 0, 0)
-  else start.setDate(start.getDate() - Number.parseInt(range, 10))
-  return start.getTime()
-}
-
-function compareSchedules(left: Schedule, right: Schedule): number {
-  if (sort.value === 'name_asc') return left.name.localeCompare(right.name)
-  if (sort.value === 'name_desc') return right.name.localeCompare(left.name)
-  if (sort.value === 'created_desc') return Date.parse(right.createdAt) - Date.parse(left.createdAt)
-  if (sort.value === 'last_desc')
-    return Date.parse(right.lastFiredAt ?? '') - Date.parse(left.lastFiredAt ?? '')
-  return Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
-}
-
-function facetValues(values: string[]): Array<{ value: string; count: number }> {
-  const facets = new Map<string, { value: string; count: number }>()
-  for (const raw of values) {
-    const value = raw.trim()
-    const key = value.toLocaleLowerCase()
-    if (!key) continue
-    const current = facets.get(key)
-    if (current) current.count += 1
-    else facets.set(key, { value, count: 1 })
-  }
-  return [...facets.values()].sort((left, right) => left.value.localeCompare(right.value))
 }
 
 function uniqueStrings(values: string[]): string[] {

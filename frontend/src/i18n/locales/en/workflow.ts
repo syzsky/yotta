@@ -624,7 +624,7 @@ export default {
       initial_value: 'Initial value',
       initial_value_hint: 'This value initializes the state at the start of every Run.',
       invalid_initial_json: 'The initial value is not valid JSON. Fix it before saving.',
-      title: 'Workflow state',
+      title: 'Variables',
       hint: 'This belongs to the workflow, not the selected node.',
       empty: 'No Run state variables yet. Add one only when values must persist across nodes.',
       search: 'Search state name or type',
@@ -771,6 +771,7 @@ export default {
     },
     node: {
       disabled: 'Disabled',
+      labeled_title: '{label} ({type})',
       show_optional_inputs: 'Show {n} optional inputs',
       hide_optional_inputs: 'Hide optional inputs',
       port: {

@@ -2,6 +2,12 @@
   stroke-width: 2;
 }
 
+.workflow-flow :deep(.vue-flow__edge.selected .vue-flow__edge-path) {
+  stroke: var(--ui-primary) !important;
+  stroke-width: 4 !important;
+  filter: drop-shadow(0 0 4px color-mix(in oklab, var(--ui-primary) 60%, transparent));
+}
+
 .workflow-flow :deep(.vue-flow__controls),
 .workflow-flow :deep(.vue-flow__minimap) {
   border: 1px solid var(--ui-border);

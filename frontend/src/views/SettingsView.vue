@@ -97,7 +97,6 @@
     </aside>
 
     <section class="settings-content">
-      <SettingsPageHeader :title="t(activeTheme.labelKey)" :icon="activeTheme.icon" />
       <div
         id="settings-tabpanel"
         role="tabpanel"
@@ -126,7 +125,6 @@ import SettingsMCP from './SettingsMCP.vue'
 import SettingsNetwork from './SettingsNetwork.vue'
 import SettingsApplications from './SettingsApplications.vue'
 import SettingsAutomation from './SettingsAutomation.vue'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader.vue'
 import {
   groupSettingsThemes,
   SETTINGS_THEMES,
@@ -165,9 +163,6 @@ function initialTheme(): SettingsThemeKey {
 }
 
 const activeKey = ref<SettingsThemeKey>(initialTheme())
-const activeTheme = computed(
-  () => SETTINGS_THEMES.find((theme) => theme.key === activeKey.value) ?? SETTINGS_THEMES[0],
-)
 const activeComponent = computed(() => componentByTheme[activeKey.value])
 const filteredThemes = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()

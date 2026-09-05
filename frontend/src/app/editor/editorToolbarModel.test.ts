@@ -41,7 +41,6 @@ describe('editor toolbar command hierarchy', () => {
     expect(model.ai?.command).toBe('toggle-ai')
     expect(model.tools.flatMap((group) => commands(group))).toEqual([
       'toggle-inspector',
-      'toggle-state',
       'check-workflow',
       'start-debug',
       'settings',
