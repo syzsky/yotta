@@ -7604,6 +7604,11 @@
           "name": "RegistryWorkflowReleaseView",
           "fields": [
             {
+              "name": "\"downloadCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
               "name": "\"dependencies\"",
               "optional": false,
               "type": "registryclient$0.DependencySummary[]"

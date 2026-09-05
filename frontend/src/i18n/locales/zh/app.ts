@@ -544,6 +544,8 @@ export default {
     'workflow.community.not_found': '这条评价或回复已不存在，请刷新讨论列表。',
     'workflow.community.cancelled': '操作已取消，输入已保留。',
     'workflow.registry.invalid_title': '市场名称须为 1～160 个字符，请修改名称后发布。',
+    'workflow.registry.version_not_increasing':
+      '新版本必须高于已发布的最高版本。请重新打开发布窗口，选择更高版本后重试。',
     'workflow.registry.invalid_summary': '简介须为 1～1000 个字符；较长内容请放到“详细说明”。',
     'workflow.registry.invalid_presentation': '请检查更新说明、示例和截图说明的长度后发布。',
     'workflow.registry.bundle_invalid':

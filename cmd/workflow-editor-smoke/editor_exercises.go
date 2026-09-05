@@ -136,7 +136,14 @@ func exerciseMultigraph(ctx context.Context, client *browsercdp.WebSocketClient,
 		textarea.dispatchEvent(new Event('input', { bubbles: true }));
 		textarea.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
 		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-		const content = annotation.querySelector('[data-testid="workflow-annotation-content"]');
+		// Markdown is lazy-loaded. Two animation frames do not imply that its
+		// module has arrived; wait for the actual preview without weakening it.
+		let content;
+		for (let attempt = 0; attempt < 100; attempt++) {
+			content = annotation.querySelector('[data-testid="workflow-annotation-content"]');
+			if (content?.querySelector('h2') && content.querySelector('strong') && content.querySelectorAll('li').length === 2) break;
+			await new Promise(resolve => setTimeout(resolve, 50));
+		}
 		if (!content?.querySelector('h2') || !content.querySelector('strong') || content.querySelectorAll('li').length !== 2) {
 			throw new Error('annotation Markdown preview did not render basic structure');
 		}

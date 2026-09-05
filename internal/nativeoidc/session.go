@@ -19,6 +19,8 @@ import (
 
 type Browser interface{ OpenURL(string) error }
 
+var ErrAuthenticationRequired = errors.New("native session requires explicit sign-in")
+
 type Config struct {
 	AuthorizationEndpoint string
 	TokenEndpoint         string
@@ -104,6 +106,26 @@ func New(config Config) (*Session, error) {
 func (session *Session) Token(ctx context.Context) (string, error) {
 	session.mu.Lock()
 	defer session.mu.Unlock()
+	return session.tokenLocked(ctx, false)
+}
+
+// Only explicit login actions may open the system browser. API calls can
+// refresh credentials silently, but must return an authentication problem.
+func (session *Session) Login(ctx context.Context) (string, error) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, session.config.LoginTimeout)
+	session.stateMu.Lock()
+	session.cancel = cancel
+	session.stateMu.Unlock()
+	defer func() { cancel(); session.stateMu.Lock(); session.cancel = nil; session.stateMu.Unlock() }()
+	return session.tokenLocked(ctx, true)
+}
+
+func (session *Session) tokenLocked(ctx context.Context, interactive bool) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if session.token != "" && time.Until(session.expiresAt) > time.Minute {
 		return session.token, nil
 	}
@@ -117,15 +139,13 @@ func (session *Session) Token(ctx context.Context) (string, error) {
 		session.profile = Profile{}
 		session.stateMu.Unlock()
 	}
+	if !interactive {
+		return "", ErrAuthenticationRequired
+	}
 	return session.login(ctx)
 }
 
 func (session *Session) login(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, session.config.LoginTimeout)
-	session.stateMu.Lock()
-	session.cancel = cancel
-	session.stateMu.Unlock()
-	defer func() { cancel(); session.stateMu.Lock(); session.cancel = nil; session.stateMu.Unlock() }()
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}

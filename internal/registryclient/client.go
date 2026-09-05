@@ -69,6 +69,7 @@ type Creator struct {
 }
 
 type WorkflowRelease struct {
+	DownloadCount      int64               `json:"downloadCount"`
 	Dependencies       []DependencySummary `json:"dependencies"`
 	Listing            Listing             `json:"listing"`
 	Facts              BundleFacts         `json:"facts"`
@@ -258,7 +259,13 @@ func (client *Client) CreateInstallPlan(ctx context.Context, releaseID string, e
 }
 
 func (client *Client) DownloadArtifact(ctx context.Context, digest string) ([]byte, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+"/v1/artifacts/"+url.PathEscape(digest), nil)
+	return client.downloadVerified(ctx, "/v1/artifacts/"+url.PathEscape(digest), digest)
+}
+func (client *Client) DownloadWorkflow(ctx context.Context, releaseID, digest string) ([]byte, error) {
+	return client.downloadVerified(ctx, "/v1/workflow-releases/"+url.PathEscape(releaseID)+"/download", digest)
+}
+func (client *Client) downloadVerified(ctx context.Context, route, digest string) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+route, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -587,6 +587,16 @@ func TestServicePublishesCanonicalBundleAndSearchesRegistry(t *testing.T) {
 	if err != nil || updated.WorkflowID != first.WorkflowID || updated.Name != "Updated workflow" {
 		t.Fatalf("update = %#v, %v", updated, err)
 	}
+	registry.releaseVersion = "0.9.0"
+	lower, err := consumerService.InstallRegistryWorkflow(context.Background(), "release-old")
+	if err != nil || lower.Revision != updated.Revision {
+		t.Fatalf("downgrade changed source: %#v,%v", lower, err)
+	}
+	installedRecords, err := consumerService.RegistryInstallations()
+	if err != nil || len(installedRecords) != 1 || installedRecords[0].ReleaseVersion != "2.0.0" {
+		t.Fatalf("downgrade changed tracking: %#v,%v", installedRecords, err)
+	}
+	registry.releaseVersion = "2.0.0"
 	// A fresh service must recover the installation record, so a repeat is an open.
 	reopened, err := workflow.NewService(consumer.Application, workflow.WithBundleManager(consumer.Bundles), workflow.WithRegistryClient(registry), workflow.WithRegistryState(statePath))
 	if err != nil {
@@ -599,6 +609,7 @@ func TestServicePublishesCanonicalBundleAndSearchesRegistry(t *testing.T) {
 	if _, err := reopened.UpdateSourceMetadata(updated.WorkflowID, updated.Revision, workflow.UpdateSourceMetadataRequest{Name: "Local edits"}); err != nil {
 		t.Fatal(err)
 	}
+	registry.releaseVersion = "3.0.0"
 	if _, err := reopened.InstallRegistryWorkflow(context.Background(), "release-3"); apperr.From(err).ID != "workflow.registry.local_changes" {
 		t.Fatalf("modified update = %v", err)
 	}
@@ -633,9 +644,10 @@ func TestServiceMapsRegistryVersionConflictToStableProblem(t *testing.T) {
 }
 
 type registryClientFake struct {
-	published publicbundle.Info
-	bundle    []byte
-	err       error
+	releaseVersion string
+	published      publicbundle.Info
+	bundle         []byte
+	err            error
 }
 
 func (client *registryClientFake) PublishWorkflow(ctx context.Context, request registryclient.PublishRequest) (registryclient.WorkflowRelease, error) {
@@ -651,6 +663,7 @@ func (client *registryClientFake) PublishWorkflow(ctx context.Context, request r
 		return registryclient.WorkflowRelease{}, client.err
 	}
 	client.bundle = append([]byte(nil), raw...)
+	client.releaseVersion = request.ReleaseVersion
 	return registryclient.WorkflowRelease{
 		ReleaseID: "release-1", WorkflowID: client.published.WorkflowID,
 		ReleaseVersion: request.ReleaseVersion, Title: request.Title, Summary: request.Summary,
@@ -671,7 +684,7 @@ func (client *registryClientFake) GetWorkflowRelease(context.Context, string) (r
 func (client *registryClientFake) CreateInstallPlan(context.Context, string, registryclient.Environment) (registryclient.InstallPlan, error) {
 	return registryclient.InstallPlan{ResolvedWorkflowRelease: registryclient.WorkflowRelease{
 		ReleaseID: "release-1", BundleDigest: "sha256:" + strings.Repeat("1", 64),
-		WorkflowID: client.published.WorkflowID, SourceHash: string(client.published.SourceHash), ReleaseVersion: "1.0.0",
+		WorkflowID: client.published.WorkflowID, SourceHash: string(client.published.SourceHash), ReleaseVersion: client.releaseVersion,
 	}}, client.err
 }
 

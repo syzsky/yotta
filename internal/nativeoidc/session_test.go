@@ -81,7 +81,7 @@ func TestTokenCompletesAuthorizationCodePKCES256AndReusesToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, err := session.Token(context.Background())
+	first, err := session.Login(context.Background())
 	if err != nil || first != "registry-token" {
 		t.Fatalf("Token = %q, %v", first, err)
 	}
@@ -108,7 +108,7 @@ func TestTokenCancellationStopsLogin(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := session.Token(ctx); err != context.Canceled {
+	if _, err := session.Login(ctx); err != context.Canceled {
 		t.Fatalf("Token error = %v", err)
 	}
 }
@@ -119,7 +119,7 @@ func TestAbandonedBrowserLoginHasDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
-	go func() { _, err := session.Token(context.Background()); done <- err }()
+	go func() { _, err := session.Login(context.Background()); done <- err }()
 	select {
 	case err := <-done:
 		if !errors.Is(err, context.DeadlineExceeded) {

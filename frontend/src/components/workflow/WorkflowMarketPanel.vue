@@ -106,15 +106,11 @@
               }}</strong
               ><UIcon
                 v-if="installationFor(item)"
-                :name="
-                  installationFor(item)?.releaseId === item.releaseId
-                    ? 'i-tabler-circle-check'
-                    : 'i-tabler-refresh'
-                "
+                :name="!hasUpdate(item) ? 'i-tabler-circle-check' : 'i-tabler-refresh'"
                 class="mt-0.5 size-4 shrink-0 text-primary"
                 :aria-label="
                   t(
-                    installationFor(item)?.releaseId === item.releaseId
+                    !hasUpdate(item)
                       ? 'workflow.market.installed'
                       : 'workflow.market.update_available',
                   )
@@ -162,6 +158,14 @@
               />
               <span class="text-primary">{{ creator(selected) }}</span
               ><span aria-hidden="true">·</span><span>{{ selected.releaseVersion }}</span>
+              <span aria-hidden="true">·</span
+              ><span
+                class="inline-flex items-center gap-1"
+                :title="t('workflow.market.download_count_hint')"
+                ><UIcon name="i-tabler-download" class="size-3.5" />{{
+                  t('workflow.market.download_count', { n: selected.downloadCount ?? 0 })
+                }}</span
+              >
             </div>
             <div
               v-if="selected.listing?.category || selected.listing?.tags?.length"
@@ -190,7 +194,7 @@
             <div class="mt-5 flex flex-wrap items-center gap-3">
               <UButton
                 :icon="
-                  installed?.releaseId === selected.releaseId
+                  installed && !hasUpdate(selected)
                     ? 'i-tabler-arrow-up-right'
                     : installed
                       ? 'i-tabler-refresh'
@@ -201,7 +205,7 @@
                 @click="install"
                 >{{
                   t(
-                    installed?.releaseId === selected.releaseId
+                    installed && !hasUpdate(selected)
                       ? 'workflow.market.open_installed'
                       : installed
                         ? 'workflow.market.update'
@@ -378,6 +382,7 @@
 </template>
 
 <script setup lang="ts">
+import { isNewerRelease } from '@/app/workflow-library/releaseVersion'
 import WorkflowMarketIcon from './WorkflowMarketIcon.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -453,13 +458,15 @@ const filters = computed(() => [
 const installationFor = (item: RegistryWorkflowReleaseView) =>
   installations.value.find((entry) => entry.workflowId === item.workflowId)
 const installed = computed(() => (selected.value ? installationFor(selected.value) : undefined))
+const hasUpdate = (item: RegistryWorkflowReleaseView) => {
+  const local = installationFor(item)
+  return Boolean(local && isNewerRelease(item.releaseVersion, local.releaseVersion))
+}
 const visibleItems = computed(() =>
   filter.value === 'installed'
     ? items.value.filter(installationFor)
     : filter.value === 'updates'
-      ? items.value.filter(
-          (item) => installationFor(item) && installationFor(item)?.releaseId !== item.releaseId,
-        )
+      ? items.value.filter((item) => hasUpdate(item))
       : items.value,
 )
 const creator = (item: RegistryWorkflowReleaseView) =>
@@ -564,7 +571,7 @@ async function install() {
   installing.value = true
   installFailure.value = ''
   try {
-    if (installed.value?.releaseId === target.releaseId) {
+    if (installed.value && !hasUpdate(target)) {
       await router.push('/workflows/' + installed.value.workflowId + '/edit')
       return
     }

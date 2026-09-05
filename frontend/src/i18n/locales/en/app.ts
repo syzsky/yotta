@@ -623,6 +623,8 @@ export default {
       'This review or reply is no longer available. Refresh the discussion.',
     'workflow.community.cancelled': 'Cancelled. Your input is preserved.',
     'workflow.registry.invalid_title': 'Use 1–160 characters for the marketplace name.',
+    'workflow.registry.version_not_increasing':
+      'Use a version higher than the highest published version. Reopen the publish form to load the current version and try again.',
     'workflow.registry.invalid_summary':
       'Use 1–1000 characters for the summary. Put longer content in the detailed description.',
     'workflow.registry.invalid_presentation':

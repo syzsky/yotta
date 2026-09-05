@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yottaapp/yotta/internal/apperr"
+	"github.com/yottaapp/yotta/internal/nativeoidc"
 	"github.com/yottaapp/yotta/internal/registryclient"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
 	"github.com/yottaapp/yotta/pkg/version"
@@ -27,6 +28,7 @@ type RegistryCreatorView struct {
 }
 
 type RegistryWorkflowReleaseView struct {
+	DownloadCount      int64                              `json:"downloadCount"`
 	Dependencies       []registryclient.DependencySummary `json:"dependencies"`
 	Listing            registryclient.Listing             `json:"listing"`
 	Facts              registryclient.BundleFacts         `json:"facts"`
@@ -215,6 +217,9 @@ func (s *Service) InstallRegistryWorkflow(ctx context.Context, releaseID string)
 	request := workflowbundle.ImportRequest{Mode: workflowbundle.ImportRegistry}
 	current, currentErr := s.application.GetSource(release.WorkflowID)
 	if currentErr == nil {
+		if record, tracked := records[release.WorkflowID]; tracked && !registryclient.IsNewerWorkflowVersion(release.ReleaseVersion, record.ReleaseVersion) {
+			return sourceView(current, false)
+		}
 		if string(current.Hash()) == release.SourceHash {
 			records[release.WorkflowID] = RegistryInstallation{WorkflowID: release.WorkflowID, ReleaseID: releaseID, ReleaseVersion: release.ReleaseVersion, SourceHash: string(current.Hash())}
 			if err := s.saveRegistryInstallations(records); err != nil {
@@ -234,7 +239,14 @@ func (s *Service) InstallRegistryWorkflow(ctx context.Context, releaseID string)
 	} else if !errors.Is(currentErr, workflowstore.ErrSourceNotFound) {
 		return SourceView{}, sourceError("install", currentErr)
 	}
-	bundle, err := s.registry.DownloadArtifact(ctx, plan.ResolvedWorkflowRelease.BundleDigest)
+	var bundle []byte
+	if downloader, ok := s.registry.(interface {
+		DownloadWorkflow(context.Context, string, string) ([]byte, error)
+	}); ok {
+		bundle, err = downloader.DownloadWorkflow(ctx, releaseID, release.BundleDigest)
+	} else {
+		bundle, err = s.registry.DownloadArtifact(ctx, release.BundleDigest)
+	}
 	if err != nil {
 		return SourceView{}, registryError("download", err)
 	}
@@ -286,8 +298,9 @@ func registryReleaseView(release registryclient.WorkflowRelease) RegistryWorkflo
 		screenshots = append(screenshots, RegistryScreenshotView{URL: screenshot.URL, Alt: screenshot.Alt})
 	}
 	return RegistryWorkflowReleaseView{
-		Dependencies: release.Dependencies,
-		Listing:      release.Listing, Facts: release.Facts,
+		DownloadCount: release.DownloadCount,
+		Dependencies:  release.Dependencies,
+		Listing:       release.Listing, Facts: release.Facts,
 		ReleaseID: release.ReleaseID, PublisherNamespace: release.PublisherNamespace,
 		WorkflowID: release.WorkflowID, ReleaseVersion: release.ReleaseVersion,
 		SourceHash: release.SourceHash, BundleDigest: release.BundleDigest,
@@ -299,7 +312,7 @@ func registryReleaseView(release registryclient.WorkflowRelease) RegistryWorkflo
 }
 
 func registryError(operation string, cause error) error {
-	if errors.Is(cause, registryclient.ErrAuthenticationRequired) {
+	if errors.Is(cause, registryclient.ErrAuthenticationRequired) || errors.Is(cause, nativeoidc.ErrAuthenticationRequired) {
 		return projectError("workflow.registry.authentication_required", apperr.CategoryPolicy, nil, false, cause)
 	}
 	if errors.Is(cause, context.Canceled) {
@@ -311,6 +324,8 @@ func registryError(operation string, cause error) error {
 	var problem registryclient.Problem
 	if errors.As(cause, &problem) {
 		switch problem.Code {
+		case "registry.version_not_increasing":
+			return projectError("workflow.registry.version_not_increasing", apperr.CategoryValidation, nil, false, cause)
 		case "registry.invalid_title":
 			return projectError("workflow.registry.invalid_title", apperr.CategoryValidation, nil, false, cause)
 		case "registry.invalid_summary":

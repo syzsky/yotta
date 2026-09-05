@@ -1,5 +1,22 @@
 export default {
   workflow: {
+    markdown: {
+      edit: '编辑',
+      source: '源码',
+      preview: '预览',
+      empty: '尚未填写内容。',
+      hint: '支持 Markdown · 可切换源码编辑',
+      too_long: '内容超过长度限制，请精简后发布。',
+      bold: '粗体',
+      italic: '斜体',
+      heading: '标题',
+      list: '无序列表',
+      ordered: '有序列表',
+      quote: '引用',
+      code: '代码块',
+      undo: '撤销',
+      redo: '重做',
+    },
     workspace_tools: '工作区工具',
     workspace_resources: '资源工具',
     hotkey: {
@@ -164,6 +181,13 @@ export default {
       member: '用户',
     },
     market: {
+      login_before_publish: '登录后发布工作流',
+      login_keep_draft: '重新登录，保留当前内容',
+      latest_version: '当前最高版本 {version}',
+      version_must_increase: '新版本必须高于当前已发布最高版本。',
+      download_count: '{n} 次下载',
+      download_count_hint:
+        '记录完整工作流文件的下载次数，包含重新下载；不代表独立用户数。统计启用前的下载不追补。',
       loading_previous: '正在读取上次发布的信息…',
       dependencies: '依赖节点包',
       category: '分类',

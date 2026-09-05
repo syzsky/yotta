@@ -1,5 +1,22 @@
 export default {
   workflow: {
+    markdown: {
+      edit: 'Write',
+      source: 'Source',
+      preview: 'Preview',
+      empty: 'No content yet.',
+      hint: 'Markdown supported · source editing available',
+      too_long: 'Content is too long. Shorten it before publishing.',
+      bold: 'Bold',
+      italic: 'Italic',
+      heading: 'Heading',
+      list: 'Bullet list',
+      ordered: 'Numbered list',
+      quote: 'Quote',
+      code: 'Code block',
+      undo: 'Undo',
+      redo: 'Redo',
+    },
     workspace_tools: 'Workspace tools',
     workspace_resources: 'Resource tools',
     hotkey: {
@@ -167,6 +184,13 @@ export default {
       member: 'Member',
     },
     market: {
+      login_before_publish: 'Sign in to publish a workflow',
+      login_keep_draft: 'Sign in again and keep this draft',
+      latest_version: 'Highest published version {version}',
+      version_must_increase: 'The new version must be higher than the highest published version.',
+      download_count: '{n} downloads',
+      download_count_hint:
+        'Completed workflow-file transfers, including repeat downloads; not unique users. Earlier downloads are not backfilled.',
       clear_search: 'Clear search',
       loading_previous: 'Loading the previous publication…',
       dependencies: 'Node pack dependencies',

@@ -481,11 +481,37 @@
     <WorkflowMarketPanel v-else />
 
     <BaseModal
+      :open="publishAuthOpen"
+      :title="t('workflow.market.login_before_publish')"
+      icon="i-tabler-login"
+      :dismissible="false"
+      :show-close="false"
+    >
+      <div data-testid="workflow-publish-login" class="space-y-4">
+        <p class="text-sm text-muted" role="status">{{ t('workflow.market.waiting_login') }}</p>
+        <p v-if="publishAuthFailure" role="alert" class="whitespace-pre-wrap text-sm text-error">
+          {{ publishAuthFailure }}
+        </p>
+        <div class="flex justify-end gap-2">
+          <UButton color="neutral" variant="ghost" @click="publicationEntry.cancel()">{{
+            t('common.cancel')
+          }}</UButton>
+          <UButton
+            v-if="!publishAuthBusy"
+            @click="pendingPublishSource && openPublish(pendingPublishSource)"
+            >{{ t('common.retry') }}</UButton
+          >
+        </div>
+      </div>
+    </BaseModal>
+
+    <BaseModal
       v-model:open="publishOpen"
       :title="t('workflow.market.publish_title')"
       icon="i-tabler-cloud-upload"
       size="2xl"
-      :dismissible="!publishing"
+      :dismissible="false"
+      :show-close="!publishing"
     >
       <div class="space-y-4">
         <div class="flex items-center gap-3">
@@ -590,24 +616,24 @@
           <UFormField
             :label="t('workflow.market.description')"
             :description="t('workflow.market.markdown_hint')"
-            ><UTextarea
+            ><WorkflowMarkdownEditor
               v-model="publishDraft.listing.description"
               @update:model-value="publishTouched.add('description')"
               data-testid="workflow-publish-description"
-              :rows="5"
+              :label="t('workflow.market.description')"
               :disabled="publishing || publishLoading || publishHistoryFailed"
               class="w-full"
-              maxlength="32768"
+              :max-chars="32768"
           /></UFormField>
           <UFormField :label="t('workflow.market.instructions')"
-            ><UTextarea
+            ><WorkflowMarkdownEditor
               v-model="publishDraft.listing.instructions"
               @update:model-value="publishTouched.add('instructions')"
               data-testid="workflow-publish-instructions"
-              :rows="3"
+              :label="t('workflow.market.instructions')"
               :disabled="publishing || publishLoading || publishHistoryFailed"
               class="w-full"
-              maxlength="16384"
+              :max-chars="16384"
           /></UFormField>
           <div class="flex items-center justify-between">
             <span class="text-sm text-highlighted">{{ t('workflow.market.screenshots') }}</span
@@ -672,19 +698,29 @@
           <UFormField
             :label="t('workflow.market.version')"
             required
-            :error="publishVersionValid ? undefined : t('workflow.market.invalid_version')"
+            :error="
+              publishVersionValid
+                ? undefined
+                : t(
+                    validReleaseVersion(publishDraft.releaseVersion)
+                      ? 'workflow.market.version_must_increase'
+                      : 'workflow.market.invalid_version',
+                  )
+            "
             ><WorkflowVersionInput
               v-model="publishDraft.releaseVersion"
               @update:model-value="publishTouched.add('version')"
               :invalid="!publishVersionValid"
+              :previous="publishHighestVersion"
               :disabled="publishing || publishLoading || publishHistoryFailed"
           /></UFormField>
           <p class="text-xs leading-5 text-muted">{{ t('workflow.market.version_hint') }}</p>
           <UFormField :label="t('workflow.market.release_notes')"
-            ><UTextarea
+            ><WorkflowMarkdownEditor
               v-model="publishDraft.releaseNotes"
               data-testid="workflow-publish-release-notes"
-              :rows="4"
+              :label="t('workflow.market.release_notes')"
+              :max-chars="20000"
               :disabled="publishing || publishLoading || publishHistoryFailed"
               class="w-full"
               :placeholder="t('workflow.market.release_notes_placeholder')"
@@ -696,6 +732,17 @@
           role="alert"
         >
           {{ publishFailure }}
+        </p>
+        <UButton
+          v-if="publishNeedsLogin"
+          data-testid="workflow-publish-reauth"
+          icon="i-tabler-login"
+          :loading="publishing"
+          @click="recoverPublishLogin"
+          >{{ t('workflow.market.login_keep_draft') }}</UButton
+        >
+        <p v-if="publishNeedsLogin && publishing" role="status" class="text-sm text-muted">
+          {{ t('workflow.market.waiting_login') }}
         </p>
         <UButton
           v-if="publishHistoryFailed"
@@ -720,6 +767,8 @@
             publishLoading ||
             publishHistoryFailed ||
             !publishVersionValid ||
+            publishNeedsLogin ||
+            !publishMarkdownValid ||
             !publishDraft.title.trim() ||
             !publishDraft.summary.trim()
           "
@@ -918,10 +967,26 @@
 
 <script setup lang="ts">
 import WorkflowMarketIcon from '@/components/workflow/WorkflowMarketIcon.vue'
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue'
 import WorkflowVersionInput from '@/components/workflow/WorkflowVersionInput.vue'
 import IconPicker from '@/components/common/IconPicker.vue'
-import { validReleaseVersion } from '@/app/workflow-library/releaseVersion'
+import { usePublicationEntry } from '@/app/workflow-library/usePublicationEntry'
+import {
+  validReleaseVersion,
+  isNewerRelease,
+  nextRelease,
+} from '@/app/workflow-library/releaseVersion'
+const WorkflowMarkdownEditor = defineAsyncComponent(
+  () => import('@/components/workflow/WorkflowMarkdownEditor.vue'),
+)
 import { shopTransport } from '@/app/transport/shop'
 import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/useAppToast'
@@ -938,7 +1003,7 @@ import { runReadinessMessage, runStartOutcome } from '@/app/run/runReadiness'
 import { pollTerminalRunStatus } from '@/app/run/followRun'
 import { useConfirm } from '@/composables/useConfirm'
 import { useAutoDismissFeedback } from '@/composables/useAutoDismissFeedback'
-import { errorMessage } from '@/lib/invoke'
+import { errorMessage, normalizeError } from '@/lib/invoke'
 import {
   applyBatchMetadata,
   createBatchMetadataDraft,
@@ -1056,6 +1121,21 @@ const metadataDraft = reactive({
   template: 'generic' as 'generic' | 'windows' | 'android' | 'browser' | 'cross-target',
 })
 const publishOpen = ref(false)
+const pendingPublishSource = ref<SourceView | null>(null)
+const publishNeedsLogin = ref(false)
+const publicationEntry = usePublicationEntry({
+  login: () => shopTransport.login(),
+  cancel: () => shopTransport.cancelLogin(),
+  message: errorMessage,
+})
+const {
+  busy: publishAuthBusy,
+  open: publishAuthOpen,
+  failure: publishAuthFailure,
+} = publicationEntry
+onBeforeUnmount(() => {
+  void publicationEntry.cancel()
+})
 const publishing = ref(false)
 const publishFailure = ref('')
 const publishSource = ref<SourceView | null>(null)
@@ -1076,7 +1156,19 @@ const publishDraft = reactive({
   releaseNotes: '',
 })
 
-const publishVersionValid = computed(() => validReleaseVersion(publishDraft.releaseVersion))
+const publishHighestVersion = ref('')
+const publishVersionValid = computed(
+  () =>
+    validReleaseVersion(publishDraft.releaseVersion) &&
+    (!publishHighestVersion.value ||
+      isNewerRelease(publishDraft.releaseVersion, publishHighestVersion.value)),
+)
+const publishMarkdownValid = computed(
+  () =>
+    Array.from(publishDraft.listing.description).length <= 32768 &&
+    Array.from(publishDraft.listing.instructions).length <= 16384 &&
+    Array.from(publishDraft.releaseNotes).length <= 20000,
+)
 const publishSection = ref('listing')
 const publishLoading = ref(false)
 const publishHistoryFailed = ref(false)
@@ -1480,12 +1572,20 @@ function rowMenuItems(source: SourceView) {
 }
 
 function openPublish(source: SourceView): void {
+  if (publishAuthBusy.value) return
+  pendingPublishSource.value = source
+  void publicationEntry.start(() => initializePublish(source))
+}
+
+function initializePublish(source: SourceView): void {
+  publishNeedsLogin.value = false
   publishHistoryFailed.value = false
   publishLoading.value = true
   const generation = ++publishGeneration
   publishTouched.clear()
   publishSource.value = source
   publishDraft.releaseVersion = '1.0.0'
+  publishHighestVersion.value = ''
   publishDraft.title = source.name
   publishDraft.summary = source.description?.trim() || source.name
   publishDraft.releaseNotes = ''
@@ -1505,9 +1605,16 @@ function openPublish(source: SourceView): void {
   void shopTransport
     .history(source.workflowId)
     .then((releases) => {
-      const previous = releases[0]
+      const previous = releases.reduce<(typeof releases)[number] | undefined>(
+        (best, item) =>
+          !best || isNewerRelease(item.releaseVersion, best.releaseVersion) ? item : best,
+        undefined,
+      )
       if (!previous || generation !== publishGeneration || !publishOpen.value || publishing.value)
         return
+      publishHighestVersion.value = previous.releaseVersion
+      if (!publishTouched.has('version'))
+        publishDraft.releaseVersion = nextRelease(previous.releaseVersion)
       if (!publishTouched.has('title')) publishDraft.title = previous.title
       if (!publishTouched.has('summary')) publishDraft.summary = previous.summary
       const listing = {
@@ -1541,10 +1648,12 @@ async function publishWorkflow(): Promise<void> {
   const source = publishSource.value
   if (
     !source ||
+    publishNeedsLogin.value ||
     publishing.value ||
     publishLoading.value ||
     publishHistoryFailed.value ||
-    !publishVersionValid.value
+    !publishVersionValid.value ||
+    !publishMarkdownValid.value
   )
     return
   publishing.value = true
@@ -1564,6 +1673,23 @@ async function publishWorkflow(): Promise<void> {
     })
     publishOpen.value = false
     libraryMode.value = 'market'
+  } catch (error) {
+    publishFailure.value = errorMessage(error)
+    publishNeedsLogin.value =
+      normalizeError(error).id === 'workflow.registry.authentication_required'
+  } finally {
+    publishing.value = false
+  }
+}
+
+async function recoverPublishLogin(): Promise<void> {
+  if (publishing.value) return
+  publishing.value = true
+  try {
+    await shopTransport.logout()
+    await shopTransport.login()
+    publishNeedsLogin.value = false
+    publishFailure.value = ''
   } catch (error) {
     publishFailure.value = errorMessage(error)
   } finally {

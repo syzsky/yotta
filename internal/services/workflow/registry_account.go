@@ -16,7 +16,7 @@ func (s *Service) LoginRegistry(ctx context.Context) (nativeoidc.Profile, error)
 	if s.account == nil {
 		return nativeoidc.Profile{}, unavailable("registry")
 	}
-	if _, err := s.account.Token(ctx); err != nil {
+	if _, err := s.account.Login(ctx); err != nil {
 		return nativeoidc.Profile{}, registryError("login", err)
 	}
 	return s.account.Profile(), nil

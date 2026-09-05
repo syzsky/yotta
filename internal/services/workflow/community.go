@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/communityclient"
+	"github.com/yottaapp/yotta/internal/nativeoidc"
 )
 
 func WithCommunity(client *communityclient.Client) Option {
@@ -60,6 +61,9 @@ func (s *Service) DeleteWorkflowReply(ctx context.Context, id, reply string) err
 func communityError(cause error) error {
 	if cause == nil {
 		return nil
+	}
+	if errors.Is(cause, nativeoidc.ErrAuthenticationRequired) {
+		return projectError("workflow.community.authentication_required", apperr.CategoryPolicy, nil, false, cause)
 	}
 	if errors.Is(cause, context.Canceled) {
 		return projectError("workflow.community.cancelled", apperr.CategoryInfrastructure, nil, false, cause)
