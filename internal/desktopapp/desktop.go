@@ -521,7 +521,12 @@ func Run(config Config) error {
 	// tools 杂项工具服务：MousePos / 鼠标 HUD / ScreenPicker 等。
 	// Wails app 尚未创建；先把可延迟 attach 的 presentation adapter 注入 tools core。
 	toolsPresenter := &wailsToolsPresenter{}
+	templatePreview, err := newTemplatePreview(sharedBlobStore, authoringTargets)
+	if err != nil {
+		return fmt.Errorf("initialize template preview: %w", err)
+	}
 	toolsSvc := tools.NewServiceWithOptions(authoringTargets, toolsPresenter, tools.Options{
+		TemplateMatcher: templatePreview,
 		OnCalibratorClose: func() {
 			calibrationSvc.StopHotkeyWatch()
 			_, _ = calibrationSvc.Stop()

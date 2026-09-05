@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 16,
-    "methods": 170,
-    "models": 259
+    "methods": 171,
+    "models": 262
   },
   "services": [
     {
@@ -1463,6 +1463,18 @@
             }
           ],
           "returns": "$CancellablePromise<$models.PixelInfo>"
+        },
+        {
+          "name": "PreviewTemplate",
+          "bindingId": "4207903652",
+          "parameters": [
+            {
+              "name": "request",
+              "optional": false,
+              "type": "$models.TemplateMatchRequest"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.TemplateMatchResult>"
         },
         {
           "name": "RefreshLauncherHotkeys",
@@ -7132,6 +7144,94 @@
             },
             {
               "name": "\"B\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TemplateMatchRegion",
+          "fields": [
+            {
+              "name": "\"x\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"width\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"height\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"unit\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TemplateMatchRequest",
+          "fields": [
+            {
+              "name": "\"targetSlot\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"template\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
+            },
+            {
+              "name": "\"variants\"",
+              "optional": false,
+              "type": "schema$0.ImageResourceVariant[]"
+            },
+            {
+              "name": "\"region\"",
+              "optional": false,
+              "type": "TemplateMatchRegion"
+            },
+            {
+              "name": "\"threshold\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TemplateMatchResult",
+          "fields": [
+            {
+              "name": "\"score\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"matched\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"frameWidth\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"frameHeight\"",
               "optional": false,
               "type": "number"
             }

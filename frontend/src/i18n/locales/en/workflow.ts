@@ -1027,6 +1027,18 @@ export default {
       leave_action: 'Cancel recording and leave',
     },
     inspector: {
+      template_preview_title: 'Live template matching',
+      template_preview_start: 'Start checking',
+      template_preview_stop: 'Stop checking',
+      template_preview_target: 'Select a target',
+      template_preview_score: 'Current match',
+      template_preview_matched: 'Threshold reached',
+      template_preview_unmatched: 'Below threshold',
+      template_preview_threshold: 'Match threshold {value}%',
+      template_preview_required:
+        'Select a target and template. Threshold and region must use fixed values.',
+      template_preview_hint:
+        'Checks the live image without input actions. Threshold and region changes apply automatically.',
       title: 'Inspector',
       no_selection: 'No selection',
       remove_node: 'Remove node',

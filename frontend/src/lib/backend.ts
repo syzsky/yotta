@@ -7,7 +7,6 @@ import * as HotkeyService from '@bindings/github.com/yottaapp/yotta/internal/hot
 import * as ScheduleService from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/service.js'
 import * as AssetService from '@bindings/github.com/yottaapp/yotta/internal/services/asset/service.js'
 import * as CalibrationService from '@bindings/github.com/yottaapp/yotta/internal/services/calibration/service.js'
-import * as ToolsService from '@bindings/github.com/yottaapp/yotta/internal/services/tools/service.js'
 import * as AppInfoService from '@bindings/github.com/yottaapp/yotta/internal/services/appinfoservice.js'
 import * as RecordingService from '@bindings/github.com/yottaapp/yotta/internal/services/recording/service.js'
 import * as ResourceAuthoringService from '@bindings/github.com/yottaapp/yotta/internal/services/resourceauthoring/service.js'
@@ -36,6 +35,28 @@ import type { WorkflowResource } from '../../../contracts/workflow/current/workf
 
 // 事件 payload 类型（跟 Go events.go 一一对应；wails3 bindings 也会产 .d.ts，
 // 这里手写一份用于 store 引用更稳，避免 bindings 路径变化）
+type ToolsBindings =
+  typeof import('@bindings/github.com/yottaapp/yotta/internal/services/tools/service.js')
+
+function invokeTools<K extends keyof ToolsBindings>(
+  method: K,
+  ...args: Parameters<ToolsBindings[K]>
+): Promise<Awaited<ReturnType<ToolsBindings[K]>>> {
+  return callRPC<unknown>(method, async () => {
+    const service =
+      await import('@bindings/github.com/yottaapp/yotta/internal/services/tools/service.js')
+    return Reflect.apply(service[method], undefined, args)
+  }) as Promise<Awaited<ReturnType<ToolsBindings[K]>>>
+}
+
+export interface TemplateMatchPreviewRequest {
+  targetSlot: string
+  template: BlobRef
+  variants: Array<NonNullable<WorkflowResource['image']>['variants'][number]>
+  region: { x: number; y: number; width: number; height: number; unit: string }
+  threshold: number
+}
+
 export interface BackendLogEntry {
   time: string
   level: string
@@ -932,13 +953,15 @@ export const backend = {
     markUsed: (id: string) => invoke(SnippetService.MarkUsed, id) as Promise<WorkflowSnippet>,
   },
   tools: {
-    mousePos: (targetSlot: string) => invoke(ToolsService.MousePos, targetSlot),
-    pixelAt: (targetSlot: string) => invoke(ToolsService.PixelAt, targetSlot),
-    openMouseHUD: (targetSlot: string) => invoke(ToolsService.OpenMouseHUD, targetSlot),
-    openRecordingHUD: () => invoke(ToolsService.OpenRecordingHUD),
-    closeRecordingHUD: () => invoke(ToolsService.CloseRecordingHUD),
-    openCalibratorHUD: (id: string) => invoke(ToolsService.OpenCalibratorHUD, id),
-    closeCalibratorHUD: () => invoke(ToolsService.CloseCalibratorHUD),
+    previewTemplate: (request: TemplateMatchPreviewRequest) =>
+      invokeTools('PreviewTemplate', request),
+    mousePos: (targetSlot: string) => invokeTools('MousePos', targetSlot),
+    pixelAt: (targetSlot: string) => invokeTools('PixelAt', targetSlot),
+    openMouseHUD: (targetSlot: string) => invokeTools('OpenMouseHUD', targetSlot),
+    openRecordingHUD: () => invokeTools('OpenRecordingHUD'),
+    closeRecordingHUD: () => invokeTools('CloseRecordingHUD'),
+    openCalibratorHUD: (id: string) => invokeTools('OpenCalibratorHUD', id),
+    closeCalibratorHUD: () => invokeTools('CloseCalibratorHUD'),
     openScreenPicker: (
       mode:
         | 'point'
@@ -952,25 +975,25 @@ export const backend = {
       targetSlot = '',
       colorSpace = '',
       guid = '',
-    ) => invoke(ToolsService.OpenScreenPicker, mode, id, targetSlot, colorSpace, guid),
+    ) => invokeTools('OpenScreenPicker', mode, id, targetSlot, colorSpace, guid),
     extractColorRange: (samples: { R: number; G: number; B: number }[], colorSpace: string) =>
-      invoke(ToolsService.ExtractColorRange, samples, colorSpace),
-    closePicker: (id: string) => invoke(ToolsService.ClosePicker, id),
+      invokeTools('ExtractColorRange', samples, colorSpace),
+    closePicker: (id: string) => invokeTools('ClosePicker', id),
     // Win32WindowTarget capture: 临时安装全局键盘钩子 (默认 F9 = 0x78), 用户在游戏窗口按下后
     // 走 'win32windowtarget:captured' event 回填. 取代旧同步 captureForegroundWindow
     // — 用户在游戏前台时根本点不到 Yotta 按钮.
     // 捕获键来源 = 后端读热键中心 tools.window-capture 绑定 (可在「快捷键」页 rebind)，不再 FE 传死。
-    startWin32WindowTargetCapture: () => invoke(ToolsService.StartWin32WindowTargetCapture),
+    startWin32WindowTargetCapture: () => invokeTools('StartWin32WindowTargetCapture'),
     cancelWin32WindowTargetCapture: (id: string) =>
-      invoke(ToolsService.CancelWin32WindowTargetCapture, id),
-    openLauncher: () => invoke(ToolsService.OpenLauncher),
-    openLauncherSettings: () => invoke(ToolsService.OpenLauncherSettings),
-    toggleLauncher: () => invoke(ToolsService.ToggleLauncher),
-    hideLauncher: () => invoke(ToolsService.HideLauncher),
-    setLauncherAlwaysOnTop: (on: boolean) => invoke(ToolsService.SetLauncherAlwaysOnTop, on),
+      invokeTools('CancelWin32WindowTargetCapture', id),
+    openLauncher: () => invokeTools('OpenLauncher'),
+    openLauncherSettings: () => invokeTools('OpenLauncherSettings'),
+    toggleLauncher: () => invokeTools('ToggleLauncher'),
+    hideLauncher: () => invokeTools('HideLauncher'),
+    setLauncherAlwaysOnTop: (on: boolean) => invokeTools('SetLauncherAlwaysOnTop', on),
     setLauncherSize: (width: number, height: number) =>
-      invoke(ToolsService.SetLauncherSize, width, height),
-    refreshLauncherHotkeys: () => invoke(ToolsService.RefreshLauncherHotkeys),
+      invokeTools('SetLauncherSize', width, height),
+    refreshLauncherHotkeys: () => invokeTools('RefreshLauncherHotkeys'),
   },
   events: {
     // 共享事件

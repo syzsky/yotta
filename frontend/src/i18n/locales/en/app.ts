@@ -687,6 +687,8 @@ export default {
     'automation.window_capture.unstructured_failure':
       'Window capture returned a legacy error. Restart Yotta and retry.',
     'tools.target_unavailable': 'The automation target service is unavailable. Restart Yotta.',
+    'tools.template_preview.failed':
+      'Match check failed. Check the target window, template and search region, then retry.',
     'tools.target_resolve_failed':
       'Target {slot} could not be reached. Confirm that its application is running.',
     'tools.pixel_sample_failed':

@@ -28,8 +28,10 @@ type cachedWindow struct {
 
 // Service is the tools RPC entry point.
 type Service struct {
-	resolver  TargetResolver
-	presenter Presenter
+	templateMatcher     TemplateMatcher
+	templatePreviewGate chan struct{}
+	resolver            TargetResolver
+	presenter           Presenter
 
 	mu              sync.Mutex
 	winCache        map[string]cachedWindow // target slot → resolved window (2s TTL)
@@ -56,6 +58,7 @@ type Service struct {
 }
 
 type Options struct {
+	TemplateMatcher   TemplateMatcher
 	CaptureHotkey     func() (mods, vk uint32)
 	OnCalibratorClose func()
 	OnLauncherShown   func()
@@ -68,15 +71,17 @@ func NewService(resolver TargetResolver, presenter Presenter) *Service {
 
 func NewServiceWithOptions(resolver TargetResolver, presenter Presenter, options Options) *Service {
 	s := &Service{
-		resolver:          resolver,
-		presenter:         presenter,
-		captureHotkey:     options.CaptureHotkey,
-		onCalibratorClose: options.OnCalibratorClose,
-		onLauncherShown:   options.OnLauncherShown,
-		onLauncherHidden:  options.OnLauncherHidden,
-		winCache:          map[string]cachedWindow{},
-		pickerWindows:     map[string]*windowSlot{},
-		shutdownDone:      make(chan struct{}),
+		templateMatcher:     options.TemplateMatcher,
+		templatePreviewGate: make(chan struct{}, 1),
+		resolver:            resolver,
+		presenter:           presenter,
+		captureHotkey:       options.CaptureHotkey,
+		onCalibratorClose:   options.OnCalibratorClose,
+		onLauncherShown:     options.OnLauncherShown,
+		onLauncherHidden:    options.OnLauncherHidden,
+		winCache:            map[string]cachedWindow{},
+		pickerWindows:       map[string]*windowSlot{},
+		shutdownDone:        make(chan struct{}),
 	}
 	s.targetTools = newTargetToolRouter(map[string]TargetToolAdapter{
 		target.KindWin32Window: win32TargetToolAdapter{service: s},

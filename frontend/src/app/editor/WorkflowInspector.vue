@@ -82,6 +82,16 @@
         />
       </section>
 
+      <TemplateMatchPreviewPanel
+        v-if="supportsTemplatePreview(projection)"
+        :key="node.id"
+        :node="node"
+        :projection="projection"
+        :resources="resources"
+        :target-slot="targetSlot"
+        :connected-input-ids="connectedInputIds"
+      />
+
       <UCollapsible
         v-if="
           surface.groups.advanced.length ||
@@ -203,6 +213,10 @@ import type {
 import type { TypeProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
 import WorkflowAuthoringSurfaceItem from './WorkflowAuthoringSurfaceItem.vue'
+import { supportsTemplatePreview } from './templateMatchPreview'
+const TemplateMatchPreviewPanel = defineAsyncComponent(
+  () => import('./TemplateMatchPreviewPanel.vue'),
+)
 import {
   effectiveTargetSlot,
   projectAuthoringSurface,

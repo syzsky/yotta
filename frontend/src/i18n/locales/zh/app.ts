@@ -591,6 +591,7 @@ export default {
     'automation.window_capture.unstructured_failure':
       '窗口捕获返回了旧版错误，请重启 Yotta 后重试。',
     'tools.target_unavailable': '自动化目标服务当前不可用，请重启 Yotta。',
+    'tools.template_preview.failed': '检测失败，请确认目标窗口、模板和检测区域后重试。',
     'tools.target_resolve_failed': '无法连接自动化目标 {slot}，请确认目标程序正在运行。',
     'tools.pixel_sample_failed': '无法从目标 {slot} 读取像素，请确认窗口仍然可见。',
     'tools.color_range.invalid': '颜色样本不合法，请重新选择取色区域。',

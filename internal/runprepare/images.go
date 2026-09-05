@@ -190,6 +190,26 @@ func pickVariant(variants []schema.ImageResourceVariant, target [2]int) (*schema
 	return &variants[best], false
 }
 
+// PrepareTemplate applies the runtime image policy to a read-only authoring
+// preview. The caller releases any derived blob after matching the frame.
+func (planner *Planner) PrepareTemplate(ctx context.Context, variants []schema.ImageResourceVariant, target [2]int) (blob.BlobRef, func(), error) {
+	variant, exact := pickVariant(variants, target)
+	if variant == nil {
+		return blob.BlobRef{}, nil, errors.New("template variant is unavailable")
+	}
+	if exact {
+		return variant.Blob, func() {}, nil
+	}
+	if !sameAspect(variant.Resolution, target) {
+		return blob.BlobRef{}, nil, errors.New("template resolution has a different aspect ratio")
+	}
+	ref, retention, err := planner.scaled(ctx, variant.Blob, variant.Resolution, target)
+	if err != nil {
+		return blob.BlobRef{}, nil, err
+	}
+	return ref, retention.Release, nil
+}
+
 func sameAspect(source, target [2]int) bool {
 	left := float64(source[0]) / float64(source[1])
 	right := float64(target[0]) / float64(target[1])
@@ -218,6 +238,9 @@ func (planner *Planner) scaled(ctx context.Context, source blob.BlobRef, sourceR
 	scale := float64(targetResolution[0]) / float64(sourceResolution[0])
 	targetWidth := int(math.Round(float64(width) * scale))
 	targetHeight := int(math.Round(float64(height) * scale))
+	if targetWidth <= 0 || targetHeight <= 0 || int64(targetWidth)*int64(targetHeight) > 16_777_216 {
+		return blob.BlobRef{}, nil, errors.New("scaled template exceeds the image size limit")
+	}
 	resized := vision.ResizeGray(gray, width, height, targetWidth, targetHeight)
 	if len(resized) != targetWidth*targetHeight {
 		return blob.BlobRef{}, nil, errors.New("scaled template dimensions are invalid")
