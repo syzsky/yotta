@@ -28,7 +28,7 @@ func (m *Manager) PanelSources() []panel.Source {
 				if c.ID != tab.CompanionID {
 					continue
 				}
-				out = append(out, panel.Source{ID: panel.PluginSourceID(p.PackageID, tab.Definition.ID), OwnerID: p.PackageID, OwnerName: r.descriptor.Name, Generation: string(p.Current), Definition: contract.Clone(tab.Definition), Origin: c.Origin, CompanionID: c.ID, SnapshotPath: tab.SnapshotPath, EventPath: tab.EventPath})
+				out = append(out, panel.Source{PublisherNamespace: r.manifest.PublisherNamespace(), PackageVersion: r.manifest.PackageVersion(), ID: panel.PluginSourceID(p.PackageID, tab.Definition.ID), OwnerID: p.PackageID, OwnerName: r.descriptor.Name, Generation: string(p.Current), Definition: contract.Clone(tab.Definition), Origin: c.Origin, CompanionID: c.ID, SnapshotPath: tab.SnapshotPath, EventPath: tab.EventPath})
 			}
 		}
 	}

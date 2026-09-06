@@ -2579,6 +2579,16 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     chooseSourceBundleDestination: vi.fn(async () => ''),
     chooseSourceBundleDirectory: vi.fn(async () => ''),
     inspectSourceBundle: vi.fn(async () => ({
+      panels: [],
+      workflowId: saved.workflowId,
+      name: saved.name,
+      revision: saved.revision,
+      sourceHash: saved.sourceHash,
+      blobCount: 0,
+      blobBytes: 0,
+    })),
+    previewSourceBundle: vi.fn(async () => ({
+      panels: [],
       workflowId: saved.workflowId,
       name: saved.name,
       revision: saved.revision,

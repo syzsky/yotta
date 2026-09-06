@@ -23,13 +23,14 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/blob"
 	"github.com/yottaapp/yotta/internal/durablefs"
+	"github.com/yottaapp/yotta/internal/panel"
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 )
 
 const (
 	Format                = "yotta.workflow-bundle"
-	Version               = 2
+	Version               = 3
 	LegacyVersion         = 1
 	ManifestPath          = "yotta-workflow-bundle.json"
 	SourcePath            = "workflow.json"
@@ -66,12 +67,14 @@ type BlobStore interface {
 }
 
 type Manager struct {
+	panels  *panel.Service
 	sources SourceRepository
 	blobs   BlobStore
 	newID   func() string
 }
 
 type Manifest struct {
+	Panels       []panel.PortableResource       `json:"panels,omitempty"`
 	Format       string                         `json:"format"`
 	Version      int                            `json:"version"`
 	SourceTrust  string                         `json:"sourceTrust,omitempty"`
@@ -97,18 +100,19 @@ type EvidenceRef struct {
 }
 
 type Info struct {
-	WorkflowID                 string          `json:"workflowId"`
-	Name                       string          `json:"name"`
-	Revision                   int64           `json:"revision"`
-	SourceHash                 artifact.Digest `json:"sourceHash"`
-	ResourceCount              int             `json:"resourceCount"`
-	TargetProfileCount         int             `json:"targetProfileCount"`
-	CredentialRequirementCount int             `json:"credentialRequirementCount"`
-	DependencyCount            int             `json:"dependencyCount"`
-	BlobCount                  int             `json:"blobCount"`
-	BlobBytes                  int64           `json:"blobBytes"`
-	SourceTrust                string          `json:"sourceTrust"`
-	Evidence                   []EvidenceRef   `json:"evidence"`
+	Panels                     []panel.PortableResource `json:"panels,omitempty"`
+	WorkflowID                 string                   `json:"workflowId"`
+	Name                       string                   `json:"name"`
+	Revision                   int64                    `json:"revision"`
+	SourceHash                 artifact.Digest          `json:"sourceHash"`
+	ResourceCount              int                      `json:"resourceCount"`
+	TargetProfileCount         int                      `json:"targetProfileCount"`
+	CredentialRequirementCount int                      `json:"credentialRequirementCount"`
+	DependencyCount            int                      `json:"dependencyCount"`
+	BlobCount                  int                      `json:"blobCount"`
+	BlobBytes                  int64                    `json:"blobBytes"`
+	SourceTrust                string                   `json:"sourceTrust"`
+	Evidence                   []EvidenceRef            `json:"evidence"`
 }
 
 type ExportResult struct {
@@ -145,11 +149,15 @@ type ImportResult struct {
 	Source   workflowstore.SourceSnapshot `json:"-"`
 }
 
-func New(sources SourceRepository, blobs BlobStore) (*Manager, error) {
+func New(sources SourceRepository, blobs BlobStore, panels ...*panel.Service) (*Manager, error) {
 	if sources == nil || blobs == nil {
 		return nil, errors.New("workflow bundle manager requires source and blob stores")
 	}
-	return &Manager{sources: sources, blobs: blobs, newID: uuid.NewString}, nil
+	m := &Manager{sources: sources, blobs: blobs, newID: uuid.NewString}
+	if len(panels) > 0 {
+		m.panels = panels[0]
+	}
+	return m, nil
 }
 
 func (m *Manager) Export(ctx context.Context, workflowID, destination string) (ExportResult, error) {
@@ -215,11 +223,20 @@ func (m *Manager) prepareExport(ctx context.Context, workflowID string, evidence
 	if err != nil {
 		return exportPayload{}, err
 	}
+	panels, err := m.collectPanels(document)
+	if err != nil {
+		return exportPayload{}, err
+	}
 	manifest := Manifest{
+		Panels: panels,
 		Format: Format, Version: Version, SourceTrust: SourceTrustUnverified,
 		WorkflowID: workflowID, SourceHash: digest,
 		Dependencies: append([]schema.NodePackageDependency{}, document.Dependencies...),
 		Blobs:        refs, Evidence: evidenceRefs,
+	}
+	// Workflows without companion panels retain the existing portable encoding.
+	if len(panels) == 0 {
+		manifest.Version = 2
 	}
 	manifestRaw, err := json.Marshal(manifest)
 	if err != nil {
@@ -288,16 +305,22 @@ func (m *Manager) Import(ctx context.Context, request ImportRequest) (ImportResu
 	default:
 		return ImportResult{}, fmt.Errorf("unsupported workflow bundle import mode %q", request.Mode)
 	}
-	raw, err := json.Marshal(document)
-	if err != nil {
-		return ImportResult{}, err
-	}
-	_, canonical, _, diagnostics, err := schema.CanonicalSource(raw)
-	if err != nil {
-		return ImportResult{}, err
-	}
-	if len(diagnostics) != 0 {
-		return ImportResult{}, errors.New("rewritten Workflow Source is invalid")
+	// Blob staging precedes durable panel and workflow writes.
+	var canonical []byte
+	serialize := func() error {
+		raw, err := json.Marshal(document)
+		if err != nil {
+			return err
+		}
+		_, encoded, _, diagnostics, err := schema.CanonicalSource(raw)
+		if err != nil {
+			return err
+		}
+		if len(diagnostics) != 0 {
+			return errors.New("rewritten Workflow Source is invalid")
+		}
+		canonical = encoded
+		return nil
 	}
 	retentions := make([]blob.Retention, 0, len(bundle.manifest.Blobs))
 	defer func() {
@@ -324,7 +347,30 @@ func (m *Manager) Import(ctx context.Context, request ImportRequest) (ImportResu
 		}
 		retentions = append(retentions, retention)
 	}
-	published, err := m.sources.PublishImportedSource(ctx, canonical, baseRevision, expectedHash)
+	var published workflowstore.SourceSnapshot
+	publish := func(mapping map[string]string) error {
+		rewritePanels(&document, mapping)
+		if err := serialize(); err != nil {
+			return err
+		}
+		var err error
+		published, err = m.sources.PublishImportedSource(ctx, canonical, baseRevision, expectedHash)
+		if err != nil {
+			if current, readErr := m.sources.GetSource(document.Workflow.ID); readErr == nil && bytes.Equal(current.Artifact(), canonical) {
+				published = current
+				return nil
+			}
+		}
+		return err
+	}
+	if len(bundle.manifest.Panels) > 0 {
+		if m.panels == nil {
+			return ImportResult{}, panelProblem("portable_missing")
+		}
+		err = m.panels.ImportResources(ctx, document.Workflow.ID, bundle.manifest.Panels, publish)
+	} else {
+		err = publish(nil)
+	}
 	if err != nil {
 		return ImportResult{}, err
 	}
@@ -415,6 +461,9 @@ func inspectArchive(
 	}
 	document, _, digest, refs, err := inspectSource(migratedSource)
 	if err != nil {
+		return fail(err)
+	}
+	if err := validatePanelReferences(document, manifest.Panels); err != nil {
 		return fail(err)
 	}
 	if document.Workflow.ID != manifest.WorkflowID ||
@@ -601,6 +650,7 @@ func sourceInfo(
 		bytes += ref.Size
 	}
 	return Info{
+		Panels:     manifest.Panels,
 		WorkflowID: document.Workflow.ID, Name: document.Workflow.Name, Revision: document.Revision, SourceHash: digest,
 		ResourceCount: len(document.Resources), TargetProfileCount: len(document.TargetProfileDefinitions),
 		CredentialRequirementCount: len(document.CredentialRequirements), DependencyCount: len(document.Dependencies),
@@ -610,6 +660,17 @@ func sourceInfo(
 }
 
 func validateManifest(manifest Manifest) error {
+	if len(manifest.Panels) > 128 || manifest.Version < 3 && len(manifest.Panels) > 0 {
+		return panelProblem("invalid_definition")
+	}
+	for i, r := range manifest.Panels {
+		if i > 0 && manifest.Panels[i-1].ID >= r.ID {
+			return panelProblem("invalid_definition")
+		}
+		if err := panel.ValidatePortable(r); err != nil {
+			return err
+		}
+	}
 	if manifest.Format != Format || strings.TrimSpace(manifest.WorkflowID) == "" || !manifest.SourceHash.Valid() ||
 		manifest.Dependencies == nil || len(manifest.Dependencies) > schema.MaxDependencies ||
 		manifest.Blobs == nil || len(manifest.Blobs) > maxEntries-4 {
@@ -620,7 +681,7 @@ func validateManifest(manifest Manifest) error {
 		if manifest.SourceTrust != "" || len(manifest.Evidence) != 0 {
 			return errors.New("legacy workflow bundle cannot declare release evidence")
 		}
-	case Version:
+	case 2, Version:
 		if manifest.SourceTrust != SourceTrustUnverified || manifest.Evidence == nil {
 			return errors.New("workflow bundle must explicitly remain unverified before trust evaluation")
 		}

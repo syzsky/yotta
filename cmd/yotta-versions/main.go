@@ -406,7 +406,7 @@ func inventoryRows(product productVersion) []inventoryRow {
 		versionRow(storagemigrate.SnapshotFormat, strconv.Itoa(storagemigrate.SnapshotVersion), "migration-state"),
 		versionRow(services.SettingsFormat, services.SettingsSchemaVersion, "user-data"),
 		versionRow(schema.Format, schema.Version, "user-data"),
-		versionRow(workflowbundle.Format, strconv.Itoa(workflowbundle.Version), "portable"),
+		versionRow(workflowbundle.Format, strconv.Itoa(workflowbundle.Version), "portable", "1", "2", "3"),
 		versionRow(datatype.Format, datatype.Version, "contract"),
 		versionRow(datatype.ValueEnvelopeFormat, datatype.ValueEnvelopeVersion, "durable-value"),
 		versionRow(nodecontract.Format, nodecontract.Version, "contract", "1", nodecontract.Version),

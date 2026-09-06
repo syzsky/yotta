@@ -541,6 +541,14 @@ export default {
     'plugins.endpoint_conflict':
       'Another service is using the capture address. Stop the conflicting service and retry.',
     'panels.closed': 'Panel service is closed. Reopen Yotta.',
+    'panels.portable_component_missing':
+      'A referenced panel component is missing. Select the component in the workflow before publishing.',
+    'panels.portable_missing':
+      'A referenced panel is missing or not configured. Set the workflow default panel or select the panel in its nodes before publishing or exporting.',
+    'panels.plugin_required':
+      'Panel {plugin} requires plugin version {version}. Install and enable that version, then retry.',
+    'panels.portable_conflict':
+      'The panel update conflicts with local configuration. The workflow was not updated. Check component types and dropdown options, then retry.',
     'panels.not_found': 'Panel source was disabled or removed. Refresh the panel list.',
     'panels.changed':
       'The panel session or control changed. Review its current state before trying again.',

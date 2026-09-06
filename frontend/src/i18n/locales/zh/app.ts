@@ -487,6 +487,14 @@ export default {
     'plugins.disabled': '所需插件已禁用，请在设置中的插件页启用。',
     'plugins.endpoint_conflict': '采集地址正被其他程序使用，请停止冲突程序后重试。',
     'panels.closed': '面板服务已关闭，请重新打开 Yotta。',
+    'panels.portable_component_missing':
+      '面板中找不到工作流引用的组件。请重新选择节点的组件后再发布。',
+    'panels.portable_missing':
+      '工作流引用的面板不存在或未设置。请设置默认面板，或重新选择节点使用的面板，再发布或导出。',
+    'panels.plugin_required':
+      '面板「{plugin}」需要的插件版本 {version} 尚未安装或启用。请安装并启用该版本后重试。',
+    'panels.portable_conflict':
+      '面板更新与本地配置不兼容，尚未更新工作流。请检查组件类型和下拉选项后重试。',
     'panels.not_found': '面板来源已停用或移除，请刷新面板列表。',
     'panels.changed': '面板会话或控件已变化，请检查最新内容后重新操作。',
     'panels.source_unavailable': '面板来源未连接，请检查插件后台服务，或稍后刷新。',

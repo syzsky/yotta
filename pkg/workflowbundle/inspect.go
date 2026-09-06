@@ -3,6 +3,8 @@ package workflowbundle
 
 import (
 	"context"
+	"fmt"
+	"sort"
 
 	internalbundle "github.com/yottaapp/yotta/internal/workflowbundle"
 )
@@ -28,6 +30,7 @@ type NodePackDependency struct {
 }
 
 type Info struct {
+	PanelCount                 int                  `json:"panelCount"`
 	WorkflowID                 string               `json:"workflowId"`
 	Name                       string               `json:"name"`
 	Revision                   int64                `json:"revision"`
@@ -62,7 +65,27 @@ func Inspect(ctx context.Context, raw []byte) (Info, error) {
 			ManifestDigest: string(dependency.ManifestDigest), NodeRefs: nodeRefs,
 		})
 	}
+	for _, resource := range manifest.Panels {
+		if resource.Plugin == nil {
+			continue
+		}
+		p := resource.Plugin
+		found := false
+		for _, d := range dependencies {
+			if d.PackageID == p.PackageID {
+				found = true
+				if d.ManifestDigest != p.ManifestDigest {
+					return Info{}, fmt.Errorf("conflicting panel package dependency")
+				}
+			}
+		}
+		if !found {
+			dependencies = append(dependencies, NodePackDependency{PublisherNamespace: p.PublisherNamespace, PackageID: p.PackageID, PackageVersion: p.PackageVersion, ManifestDigest: p.ManifestDigest, NodeRefs: []NodeRef{}})
+		}
+	}
+	sort.Slice(dependencies, func(i, j int) bool { return dependencies[i].PackageID < dependencies[j].PackageID })
 	return Info{
+		PanelCount: len(manifest.Panels),
 		WorkflowID: internalInfo.WorkflowID, Name: internalInfo.Name, Revision: internalInfo.Revision,
 		SourceHash: string(internalInfo.SourceHash), ResourceCount: internalInfo.ResourceCount,
 		TargetProfileCount:         internalInfo.TargetProfileCount,

@@ -19,22 +19,24 @@ import (
 )
 
 type Source struct {
-	WaitingComponents []string            `json:"waitingComponents"`
-	Waiting           int                 `json:"waiting"`
-	UpdatedAt         string              `json:"updatedAt,omitempty"`
-	LastRunID         string              `json:"lastRunId,omitempty"`
-	LastRunStatus     string              `json:"lastRunStatus,omitempty"`
-	Managed           bool                `json:"managed"`
-	ID                string              `json:"id"`
-	OwnerID           string              `json:"ownerId"`
-	OwnerName         string              `json:"ownerName"`
-	Generation        string              `json:"generation"`
-	Status            string              `json:"status,omitempty"`
-	Definition        contract.Definition `json:"definition"`
-	Origin            string              `json:"-"`
-	CompanionID       string              `json:"-"`
-	SnapshotPath      string              `json:"-"`
-	EventPath         string              `json:"-"`
+	PublisherNamespace string              `json:"-"`
+	PackageVersion     string              `json:"-"`
+	WaitingComponents  []string            `json:"waitingComponents"`
+	Waiting            int                 `json:"waiting"`
+	UpdatedAt          string              `json:"updatedAt,omitempty"`
+	LastRunID          string              `json:"lastRunId,omitempty"`
+	LastRunStatus      string              `json:"lastRunStatus,omitempty"`
+	Managed            bool                `json:"managed"`
+	ID                 string              `json:"id"`
+	OwnerID            string              `json:"ownerId"`
+	OwnerName          string              `json:"ownerName"`
+	Generation         string              `json:"generation"`
+	Status             string              `json:"status,omitempty"`
+	Definition         contract.Definition `json:"definition"`
+	Origin             string              `json:"-"`
+	CompanionID        string              `json:"-"`
+	SnapshotPath       string              `json:"-"`
+	EventPath          string              `json:"-"`
 }
 type Catalog interface {
 	PanelSources() []Source

@@ -121,6 +121,7 @@ export interface WorkflowTransport {
   chooseSourceBundleDestination(filename: string): Promise<string>
   chooseSourceBundleDirectory(): Promise<string>
   inspectSourceBundle(path: string): Promise<BundleInfoView>
+  previewSourceBundle(workflowId: string): Promise<BundleInfoView>
   importSourceBundle(path: string): Promise<SourceView>
   replaceSourceFromBundle(
     path: string,
@@ -204,6 +205,7 @@ export const workflowTransport: WorkflowTransport = {
       }),
     ),
   inspectSourceBundle: (path) => invoke(WorkflowService.InspectSourceBundle, path),
+  previewSourceBundle: (workflowId) => invoke(WorkflowService.PreviewSourceBundle, workflowId),
   importSourceBundle: (path) => invoke(WorkflowService.ImportSourceBundle, path),
   replaceSourceFromBundle: (path, workflowId, revision, sourceHash) =>
     invoke(WorkflowService.ReplaceSourceFromBundle, path, workflowId, revision, sourceHash),

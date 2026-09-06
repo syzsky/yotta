@@ -1,5 +1,11 @@
 export default {
   panels: {
+    bundle_title: 'Included panels',
+    bundle_hint:
+      'Includes saved components, icons and initial values. Configured on install; live readings and logs are excluded.',
+    bundle_plugin: 'Provided by a required plugin',
+    bundle_components: '{count} components',
+    bundle_import: '{count} companion panels will be configured automatically.',
     clear_default: 'Clear default panel',
     configuration: 'Panel settings',
     enabled_value: 'On',

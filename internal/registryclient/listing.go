@@ -21,6 +21,7 @@ type DependencySummary struct {
 	PackageVersion string `json:"packageVersion"`
 }
 type BundleFacts struct {
+	PanelCount         int   `json:"panelCount"`
 	Verified           bool  `json:"verified"`
 	ResourceCount      int   `json:"resourceCount"`
 	TargetProfileCount int   `json:"targetProfileCount"`

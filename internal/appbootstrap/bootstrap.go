@@ -324,7 +324,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	bundles, err := workflowbundle.New(application, blobStore)
+	bundles, err := workflowbundle.New(application, blobStore, config.Panels)
 	if err != nil {
 		return nil, err
 	}

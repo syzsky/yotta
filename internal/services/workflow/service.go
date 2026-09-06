@@ -188,12 +188,31 @@ type DeleteSourceResult struct {
 }
 
 type BundleInfoView struct {
-	WorkflowID string          `json:"workflowId"`
-	Name       string          `json:"name"`
-	Revision   int64           `json:"revision"`
-	SourceHash artifact.Digest `json:"sourceHash"`
-	BlobCount  int             `json:"blobCount"`
-	BlobBytes  int64           `json:"blobBytes"`
+	Panels     []BundlePanelView `json:"panels"`
+	WorkflowID string            `json:"workflowId"`
+	Name       string            `json:"name"`
+	Revision   int64             `json:"revision"`
+	SourceHash artifact.Digest   `json:"sourceHash"`
+	BlobCount  int               `json:"blobCount"`
+	BlobBytes  int64             `json:"blobBytes"`
+}
+
+type BundlePanelView struct {
+	ID             string `json:"id"`
+	Title          string `json:"title"`
+	ComponentCount int    `json:"componentCount"`
+	Plugin         bool   `json:"plugin"`
+}
+
+func (s *Service) PreviewSourceBundle(ctx context.Context, workflowID string) (BundleInfoView, error) {
+	if s.bundles == nil {
+		return BundleInfoView{}, unavailable("bundle")
+	}
+	info, err := s.bundles.Preview(ctx, workflowID)
+	if err != nil {
+		return BundleInfoView{}, bundleError("preview", err)
+	}
+	return bundleInfoView(info), nil
 }
 
 type BundleExportResult struct {
@@ -642,7 +661,18 @@ func sourceNodeCount(source schema.WorkflowSource) int {
 }
 
 func bundleInfoView(info workflowbundle.Info) BundleInfoView {
+	panels := []BundlePanelView{}
+	for _, p := range info.Panels {
+		count := 0
+		if p.Managed != nil {
+			count = len(p.Managed.Components)
+		} else {
+			count = len(p.Plugin.Definition.Components)
+		}
+		panels = append(panels, BundlePanelView{ID: p.ID, Title: p.Title, ComponentCount: count, Plugin: p.Plugin != nil})
+	}
 	return BundleInfoView{
+		Panels:     panels,
 		WorkflowID: info.WorkflowID, Name: info.Name, Revision: info.Revision,
 		SourceHash: info.SourceHash, BlobCount: info.BlobCount, BlobBytes: info.BlobBytes,
 	}

@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	"github.com/yottaapp/yotta/internal/serviceproblem"
@@ -16,6 +17,9 @@ func sourceError(operation string, cause error) error {
 }
 
 func bundleError(operation string, cause error) error {
+	if strings.HasPrefix(apperr.From(cause).ID, "panels.") {
+		return cause
+	}
 	return projectError("workflow.bundle.failed", apperr.CategoryInfrastructure, map[string]any{"operation": operation}, true, cause)
 }
 

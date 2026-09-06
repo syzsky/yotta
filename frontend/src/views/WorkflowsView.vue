@@ -726,6 +726,26 @@
               :placeholder="t('workflow.market.release_notes_placeholder')"
           /></UFormField>
         </div>
+        <section
+          v-if="publishBundle?.panels?.length"
+          class="space-y-2 rounded-lg border border-default p-3"
+          data-testid="publish-panel-resources"
+        >
+          <h3 class="text-sm font-medium">{{ t('panels.bundle_title') }}</h3>
+          <p class="text-xs text-muted">{{ t('panels.bundle_hint') }}</p>
+          <div
+            v-for="panel in publishBundle.panels"
+            :key="panel.id"
+            class="flex items-center justify-between gap-3 text-sm"
+          >
+            <span>{{ te(panel.title) ? t(panel.title) : panel.title }}</span>
+            <span class="text-xs text-muted">{{
+              panel.plugin
+                ? t('panels.bundle_plugin')
+                : t('panels.bundle_components', { count: panel.componentCount })
+            }}</span>
+          </div>
+        </section>
         <p
           v-if="publishFailure"
           class="whitespace-pre-wrap text-sm leading-6 text-error"
@@ -1031,7 +1051,7 @@ type Feedback = { tone: 'success' | 'warning' | 'error'; message: string; detail
 const defaultColumns: WorkflowColumn[] = ['category', 'tags', 'nodes', 'createdAt', 'updatedAt']
 const router = useRouter()
 const toast = useToast()
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 const { confirm } = useConfirm()
 const libraryQuery = useWorkflowLibraryQuery({
   reload: load,
@@ -1171,6 +1191,7 @@ const publishMarkdownValid = computed(
 )
 const publishSection = ref('listing')
 const publishLoading = ref(false)
+const publishBundle = ref<BundleInfoView | null>(null)
 const publishHistoryFailed = ref(false)
 const publishTouched = new Set<string>()
 let publishGeneration = 0
@@ -1578,6 +1599,7 @@ function openPublish(source: SourceView): void {
 }
 
 function initializePublish(source: SourceView): void {
+  publishBundle.value = null
   publishNeedsLogin.value = false
   publishHistoryFailed.value = false
   publishLoading.value = true
@@ -1602,9 +1624,13 @@ function initializePublish(source: SourceView): void {
   publishSection.value = 'listing'
   publishFailure.value = ''
   publishOpen.value = true
-  void shopTransport
-    .history(source.workflowId)
-    .then((releases) => {
+  void Promise.all([
+    shopTransport.history(source.workflowId),
+    workflowTransport.previewSourceBundle(source.workflowId),
+  ])
+    .then(([releases, bundle]) => {
+      if (generation !== publishGeneration || !publishOpen.value) return
+      publishBundle.value = bundle
       const previous = releases.reduce<(typeof releases)[number] | undefined>(
         (best, item) =>
           !best || isNewerRelease(item.releaseVersion, best.releaseVersion) ? item : best,
@@ -1882,12 +1908,15 @@ async function replaceSource(source: SelectedSource): Promise<void> {
 }
 
 function bundleDescription(info: BundleInfoView): string {
-  return t('workflow.list.bundle_description', {
+  const description = t('workflow.list.bundle_description', {
     name: info.name,
     revision: info.revision,
     blobs: info.blobCount,
     bytes: info.blobBytes,
   })
+  return info.panels?.length
+    ? `${description}\n${t('panels.bundle_import', { count: info.panels.length })}\n${info.panels.map((panel) => panel.title).join('、')}`
+    : description
 }
 
 async function requestDelete(rows: SelectedSource[]): Promise<void> {

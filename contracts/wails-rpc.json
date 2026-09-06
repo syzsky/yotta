@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 194,
-    "models": 279
+    "methods": 195,
+    "models": 280
   },
   "services": [
     {
@@ -2237,6 +2237,18 @@
           "returns": "$CancellablePromise<application$0.RunPreview>"
         },
         {
+          "name": "PreviewSourceBundle",
+          "bindingId": "3806581657",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.BundleInfoView>"
+        },
+        {
           "name": "PublishSourceToRegistry",
           "bindingId": "308539092",
           "parameters": [
@@ -4379,6 +4391,11 @@
           "kind": "class",
           "name": "BundleFacts",
           "fields": [
+            {
+              "name": "\"panelCount\"",
+              "optional": false,
+              "type": "number"
+            },
             {
               "name": "\"verified\"",
               "optional": false,
@@ -7886,6 +7903,11 @@
           "name": "BundleInfoView",
           "fields": [
             {
+              "name": "\"panels\"",
+              "optional": false,
+              "type": "BundlePanelView[]"
+            },
+            {
               "name": "\"workflowId\"",
               "optional": false,
               "type": "string"
@@ -7914,6 +7936,32 @@
               "name": "\"blobBytes\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "BundlePanelView",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"componentCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"plugin\"",
+              "optional": false,
+              "type": "boolean"
             }
           ]
         },

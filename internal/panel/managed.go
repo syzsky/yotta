@@ -49,14 +49,16 @@ type managedPanel struct {
 	order    []string
 }
 type managedStore struct {
-	mu     sync.Mutex
-	path   string
-	panels map[string]*managedPanel
-	closed bool
+	imports map[string]importedPanel
+	mu      sync.Mutex
+	path    string
+	panels  map[string]*managedPanel
+	closed  bool
 }
 type managerFile struct {
-	Format string  `json:"format"`
-	Panels []Draft `json:"panels"`
+	Imports map[string]importedPanel `json:"imports,omitempty"`
+	Format  string                   `json:"format"`
+	Panels  []Draft                  `json:"panels"`
 }
 
 const managerFormat = "yotta.panel-manager/v1"
@@ -87,6 +89,7 @@ func openManaged(path string) (*managedStore, error) {
 		}
 		m.panels[d.ID] = p
 	}
+	m.imports = file.Imports
 	return m, nil
 }
 func makeManaged(d Draft) (*managedPanel, error) {
@@ -155,7 +158,7 @@ func (m *managedStore) persist(next map[string]*managedPanel) error {
 	if m.path == "" {
 		return nil
 	}
-	file := managerFile{Format: managerFormat, Panels: []Draft{}}
+	file := managerFile{Format: managerFormat, Panels: []Draft{}, Imports: m.imports}
 	for _, p := range next {
 		file.Panels = append(file.Panels, p.draft)
 	}
@@ -199,37 +202,7 @@ func (m *managedStore) save(d Draft) (Draft, error) {
 	if err != nil {
 		return Draft{}, err
 	}
-	if old != nil {
-		next.source.Generation = old.source.Generation
-		for _, c := range d.Components {
-			for _, previous := range old.draft.Components {
-				if c.ID == previous.ID && c.Kind == previous.Kind && reflect.DeepEqual(c.Initial, previous.Initial) {
-					candidate := contract.Clone(next.snapshot)
-					if value, ok := old.snapshot.Values[c.ID]; ok {
-						candidate.Values[c.ID] = value
-					}
-					if records, ok := old.snapshot.Records[c.ID]; ok {
-						candidate.Records[c.ID] = records
-					}
-					if next.source.Definition.ValidateSnapshot(candidate) == nil {
-						valid := true
-						if c.Kind == "select" {
-							valid = false
-							for _, o := range c.Options {
-								valid = valid || candidate.Values[c.ID] == o
-							}
-						}
-						if valid {
-							next.snapshot = candidate
-						}
-					}
-				}
-			}
-		}
-		next.source.UpdatedAt = old.source.UpdatedAt
-		next.source.LastRunID = old.source.LastRunID
-		next.source.LastRunStatus = old.source.LastRunStatus
-	}
+	carryManagedState(old, next)
 	all := make(map[string]*managedPanel, len(m.panels)+1)
 	for id, p := range m.panels {
 		all[id] = p
@@ -396,4 +369,39 @@ func (m *managedStore) close() {
 		return
 	}
 	m.closed = true
+}
+
+func carryManagedState(old, next *managedPanel) {
+	d := next.draft
+	if old != nil {
+		next.source.Generation = old.source.Generation
+		for _, c := range d.Components {
+			for _, previous := range old.draft.Components {
+				if c.ID == previous.ID && c.Kind == previous.Kind && reflect.DeepEqual(c.Initial, previous.Initial) {
+					candidate := contract.Clone(next.snapshot)
+					if value, ok := old.snapshot.Values[c.ID]; ok {
+						candidate.Values[c.ID] = value
+					}
+					if records, ok := old.snapshot.Records[c.ID]; ok {
+						candidate.Records[c.ID] = records
+					}
+					if next.source.Definition.ValidateSnapshot(candidate) == nil {
+						valid := true
+						if c.Kind == "select" {
+							valid = false
+							for _, o := range c.Options {
+								valid = valid || candidate.Values[c.ID] == o
+							}
+						}
+						if valid {
+							next.snapshot = candidate
+						}
+					}
+				}
+			}
+		}
+		next.source.UpdatedAt = old.source.UpdatedAt
+		next.source.LastRunID = old.source.LastRunID
+		next.source.LastRunStatus = old.source.LastRunStatus
+	}
 }

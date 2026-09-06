@@ -1,5 +1,10 @@
 export default {
   panels: {
+    bundle_title: '附带面板',
+    bundle_hint: '附带保存的组件、图标和初始值。安装时自动配置，不包含当前读数和日志。',
+    bundle_plugin: '由配套插件提供',
+    bundle_components: '{count} 个组件',
+    bundle_import: '将自动配置 {count} 个配套面板。',
     clear_default: '清除默认面板',
     configuration: '面板设置',
     enabled_value: '开启',
