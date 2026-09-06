@@ -1,4 +1,5 @@
 export const SETTINGS_THEME_KEYS = [
+  'plugins',
   'general',
   'hotkeys',
   'input',
@@ -22,6 +23,13 @@ export interface SettingsThemeDefinition {
 }
 
 export const SETTINGS_THEMES: readonly SettingsThemeDefinition[] = [
+  {
+    key: 'plugins',
+    group: 'connections',
+    labelKey: 'settingsTab.plugins',
+    descriptionKey: 'settingsCenter.theme.plugins',
+    icon: 'i-tabler-puzzle',
+  },
   {
     key: 'general',
     group: 'common',

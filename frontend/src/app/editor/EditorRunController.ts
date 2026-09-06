@@ -6,7 +6,7 @@ export type EditorRuntimeWorkbenchTab = 'diagnostics' | 'logs' | 'timeline' | 'd
 
 export type EditorRunCommand =
   | { kind: 'check-workflow' }
-  | { kind: 'save' }
+  | { kind: 'save'; inputsCommitted?: boolean }
   | { kind: 'start' }
   | { kind: 'start-debug'; breakpoints: DebugBreakpoint[] }
   | { kind: 'control-debug'; action: 'continue' | 'pause' | 'step' }
@@ -35,6 +35,7 @@ export interface EditorRunSession {
 }
 
 export interface EditorRunControllerDependencies {
+  commitInputs?: () => Promise<boolean>
   session: EditorRunSession
   translate: (key: string, params?: Record<string, unknown>) => string
   showError: (title: string, error: unknown) => void
@@ -53,6 +54,13 @@ export function createEditorRunController(dependencies: EditorRunControllerDepen
   let saveFlashTimer: ReturnType<typeof setTimeout> | undefined
 
   async function execute(command: EditorRunCommand): Promise<EditorRunCommandResult> {
+    if (
+      !(command.kind === 'save' && command.inputsCommitted) &&
+      ['check-workflow', 'save', 'start', 'start-debug'].includes(command.kind) &&
+      dependencies.commitInputs &&
+      !(await dependencies.commitInputs())
+    )
+      return { ok: false }
     switch (command.kind) {
       case 'check-workflow':
         return checkWorkflow()

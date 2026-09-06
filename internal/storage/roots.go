@@ -11,9 +11,19 @@ import (
 
 const (
 	EnvironmentRoot  = "YOTTA_ROOT"
-	vendorDirectory  = "Yotta"
+	vendorDirectory  = "yueli"
 	productDirectory = "Yotta"
 )
+
+// LegacyDefaultRoot is only for migration discovery, never an override of an
+// explicit profile selected by the caller.
+func LegacyDefaultRoot() (string, error) {
+	local, err := localDataRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(local, "Yotta", productDirectory), nil
+}
 
 // Roots is the complete physical projection of one Yotta application profile.
 // Callers receive paths; they do not derive lifecycle directories themselves.

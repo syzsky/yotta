@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
 const tools = vi.hoisted(() => ({ loads: 0, preview: vi.fn(), mouse: vi.fn() }))
+const ai = vi.hoisted(() => ({ loads: 0, status: vi.fn() }))
+vi.mock('@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js', () => {
+  ai.loads++
+  return { SecretStatus: ai.status }
+})
 vi.mock('@bindings/github.com/yottaapp/yotta/internal/services/tools/service.js', () => {
   tools.loads++
   return { PreviewTemplate: tools.preview, MousePos: tools.mouse }
@@ -9,6 +14,13 @@ vi.mock('@bindings/github.com/yottaapp/yotta/internal/services/tools/service.js'
 import { backend, type TemplateMatchPreviewRequest } from './backend'
 
 describe('lazy tools bridge', () => {
+  it('loads the optional AI bridge on demand and forwards results', async () => {
+    expect(ai.loads).toBe(0)
+    ai.status.mockResolvedValue({ local: true })
+    expect(await backend.ai.secretStatus(['local'])).toEqual({ local: true })
+    expect(ai.status).toHaveBeenCalledWith(['local'])
+    expect(ai.loads).toBe(1)
+  })
   it('loads on use and forwards typed preview and existing tool calls', async () => {
     expect(tools.loads).toBe(0)
     const request: TemplateMatchPreviewRequest = {

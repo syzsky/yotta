@@ -1,6 +1,5 @@
 import { createI18n } from 'vue-i18n'
 import zh from './zh'
-import en from './en'
 
 export type Locale = 'zh' | 'en'
 export const LOCALES: Locale[] = ['zh', 'en']
@@ -13,10 +12,29 @@ export const i18n = createI18n({
   // 静默 fallback：缺键时自动回 zh，控制台不刷屏
   fallbackWarn: false,
   missingWarn: false,
-  messages: { zh, en },
+  messages: { zh, en: {} as typeof zh },
 })
 
-// setLocale 切换 UI 文字（hot swap）。SettingsView 改 locale 后调一次。
-export function setLocale(loc: Locale) {
-  i18n.global.locale.value = loc
+// Load the optional locale only when selected, retaining plugin messages.
+let requestedLocale: Locale = 'zh'
+let english: Promise<void> | undefined
+export async function setLocale(loc: Locale): Promise<boolean> {
+  requestedLocale = loc
+  if (loc === 'en') {
+    english ??= import('./en')
+      .then((module) => {
+        i18n.global.mergeLocaleMessage('en', module.default)
+      })
+      .catch((error) => {
+        english = undefined
+        throw error
+      })
+    try {
+      await english
+    } catch {
+      return false
+    }
+  }
+  if (requestedLocale === loc) i18n.global.locale.value = loc
+  return true
 }

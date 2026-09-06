@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -36,6 +37,7 @@ import (
 	"github.com/yottaapp/yotta/internal/storage/catalog"
 	"github.com/yottaapp/yotta/internal/stream"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/internal/workflow/schema"
 	"github.com/yottaapp/yotta/internal/workflowbundle"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 	"github.com/yottaapp/yotta/internal/workspacefs"
@@ -153,6 +155,8 @@ func Build(config Config) (*Runtime, error) {
 			}
 		}
 	}
+	slices.Sort(pluginFeatures)
+	pluginFeatures = slices.Compact(pluginFeatures)
 	config.AIInstallations, err = config.AIInstallations.ForEvaluationArtifacts(builtins.AIEvaluationArtifacts())
 	if err != nil {
 		return nil, err
@@ -161,6 +165,14 @@ func Build(config Config) (*Runtime, error) {
 	contracts := make([]nodecontract.Contract, 0, len(bindings))
 	for _, binding := range bindings {
 		contracts = append(contracts, binding.Contract)
+	}
+	packageDependencies := []schema.NodePackageDependency{}
+	for _, p := range runtimePackages {
+		dependency := schema.NodePackageDependency{PublisherNamespace: p.PublisherNamespace, PackageID: p.PackageID, PackageVersion: p.PackageVersion, ManifestDigest: p.ManifestDigest}
+		for _, node := range p.Nodes {
+			dependency.NodeRefs = append(dependency.NodeRefs, node.Contract.NodeRef())
+		}
+		packageDependencies = append(packageDependencies, dependency)
 	}
 	authoringProjection, err := nodeauthoring.Project(nodeauthoring.Input{
 		Catalog: catalog, Types: catalog.Types(), Capabilities: catalog.Capabilities(),
@@ -290,7 +302,8 @@ func Build(config Config) (*Runtime, error) {
 		return nil, err
 	}
 	application, err := appcore.New(appcore.Config{
-		Catalog: catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
+		NodePackages: packageDependencies,
+		Catalog:      catalog, Authoring: authoringProjection, CompilerBuild: build, ConfigValidators: builtins.ConfigValidators,
 		BlobVerifier:    blobStore,
 		RunImagePlanner: runImagePlanner,
 		Sources:         sources, Programs: programs, Runs: runs,

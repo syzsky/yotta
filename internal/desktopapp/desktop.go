@@ -33,6 +33,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/calibration"
 	"github.com/yottaapp/yotta/internal/services/mcpserver"
+	"github.com/yottaapp/yotta/internal/services/plugins"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/resourceauthoring"
 	"github.com/yottaapp/yotta/internal/services/schedule"
@@ -298,8 +299,12 @@ func Run(config Config) error {
 	if strings.TrimSpace(config.RegistryURL) != "" {
 		tokens := config.RegistryTokens
 		if tokens == nil && strings.TrimSpace(config.OIDCClientID) != "" {
+			credentialScope, scopeErr := storage.CredentialScope(roots)
+			if scopeErr != nil {
+				return fmt.Errorf("resolve profile account identity: %w", scopeErr)
+			}
 			session, sessionErr := nativeoidc.New(nativeoidc.Config{
-				Credentials: securestore.New(), CredentialScope: filepath.Clean(roots.Data), AccountURL: config.AccountURL,
+				Credentials: securestore.New(), CredentialScope: credentialScope, AccountURL: config.AccountURL,
 				AuthorizationEndpoint: config.OIDCAuthorizationEndpoint,
 				TokenEndpoint:         config.OIDCTokenEndpoint, ClientID: config.OIDCClientID,
 				Audience: config.OIDCAudience, Scopes: []string{"openid", "profile", "offline_access"},
@@ -639,6 +644,7 @@ func Run(config Config) error {
 	serviceErrors := application.ServiceOptions{MarshalError: apperr.Marshal}
 	wailsServices = append(wailsServices,
 		application.NewServiceWithOptions(settingsSvc, serviceErrors),
+		application.NewServiceWithOptions(plugins.NewService(local.Plugins, local.Roots), serviceErrors),
 		application.NewServiceWithOptions(services.NewMCPService(), serviceErrors),
 		application.NewServiceWithOptions(services.NewAppInfoService(), serviceErrors),
 		application.NewServiceWithOptions(workflowSvc, serviceErrors),

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 16,
-    "methods": 171,
-    "models": 262
+    "services": 17,
+    "methods": 183,
+    "models": 268
   },
   "services": [
     {
@@ -926,6 +926,150 @@
       ]
     },
     {
+      "module": "internal/services/plugins/service",
+      "methods": [
+        {
+          "name": "Batch",
+          "bindingId": "1794102593",
+          "parameters": [
+            {
+              "name": "action",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "ids",
+              "optional": false,
+              "type": "string[]"
+            }
+          ],
+          "returns": "$CancellablePromise<pluginmanager$0.BatchResult[]>"
+        },
+        {
+          "name": "Control",
+          "bindingId": "4140836192",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "companionID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "start",
+              "optional": false,
+              "type": "boolean"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Import",
+          "bindingId": "2397308382",
+          "parameters": [
+            {
+              "name": "path",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "List",
+          "bindingId": "3759685079",
+          "parameters": [],
+          "returns": "$CancellablePromise<pluginmanager$0.View[]>"
+        },
+        {
+          "name": "Locations",
+          "bindingId": "1481614145",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Location[]>"
+        },
+        {
+          "name": "Messages",
+          "bindingId": "3657360935",
+          "parameters": [],
+          "returns": "$CancellablePromise<{ [_ in string]?: { [_ in string]?: string } }>"
+        },
+        {
+          "name": "NeedsRestart",
+          "bindingId": "2348015435",
+          "parameters": [],
+          "returns": "$CancellablePromise<boolean>"
+        },
+        {
+          "name": "OpenLocation",
+          "bindingId": "3682947556",
+          "parameters": [
+            {
+              "name": "kind",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Rollback",
+          "bindingId": "1840855755",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SetEnabled",
+          "bindingId": "1222827950",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "enabled",
+              "optional": false,
+              "type": "boolean"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Uninstall",
+          "bindingId": "8873699",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
       "module": "internal/services/recording/service",
       "methods": [
         {
@@ -1814,6 +1958,12 @@
             }
           ],
           "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
+        },
+        {
+          "name": "GetNodePackageDependencies",
+          "bindingId": "1223570613",
+          "parameters": [],
+          "returns": "$CancellablePromise<schema$0.NodePackageDependency[]>"
         },
         {
           "name": "GetRunTimeline",
@@ -3822,6 +3972,145 @@
               "name": "\"semanticDigest\"",
               "optional": false,
               "type": "artifact$0.Digest"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/pluginmanager/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "BatchResult",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"succeeded\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"problem\"",
+              "optional": true,
+              "type": "apperr$0.Envelope | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CompanionView",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"running\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "View",
+          "fields": [
+            {
+              "name": "\"inUse\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"version\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"enabled\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"loaded\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"restartRequired\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"canRollback\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"nodes\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"workflows\"",
+              "optional": false,
+              "type": "WorkflowUse[]"
+            },
+            {
+              "name": "\"companions\"",
+              "optional": false,
+              "type": "CompanionView[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WorkflowUse",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"running\"",
+              "optional": false,
+              "type": "boolean"
             }
           ]
         }
@@ -5865,6 +6154,27 @@
               "name": "\"height\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/services/plugins/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Location",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"path\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         }
@@ -10189,6 +10499,37 @@
               "name": "\"disabled\"",
               "optional": true,
               "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "NodePackageDependency",
+          "fields": [
+            {
+              "name": "\"publisherNamespace\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"packageId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"packageVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"manifestDigest\"",
+              "optional": false,
+              "type": "artifact$0.Digest"
+            },
+            {
+              "name": "\"nodeRefs\"",
+              "optional": false,
+              "type": "nodecontract$0.NodeRef[]"
             }
           ]
         },

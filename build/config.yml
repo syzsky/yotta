@@ -5,7 +5,7 @@ version: '3'
 
 # This information is used to generate the build assets.
 info:
-  companyName: "Yotta"
+  companyName: "月离万事屋"
   productName: "Yotta"
   productIdentifier: "com.yotta.app"
   description: "节点编排，自动执行"

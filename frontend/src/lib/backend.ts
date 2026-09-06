@@ -13,7 +13,7 @@ import * as ResourceAuthoringService from '@bindings/github.com/yottaapp/yotta/i
 import * as ClipService from '@bindings/github.com/yottaapp/yotta/internal/services/inputclip/service.js'
 import * as MacroService from '@bindings/github.com/yottaapp/yotta/internal/services/macro/service.js'
 import * as SnippetService from '@bindings/github.com/yottaapp/yotta/internal/services/snippet/service.js'
-import * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
+import type * as AIService from '@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js'
 import * as AutomationService from '@bindings/github.com/yottaapp/yotta/internal/services/automationservice.js'
 import * as MCPService from '@bindings/github.com/yottaapp/yotta/internal/services/mcpservice.js'
 import { AIModelSettings as AIModelSettingsBinding } from '@bindings/github.com/yottaapp/yotta/internal/services/models.js'
@@ -47,6 +47,18 @@ function invokeTools<K extends keyof ToolsBindings>(
       await import('@bindings/github.com/yottaapp/yotta/internal/services/tools/service.js')
     return Reflect.apply(service[method], undefined, args)
   }) as Promise<Awaited<ReturnType<ToolsBindings[K]>>>
+}
+
+type AIBindings = typeof AIService
+function invokeAI<K extends keyof AIBindings>(
+  method: K,
+  ...args: Parameters<AIBindings[K]>
+): Promise<Awaited<ReturnType<AIBindings[K]>>> {
+  return callRPC<unknown>(method, async () => {
+    const service =
+      await import('@bindings/github.com/yottaapp/yotta/internal/services/aiservice.js')
+    return Reflect.apply(service[method], undefined, args)
+  }) as Promise<Awaited<ReturnType<AIBindings[K]>>>
 }
 
 export interface TemplateMatchPreviewRequest {
@@ -651,16 +663,16 @@ export const backend = {
   },
   ai: {
     testProfile: (profile: AIModelProfile) =>
-      invoke(AIService.TestProfile, {
+      invokeAI('TestProfile', {
         profile: toAIModelSettingsBinding(profile),
       }) as Promise<AIProfileTestResult>,
     secretStatus: (slots: string[]) =>
-      invoke(AIService.SecretStatus, slots) as Promise<Record<string, boolean>>,
-    setAPIKey: (slot: string, apiKey: string) => invoke(AIService.SetAPIKey, slot, apiKey),
-    deleteAPIKey: (slot: string) => invoke(AIService.DeleteAPIKey, slot),
+      invokeAI('SecretStatus', slots) as Promise<Record<string, boolean>>,
+    setAPIKey: (slot: string, apiKey: string) => invokeAI('SetAPIKey', slot, apiKey),
+    deleteAPIKey: (slot: string) => invokeAI('DeleteAPIKey', slot),
     applyEvaluation: (slot: string, evidence: AIEvaluationReport) =>
-      invoke(AIService.ApplyEvaluation, slot, new EvalReportArtifactBinding(evidence)),
-    revokeEvaluation: (slot: string) => invoke(AIService.RevokeEvaluation, slot),
+      invokeAI('ApplyEvaluation', slot, new EvalReportArtifactBinding(evidence)),
+    revokeEvaluation: (slot: string) => invokeAI('RevokeEvaluation', slot),
     proposeWorkflow: (
       slot: string,
       workflowId: string,
@@ -668,8 +680,8 @@ export const backend = {
       instruction: string,
       runId = '',
     ) =>
-      invoke(
-        AIService.ProposeWorkflow,
+      invokeAI(
+        'ProposeWorkflow',
         slot,
         workflowId,
         baseRevision,
@@ -677,23 +689,19 @@ export const backend = {
         runId,
       ) as Promise<AIWorkflowReview>,
     acceptWorkflowProposal: (reviewId: string) =>
-      invoke(AIService.AcceptWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
+      invokeAI('AcceptWorkflowProposal', reviewId) as Promise<AIWorkflowReview>,
     rejectWorkflowProposal: (reviewId: string) =>
-      invoke(AIService.RejectWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
+      invokeAI('RejectWorkflowProposal', reviewId) as Promise<AIWorkflowReview>,
     getWorkflowProposal: (reviewId: string) =>
-      invoke(AIService.GetWorkflowProposal, reviewId) as Promise<AIWorkflowReview>,
+      invokeAI('GetWorkflowProposal', reviewId) as Promise<AIWorkflowReview>,
     listConversations: (workflowId: string) =>
-      invoke(AIService.ListWorkflowAIConversations, workflowId) as Promise<AIConversationSummary[]>,
+      invokeAI('ListWorkflowAIConversations', workflowId) as Promise<AIConversationSummary[]>,
     createConversation: (workflowId: string) =>
-      invoke(AIService.CreateWorkflowAIConversation, workflowId) as Promise<AIConversation>,
+      invokeAI('CreateWorkflowAIConversation', workflowId) as Promise<AIConversation>,
     getConversation: (workflowId: string, conversationId: string) =>
-      invoke(
-        AIService.GetWorkflowAIConversation,
-        workflowId,
-        conversationId,
-      ) as Promise<AIConversation>,
+      invokeAI('GetWorkflowAIConversation', workflowId, conversationId) as Promise<AIConversation>,
     deleteConversation: (workflowId: string, conversationId: string) =>
-      invoke(AIService.DeleteWorkflowAIConversation, workflowId, conversationId),
+      invokeAI('DeleteWorkflowAIConversation', workflowId, conversationId),
     sendConversationMessage: (
       slot: string,
       workflowId: string,
@@ -702,8 +710,8 @@ export const backend = {
       instruction: string,
       runId = '',
     ) =>
-      invoke(
-        AIService.SendWorkflowAIMessage,
+      invokeAI(
+        'SendWorkflowAIMessage',
         slot,
         workflowId,
         conversationId,

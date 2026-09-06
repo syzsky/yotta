@@ -29,6 +29,7 @@ export default {
     },
   },
   settings: {
+    language_load_failed: '语言资源加载失败，请重新选择语言或重启后重试。',
     general: {
       appearance_title: '界面与语言',
       capture_diagnostics_title: '采集与诊断',
@@ -371,6 +372,28 @@ export default {
     },
   },
   error: {
+    'plugins.location_unavailable': '目录不可用，请刷新插件信息后重试。',
+    'plugins.location_open_failed': '无法打开文件夹，可复制显示的路径在资源管理器中打开。',
+    'plugins.files_busy': '插件文件暂时无法移动，请关闭相关后台程序后重试。',
+    'plugins.installed_files_changed':
+      '已安装的插件文件不完整或已被修改，请卸载后重新导入完整插件包。',
+    'plugins.batch_invalid': '批量操作无效，请重新选择插件后重试。',
+    'plugins.load_failed': '插件信息读取失败，请重试或重新导入插件包。',
+    'plugins.install_failed': '插件安装未完成，请重试或重新获取插件包。',
+    'plugins.invalid_package': '插件包不完整或内容已损坏，请重新获取后导入。',
+    'plugins.publisher_changed': '新版插件的发布者与已安装版本不一致，请核对插件来源。',
+    'plugins.in_use': '工作流正在使用此插件，请结束运行后重试。',
+    'plugins.stop_failed': '采集程序未能停止，请检查插件状态后重试。',
+    'plugins.change_failed': '插件状态保存失败，请重试。',
+    'plugins.not_found': '找不到所需插件，请在设置中的插件页重新安装。',
+    'plugins.configuration_unavailable': '插件配置服务不可用，请重启后重试。',
+    'plugins.configuration_invalid': '无法保存插件配置，请检查设置后重新导入。',
+    'plugins.target_conflict':
+      '插件需要的目标名称已被使用，请在网络目标或桌面应用设置中更名后重试。',
+    'plugins.disabled': '所需插件已禁用，请在设置中的插件页启用。',
+    'plugins.endpoint_conflict': '采集地址正被其他程序使用，请停止冲突程序后重试。',
+    'plugins.start_failed': '采集程序启动失败，请检查游戏和采集依赖后重试。',
+    'plugins.not_loaded': '插件目录已变化，请保存工作流并重启 Yotta 后运行。',
     UNSUPPORTED_WORKFLOW_FORMAT: '不支持的工作流格式或版本',
     INVALID_WORKFLOW_JSON: '工作流 JSON 无效',
     DUPLICATE_FIELD: '字段重复',

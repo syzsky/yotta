@@ -116,6 +116,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import SettingsPlugins from './SettingsPlugins.vue'
 import SettingsGeneral from './SettingsGeneral.vue'
 import SettingsHotkeys from './SettingsHotkeys.vue'
 import SettingsInput from './SettingsInput.vue'
@@ -139,6 +140,7 @@ const router = useRouter()
 const searchQuery = ref('')
 
 const componentByTheme = {
+  plugins: SettingsPlugins,
   general: SettingsGeneral,
   hotkeys: SettingsHotkeys,
   input: SettingsInput,

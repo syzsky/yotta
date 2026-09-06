@@ -47,6 +47,40 @@ const playInputClip = node('https://schemas.yotta.dev/nodes/automation/play-inpu
 const aiExtract = node('https://schemas.yotta.dev/nodes/ai/extract')
 
 describe('EditorSession', () => {
+  it('persists edits made while an earlier save is still awaiting its response', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    let release!: () => void
+    let started!: () => void
+    const ready = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    const hold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let writes = 0
+    transport.applyPatch = vi.fn(async () => {
+      const snapshot = JSON.parse(session.serialize()) as YottaWorkflowSource
+      writes++
+      if (writes === 1) {
+        started()
+        await hold
+      }
+      return { source: sourceView(snapshot), generatedNodes: [] }
+    })
+    session.apply({ kind: 'rename-workflow', name: 'First edit' })
+    const saving = session.save()
+    await ready
+    session.apply({ kind: 'rename-workflow', name: 'Latest edit' })
+    release()
+    await saving
+    expect(session.source?.workflow.name).toBe('Latest edit')
+    expect(writes).toBe(2)
+    expect(session.dirty).toBe(false)
+  })
+
   it('retracts the temporary turn-scale contract on load', async () => {
     const source = emptySource()
     source.graphs[0]!.nodes.push({

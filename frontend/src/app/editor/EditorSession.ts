@@ -8,6 +8,7 @@ import type {
   BlobRef,
   ResourceBinding,
   WorkflowResource,
+  NodePackageDependency,
   YottaWorkflowSource,
 } from '../../../../contracts/workflow/current/workflow-source'
 import type {
@@ -85,6 +86,7 @@ import {
   uniqueNodeId,
 } from './editorGraphModel'
 import { applyCommand } from './editorCommandApplication'
+import { syncNodePackageDependencies } from './nodePackageDependencies'
 
 export { assignable } from './connectionCompatibility'
 
@@ -238,6 +240,7 @@ export class EditorSession {
   openFailure = ''
 
   private readonly history: YottaWorkflowSource[] = []
+  private nodePackages: NodePackageDependency[] = []
   private readonly future: YottaWorkflowSource[] = []
   private readonly pendingCommands: PendingCommand[] = []
   private readonly revertedCommands: PendingCommand[] = []
@@ -258,11 +261,11 @@ export class EditorSession {
   }
 
   get canUndo(): boolean {
-    return this.history.length !== 0
+    return this.history.length !== 0 && !this.saveInFlight
   }
 
   get canRedo(): boolean {
-    return this.future.length !== 0
+    return this.future.length !== 0 && !this.saveInFlight
   }
 
   get currentGraph(): Graph | null {
@@ -1076,10 +1079,12 @@ export class EditorSession {
     this.phase = 'loading'
     this.openFailure = ''
     try {
-      const [view, authoringJson] = await Promise.all([
+      const [view, authoringJson, packages] = await Promise.all([
         this.transport.getSource(workflowId),
         this.transport.getAuthoringProjection(),
+        this.transport.getNodePackageDependencies?.() ?? Promise.resolve([]),
       ])
+      this.nodePackages = packages
       this.loadAuthoring(authoringJson)
       this.acceptSource(view)
       this.upgradeCompatibleNodeContracts()
@@ -1117,6 +1122,7 @@ export class EditorSession {
     const graph = graphAt(next, this.graphPath)
     const resolved = resolveEditorCommand(command, graph, this.idFactory)
     applyCommand(next, graph, resolved, this.projections, this.typeProjections)
+    syncNodePackageDependencies(next, this.nodePackages)
     next.revision = this.baseRevision + 1
     this.history.push(clone(source))
     if (this.history.length > 100) this.history.shift()
@@ -1135,7 +1141,7 @@ export class EditorSession {
   }
 
   undo(): void {
-    if (!this.source || this.history.length === 0) return
+    if (!this.source || !this.canUndo) return
     this.future.push(clone(this.source))
     this.source = this.history.pop() ?? this.source
     const reverted = this.pendingCommands.pop()
@@ -1146,7 +1152,7 @@ export class EditorSession {
   }
 
   redo(): void {
-    if (!this.source || this.future.length === 0) return
+    if (!this.source || !this.canRedo) return
     this.history.push(clone(this.source))
     this.source = this.future.pop() ?? this.source
     const restored = this.revertedCommands.pop()
@@ -1219,8 +1225,17 @@ export class EditorSession {
   }
 
   private async persistSave(): Promise<SourceView> {
+    let saved: SourceView
+    do {
+      saved = await this.persistSaveBatch()
+    } while (this.dirty)
+    return saved
+  }
+
+  private async persistSaveBatch(): Promise<SourceView> {
     this.phase = 'saving'
     this.dismissSaveError()
+    const pendingCount = this.pendingCommands.length
     const commands = toWorkflowPatch(this.pendingCommands)
     try {
       const checked = await this.checkCurrentDraft()
@@ -1249,7 +1264,7 @@ export class EditorSession {
       }
       if (commands.length === 0) {
         const persisted = await this.transport.getSource(this.workflowId)
-        this.acceptSource(persisted)
+        this.acceptSavedSource(persisted, pendingCount)
         this.phase = 'ready'
         return persisted
       }
@@ -1263,7 +1278,7 @@ export class EditorSession {
         if (latest.revision === this.baseRevision) throw error
         patched = await this.transport.applyPatch(this.workflowId, latest.revision, commands)
       }
-      this.acceptSource(patched.source)
+      this.acceptSavedSource(patched.source, pendingCount)
       this.phase = 'ready'
       return patched.source
     } catch (error) {
@@ -1403,6 +1418,19 @@ export class EditorSession {
     for (const projection of parsed.body.types) {
       this.typeProjections.set(projection.typeRef.typeId, projection)
     }
+  }
+
+  private acceptSavedSource(view: SourceView, pendingCount: number): void {
+    const remaining = this.pendingCommands.slice(pendingCount)
+    const graphPath = [...this.graphPath]
+    this.acceptSource(view)
+    for (const pending of remaining) {
+      this.graphPath = [pending.graphId]
+      this.apply(pending.command)
+    }
+    const graphs = new Set(this.requireSource().graphs.map((graph) => graph.id))
+    this.graphPath = graphPath.filter((id) => graphs.has(id))
+    if (!this.graphPath.length) this.graphPath = [this.requireSource().entryGraph]
   }
 
   private acceptSource(view: SourceView): void {

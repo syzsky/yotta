@@ -228,6 +228,9 @@ func Inspect(ctx context.Context, options Options) (Plan, error) {
 // Ensure leaves new/current roots untouched and applies every registered
 // released upgrade before callers open domain stores.
 func Ensure(ctx context.Context, options Options) (Result, error) {
+	if err := relocateDefault(ctx, options); err != nil {
+		return Result{}, fmt.Errorf("relocate default profile: %w", err)
+	}
 	roots, err := storage.Resolve(options.Root)
 	if err != nil {
 		return Result{}, err

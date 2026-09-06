@@ -13,6 +13,7 @@ import (
 )
 
 type runJob struct {
+	packageIDs []string
 	workflowID string
 	cancel     context.CancelFunc
 	providers  map[string]run.InstalledProvider
@@ -23,10 +24,11 @@ type runJob struct {
 // The private methods below own the single production worker and every
 // in-process Run lifetime. runMu keeps worker state separate from the
 // Application command and lifecycle locks.
-func (a *Application) enqueue(runID, workflowID string, providers map[string]run.InstalledProvider, targets targetruntime.Snapshot, release func(), control *compiler.DebugController) {
+func (a *Application) enqueue(runID, workflowID string, providers map[string]run.InstalledProvider, targets targetruntime.Snapshot, release func(), control *compiler.DebugController, packageIDs []string) {
 	a.runMu.Lock()
 	defer a.runMu.Unlock()
 	a.jobs[runID] = &runJob{
+		packageIDs: append([]string(nil), packageIDs...),
 		workflowID: workflowID,
 		providers:  providers, targets: targets, release: release,
 	}

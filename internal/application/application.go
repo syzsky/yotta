@@ -37,6 +37,7 @@ var (
 )
 
 type Config struct {
+	NodePackages      []schema.NodePackageDependency
 	Catalog           nodecatalog.Snapshot
 	Authoring         nodeauthoring.Snapshot
 	CompilerBuild     artifact.Digest
@@ -199,6 +200,9 @@ const (
 )
 
 type Application struct {
+	pluginMu          sync.RWMutex
+	validatePlugins   func([]byte) ([]string, error)
+	nodePackages      []schema.NodePackageDependency
 	catalog           nodecatalog.Snapshot
 	authoring         nodeauthoring.Snapshot
 	authoringEngine   *authoring.Engine
@@ -256,7 +260,7 @@ func New(config Config) (*Application, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	authoringEngine, err := authoring.New(config.Catalog, config.Authoring, nil)
+	authoringEngine, err := authoring.New(config.Catalog, config.Authoring, nil, config.NodePackages...)
 	if err != nil {
 		return nil, fmt.Errorf("construct authoring engine: %w", err)
 	}
@@ -265,7 +269,8 @@ func New(config Config) (*Application, error) {
 		return nil, err
 	}
 	return &Application{
-		catalog: config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
+		nodePackages: append([]schema.NodePackageDependency(nil), config.NodePackages...),
+		catalog:      config.Catalog, authoring: config.Authoring, authoringEngine: authoringEngine,
 		compiler: compiler.New(config.CompilerBuild, config.ConfigValidators), blobVerifier: config.BlobVerifier,
 		runImagePlanner: config.RunImagePlanner,
 		sources:         config.Sources, programs: config.Programs, runs: config.Runs,
@@ -423,6 +428,8 @@ func (a *Application) CreateSourceWithMetadata(ctx context.Context, requested au
 }
 
 func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (StartRunResult, error) {
+	a.pluginMu.RLock()
+	defer a.pluginMu.RUnlock()
 	if ctx == nil {
 		return StartRunResult{}, errors.New("start Run context is required")
 	}
@@ -435,6 +442,8 @@ func (a *Application) StartRun(ctx context.Context, request StartRunRequest) (St
 // module has already authorized. It shares the compiler, admission, ledger,
 // provider, and worker path with local editable Source runs.
 func (a *Application) StartArtifactRun(ctx context.Context, request StartArtifactRunRequest) (StartRunResult, error) {
+	a.pluginMu.RLock()
+	defer a.pluginMu.RUnlock()
 	if ctx == nil {
 		return StartRunResult{}, errors.New("start artifact Run context is required")
 	}
@@ -447,6 +456,8 @@ func (a *Application) StartArtifactRun(ctx context.Context, request StartArtifac
 }
 
 func (a *Application) StartDebugRun(ctx context.Context, request StartRunRequest, breakpoints []compiler.DebugBreakpoint) (StartRunResult, error) {
+	a.pluginMu.RLock()
+	defer a.pluginMu.RUnlock()
 	if ctx == nil {
 		return StartRunResult{}, errors.New("start debug Run context is required")
 	}
@@ -480,6 +491,14 @@ func (a *Application) startRunArtifact(
 ) (StartRunResult, error) {
 	if err := a.requireRunning(); err != nil {
 		return StartRunResult{}, err
+	}
+	var packageIDs []string
+	if a.validatePlugins != nil {
+		var err error
+		packageIDs, err = a.validatePlugins(sourceArtifact)
+		if err != nil {
+			return StartRunResult{}, err
+		}
 	}
 	leased, err := a.leaseRunTargets()
 	if err != nil {
@@ -531,7 +550,7 @@ func (a *Application) startRunArtifact(
 			return result, err
 		}
 	}
-	a.enqueue(runID, sourceWorkflowID, admitted.providers, admitted.targets, releaseProviders, control)
+	a.enqueue(runID, sourceWorkflowID, admitted.providers, admitted.targets, releaseProviders, control, packageIDs)
 	leasePublished = true
 	a.emit(admitted.record, nil)
 	return result, nil

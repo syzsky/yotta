@@ -46,6 +46,18 @@ function harness(overrides: Partial<EditorRunSession> = {}) {
 }
 
 describe('editor run controller', () => {
+  it('commits focused input before explicit save but does not steal focus on autosave', async () => {
+    const run = harness()
+    run.dependencies.commitInputs = vi.fn(async () => true)
+    await run.controller.execute({ kind: 'save' })
+    expect(run.dependencies.commitInputs).toHaveBeenCalledOnce()
+    await run.controller.execute({ kind: 'save', inputsCommitted: true })
+    expect(run.dependencies.commitInputs).toHaveBeenCalledOnce()
+    run.dependencies.commitInputs = vi.fn(async () => false)
+    await expect(run.controller.execute({ kind: 'start' })).resolves.toEqual({ ok: false })
+    expect(run.session.run).not.toHaveBeenCalled()
+  })
+
   it('owns compile, start, and result-panel routing behind one command interface', async () => {
     const run = harness()
 

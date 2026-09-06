@@ -150,6 +150,9 @@ export interface WorkflowTransport {
   chooseRunTimelineDestination(filename: string): Promise<string>
   exportRunTimeline(runId: string, destination: string): Promise<RunTimelineExportResult>
   getAuthoringProjection(): Promise<string>
+  getNodePackageDependencies?(): Promise<
+    import('../../../../contracts/workflow/current/workflow-source').NodePackageDependency[]
+  >
   searchRegistry(search: string, limit: number): Promise<RegistrySearchPageView>
   publishSourceToRegistry(request: PublishRegistryRequest): Promise<RegistryWorkflowReleaseView>
   installRegistryWorkflow(releaseId: string): Promise<SourceView>
@@ -244,7 +247,26 @@ export const workflowTransport: WorkflowTransport = {
     ),
   exportRunTimeline: (runId, destination) =>
     invoke(WorkflowService.ExportRunTimeline, runId, destination),
-  getAuthoringProjection: () => invoke(WorkflowService.GetAuthoringProjection),
+  getAuthoringProjection: async () => {
+    await import('@/lib/plugins').then((module) => module.loadPluginMessages())
+    return invoke(WorkflowService.GetAuthoringProjection)
+  },
+  getNodePackageDependencies: async () => {
+    const packages = await invoke(WorkflowService.GetNodePackageDependencies)
+    return packages.flatMap((p) => {
+      const [first, ...rest] = p.nodeRefs
+      if (!first) return []
+      return [
+        {
+          ...p,
+          nodeRefs: [
+            first,
+            ...rest,
+          ] as import('../../../../contracts/workflow/current/workflow-source').NodePackageDependency['nodeRefs'],
+        },
+      ]
+    })
+  },
   searchRegistry: (search, limit) => invoke(WorkflowService.SearchRegistry, search, limit),
   publishSourceToRegistry: (request) => invoke(WorkflowService.PublishSourceToRegistry, request),
   installRegistryWorkflow: (releaseId) =>

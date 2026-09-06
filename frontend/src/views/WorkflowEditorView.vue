@@ -298,6 +298,7 @@
         <aside
           v-if="inspectorSidebarOpen"
           data-testid="workflow-inspector-sidebar"
+          ref="inspectorRoot"
           class="relative flex h-full shrink-0 [&>aside]:!w-full"
           :style="{ width: `${inspectorSidebarWidth}px` }"
         >
@@ -330,7 +331,7 @@
             :graph="selectedCallGraph"
             :ports="selectedCallPorts"
             :resources="session.source?.resources ?? []"
-            @update="applyCommand({ kind: 'update-graph-call', call: $event })"
+            @update="applyInspectorCommand({ kind: 'update-graph-call', call: $event })"
             @open="openCalledGraph(selectedCallGraph.id)"
             @duplicate="duplicateSelectedGraphCall"
             @fork="forkSelectedGraphCall"
@@ -364,7 +365,7 @@
             :types="session.authoring?.body.types ?? []"
             :connected-input-ids="selectedConnectedInputIDs"
             :resources="session.source?.resources ?? []"
-            @command="applyCommand"
+            @command="applyInspectorCommand"
             @capture-template="selectedNode && captureTemplateForNode(selectedNode.id)"
             @locate-resource="locateBoundResource"
           />
@@ -504,6 +505,7 @@ import { effectiveTargetSlot } from '@/app/editor/authoringSurface'
 import WorkflowEditorToolbar from '@/app/editor/WorkflowEditorToolbar.vue'
 import WorkflowWorkspaceRail from '@/app/editor/WorkflowWorkspaceRail.vue'
 import { createEditorRunController } from '@/app/editor/EditorRunController'
+import { useInspectorPersistence } from '@/app/editor/useInspectorPersistence'
 import { createEditorResourceController } from '@/app/editor/EditorResourceController'
 import { createEditorRecordingController } from '@/app/editor/EditorRecordingController'
 import { createEditorCanvasLayoutController } from '@/app/editor/EditorCanvasLayoutController'
@@ -620,6 +622,7 @@ const editorResources = createEditorResourceController({
   showError,
 })
 const selectedNodeId = ref('')
+const inspectorRoot = ref<HTMLElement | null>(null)
 const selectedNodeIds = ref(new Set<string>())
 const selectedEdgeIds = ref(new Set<string>())
 const selectedEdgeId = computed({
@@ -694,6 +697,7 @@ const {
 } = runtimeWorkbench
 const editorRuns = createEditorRunController({
   session,
+  commitInputs: () => inspectorPersistence.commit(),
   translate: (key, params) => (params ? t(key, params) : t(key)),
   showError,
   showSuccess,
@@ -704,6 +708,11 @@ const editorRuns = createEditorRunController({
   exportTimeline: (runId, destination) => workflowTransport.exportRunTimeline(runId, destination),
 })
 const { saveSucceeded, debugControlBusy, timelineExporting } = editorRuns
+const inspectorPersistence = useInspectorPersistence({
+  root: () => inspectorRoot.value,
+  isDirty: () => session.dirty,
+  save: async () => (await editorRuns.execute({ kind: 'save', inputsCommitted: true })).ok,
+})
 const editorMetadata = createEditorWorkflowMetadataController({
   session,
   port: {
@@ -1509,6 +1518,7 @@ const unregisterMainWindowCloseGuard = registerMainWindowCloseGuard(confirmEdito
 async function confirmEditorExit(
   closeRequest?: MainWindowCloseRequest,
 ): Promise<boolean | 'handled'> {
+  if (!(await inspectorPersistence.flush())) return false
   if (
     recording.state.phase === 'armed' ||
     recording.state.phase === 'countdown' ||
@@ -1601,6 +1611,10 @@ function duplicateWorkflowResource(resource: WorkflowResource): void {
 
 async function openMacroEditor(asset: AssetSummary): Promise<void> {
   await editorResources.execute({ kind: 'open-global-macro', asset })
+}
+
+function applyInspectorCommand(command: EditorCommand): void {
+  if (applyCommand(command)) inspectorPersistence.markChanged()
 }
 
 function applyCommand(command: EditorCommand): boolean {

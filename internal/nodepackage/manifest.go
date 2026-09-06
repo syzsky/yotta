@@ -75,6 +75,7 @@ type NodeDraft struct {
 }
 
 type Draft struct {
+	Resources          []Payload
 	PublisherNamespace string
 	PackageID          string
 	PackageVersion     string
@@ -96,12 +97,14 @@ type capabilityRecord struct {
 }
 
 type nodeRecord struct {
-	NodeRef        nodecontract.NodeRef `json:"nodeRef"`
-	Semantic       json.RawMessage      `json:"semantic"`
-	Implementation Implementation       `json:"implementation"`
+	Authoring      *nodecontract.Authoring `json:"authoring,omitempty"`
+	NodeRef        nodecontract.NodeRef    `json:"nodeRef"`
+	Semantic       json.RawMessage         `json:"semantic"`
+	Implementation Implementation          `json:"implementation"`
 }
 
 type document struct {
+	Resources          []Payload          `json:"resources,omitempty"`
 	Format             string             `json:"format"`
 	Version            string             `json:"version"`
 	PublisherNamespace string             `json:"publisherNamespace"`
@@ -161,8 +164,28 @@ func Seal(draft Draft) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, err
 	}
+	resources := append([]Payload(nil), draft.Resources...)
+	if len(resources) > MaxDefinitions {
+		return Manifest{}, errors.New("too many package resources")
+	}
+	sort.Slice(resources, func(i, j int) bool { return resources[i].Path < resources[j].Path })
+	for i, resource := range resources {
+		if _, err := normalizePayload(resource); err != nil {
+			return Manifest{}, err
+		}
+		if i > 0 && resources[i-1].Path == resource.Path {
+			return Manifest{}, errors.New("duplicate package resource")
+		}
+		if _, exists := paths[resource.Path]; exists {
+			return Manifest{}, errors.New("package resource duplicates another payload")
+		}
+		if err := mergePayload(paths, resource); err != nil {
+			return Manifest{}, err
+		}
+	}
 	doc := document{
-		Format: Format, Version: Version, PublisherNamespace: draft.PublisherNamespace,
+		Resources: resources,
+		Format:    Format, Version: Version, PublisherNamespace: draft.PublisherNamespace,
 		PackageID: draft.PackageID, PackageVersion: draft.PackageVersion, HostAPI: draft.HostAPI,
 		Types: typeRecords, Capabilities: capabilityRecords, Nodes: nodeRecords, Documentation: documentation,
 	}
@@ -216,9 +239,16 @@ func Open(raw []byte) (Manifest, error) {
 		if err != nil {
 			return Manifest{}, fmt.Errorf("open package node %q: %w", record.NodeRef.NodeTypeID, err)
 		}
+		if record.Authoring != nil {
+			contract, err = contract.WithAuthoring(*record.Authoring)
+			if err != nil {
+				return Manifest{}, err
+			}
+		}
 		nodes = append(nodes, NodeDraft{Contract: contract, Implementation: record.Implementation})
 	}
 	sealed, err := Seal(Draft{
+		Resources:          decoded.Resources,
 		PublisherNamespace: decoded.PublisherNamespace, PackageID: decoded.PackageID,
 		PackageVersion: decoded.PackageVersion, HostAPI: decoded.HostAPI,
 		Types: types, Capabilities: capabilities, Nodes: nodes, Documentation: decoded.Documentation,
@@ -327,6 +357,13 @@ func (m Manifest) Documentation() []Payload {
 	return append([]Payload(nil), m.state.document.Documentation...)
 }
 
+func (m Manifest) Resources() []Payload {
+	if !m.Valid() {
+		return nil
+	}
+	return append([]Payload(nil), m.state.document.Resources...)
+}
+
 func normalizeTypes(namespace *url.URL, source []datatype.Definition) ([]typeRecord, []datatype.Definition, error) {
 	ordered := append([]datatype.Definition(nil), source...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].TypeRef().TypeID < ordered[j].TypeRef().TypeID })
@@ -400,7 +437,12 @@ func normalizeNodes(namespace *url.URL, source []NodeDraft) ([]nodeRecord, []Nod
 		}
 		node.Implementation = implementation
 		previous = ref.NodeTypeID
-		records = append(records, nodeRecord{NodeRef: ref, Semantic: node.Contract.SemanticBytes(), Implementation: implementation})
+		record := nodeRecord{NodeRef: ref, Semantic: node.Contract.SemanticBytes(), Implementation: implementation}
+		authoring := node.Contract.Authoring()
+		if authoring.TitleKey != "" || authoring.DescriptionKey != "" || authoring.Category != "" || authoring.Icon != "" || authoring.EditorAdapter != "" || len(authoring.Tags) != 0 || len(authoring.Ports) != 0 {
+			record.Authoring = &authoring
+		}
+		records = append(records, record)
 	}
 	return records, ordered, paths, nil
 }

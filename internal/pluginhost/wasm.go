@@ -73,7 +73,7 @@ func (host *WasmHost) HostFeatures() []string {
 	if host == nil || host.runner == nil || !host.runner.Available() {
 		return []string{}
 	}
-	return []string{WasmIsolationHostFeatureID}
+	return []string{WasmIsolationHostFeatureID, ConfiguredTargetsHostFeatureID}
 }
 
 func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[string]nodeadapter.InstalledAdapter, error) {
@@ -120,6 +120,7 @@ func (host *WasmHost) invokeWasm(parent context.Context, node nodepackage.Runtim
 	defer cancelExecution()
 	session := &processSession{
 		catalog: host.catalog, invocation: invocation,
+		targetSpecs:  node.Contract.Machine().ConfiguredTargets,
 		nextSequence: 2, maxHostCalls: host.options.MaxHostCalls, maxStatusEvents: host.options.MaxStatusEvents,
 	}
 	result, err := executeSandboxed(executionContext, host.runner, processsandbox.Request{

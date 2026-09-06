@@ -18,6 +18,7 @@ import (
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/pluginmanager"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services"
 	"github.com/yottaapp/yotta/internal/storage"
@@ -41,6 +42,7 @@ type Config struct {
 // Runtime owns every non-presentation resource opened for one local profile.
 // Callers use the projected repositories but close only Runtime.
 type Runtime struct {
+	Plugins  *pluginmanager.Manager
 	Roots    storage.Roots
 	Settings *services.App
 	Workflow *appbootstrap.Runtime
@@ -182,6 +184,10 @@ func Open(ctx context.Context, config Config) (_ *Runtime, resultErr error) {
 		return nil, err
 	}
 	automationOwned = true
+	opened.Plugins, err = pluginmanager.New(filepath.Join(opened.Roots.Packages, "node"), packages, opened.Settings, opened.Workflow.Application)
+	if err != nil {
+		return nil, err
+	}
 	return opened, nil
 }
 

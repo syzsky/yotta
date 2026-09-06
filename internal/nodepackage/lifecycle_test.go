@@ -411,3 +411,36 @@ func lifecyclePolicy(t *testing.T) (TrustPolicy, ed25519.PrivateKey) {
 	}
 	return policy, privateKey
 }
+
+// Windows can retain mapped executables after logical removal. A partially
+// removed, unreferenced generation is not an installed package to verify.
+func TestReinstallRecoversPartialUnreferencedGeneration(t *testing.T) {
+	ctx := context.Background()
+	policy, key := lifecyclePolicy(t)
+	store, err := CreateStore(ctx, filepath.Join(t.TempDir(), "packages"), policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, archive := lifecycleArchive(t, key, "1.0.0", "payload")
+	grantArchive(t, ctx, store, archive)
+	installed, err := store.InstallArchive(ctx, archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Uninstall(installed.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	leftover := filepath.Join(store.generationPath(manifest.Digest()), "bin", "collector.exe")
+	if err = os.MkdirAll(filepath.Dir(leftover), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(leftover, []byte("leftover process image"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.InstallArchive(ctx, archive); err != nil {
+		t.Fatalf("reinstall after partial uninstall: %v", err)
+	}
+	if _, err = OpenExtracted(ctx, store.generationPath(manifest.Digest())); err != nil {
+		t.Fatal(err)
+	}
+}

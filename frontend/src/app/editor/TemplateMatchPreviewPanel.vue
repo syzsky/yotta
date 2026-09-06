@@ -17,6 +17,7 @@
           )
         "
         :disabled="!request && !enabled"
+        :title="blockedHint || undefined"
         :aria-pressed="enabled"
         @click="enabled = !enabled"
       />
@@ -61,13 +62,7 @@
       {{ failure }}
     </p>
     <p v-else class="text-xs leading-5 text-muted">
-      {{
-        t(
-          !request
-            ? 'workflow.inspector.template_preview_required'
-            : 'workflow.inspector.template_preview_hint',
-        )
-      }}
+      {{ blockedHint || t('workflow.inspector.template_preview_hint') }}
     </p>
   </section>
 </template>
@@ -77,7 +72,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
 import type { Node, NodeProjection } from './EditorSession'
-import { templatePreviewRequest } from './templateMatchPreview'
+import { resolveTemplatePreview } from './templateMatchPreview'
 import { useTemplateMatchPreview } from './useTemplateMatchPreview'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -97,8 +92,8 @@ const targetItems = computed(() =>
     value: target.slot,
   })),
 )
-const request = computed(() =>
-  templatePreviewRequest(
+const preview = computed(() =>
+  resolveTemplatePreview(
     props.node,
     props.projection,
     props.resources ?? [],
@@ -106,6 +101,20 @@ const request = computed(() =>
     props.connectedInputIds,
   ),
 )
+const request = computed(() => preview.value.request)
+const blockedHint = computed(() => {
+  const field = preview.value.blockedField
+  if (!field) return ''
+  if (field === 'target') return t('workflow.inspector.template_preview_target')
+  if (field === 'template' && !preview.value.dynamic) return t('workflow.inspector.select_template')
+  const title = props.projection.dataInputs.find((port) => port.id === field)?.titleKey
+  return t(
+    preview.value.dynamic
+      ? 'workflow.inspector.template_preview_required'
+      : 'workflow.inspector.template_preview_invalid',
+    { field: title ? t(title) : field },
+  )
+})
 const { enabled, loading, result, failure } = useTemplateMatchPreview(request)
 const score = computed(() =>
   result.value && result.value.score >= 0 ? `${(result.value.score * 100).toFixed(2)}%` : '—',

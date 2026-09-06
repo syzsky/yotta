@@ -8,7 +8,7 @@
     !define INFO_PROJECTNAME "Yotta"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "Yotta"
+    !define INFO_COMPANYNAME "月离万事屋"
 !endif
 !ifndef INFO_PRODUCTNAME
     !define INFO_PRODUCTNAME "Yotta"

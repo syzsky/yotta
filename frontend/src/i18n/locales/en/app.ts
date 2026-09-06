@@ -29,6 +29,8 @@ export default {
     },
   },
   settings: {
+    language_load_failed:
+      'Language resources could not load. Select the language again or restart and retry.',
     general: {
       appearance_title: 'Interface & language',
       capture_diagnostics_title: 'Capture & diagnostics',
@@ -406,6 +408,38 @@ export default {
     },
   },
   error: {
+    'plugins.location_unavailable':
+      'The directory is unavailable. Refresh plugin information and retry.',
+    'plugins.location_open_failed':
+      'Could not open the folder. Copy the displayed path into your file manager.',
+    'plugins.files_busy':
+      'Plugin files cannot be moved yet. Close the related background service and retry.',
+    'plugins.installed_files_changed':
+      'Installed plugin files are incomplete or changed. Uninstall the plugin and import a complete package.',
+    'plugins.batch_invalid': 'The batch request is invalid. Select the plugins again and retry.',
+    'plugins.load_failed': 'Could not read plugin information. Retry or import the package again.',
+    'plugins.install_failed':
+      'Plugin installation did not complete. Retry or obtain a fresh package.',
+    'plugins.invalid_package':
+      'The plugin package is incomplete or damaged. Obtain a fresh copy and import it.',
+    'plugins.publisher_changed':
+      'The publisher differs from the installed version. Check the package source.',
+    'plugins.in_use': 'A workflow is using this plugin. Finish the run and retry.',
+    'plugins.stop_failed': 'The capture service did not stop. Check its status and retry.',
+    'plugins.change_failed': 'Could not save the plugin state. Retry the action.',
+    'plugins.not_found': 'The required plugin is missing. Reinstall it in Settings → Plugins.',
+    'plugins.configuration_unavailable': 'Plugin configuration is unavailable. Restart and retry.',
+    'plugins.configuration_invalid':
+      'Could not save plugin settings. Check settings and import again.',
+    'plugins.target_conflict':
+      'A required target name is already in use. Rename it in Network targets or Desktop applications and retry.',
+    'plugins.disabled': 'The required plugin is disabled. Enable it in Settings → Plugins.',
+    'plugins.endpoint_conflict':
+      'Another service is using the capture address. Stop the conflicting service and retry.',
+    'plugins.start_failed':
+      'The capture service failed to start. Check the game and capture dependencies, then retry.',
+    'plugins.not_loaded':
+      'The plugin catalog has changed. Save your workflows and restart Yotta before running.',
     UNSUPPORTED_WORKFLOW_FORMAT: 'Unsupported Workflow format or version',
     INVALID_WORKFLOW_JSON: 'Workflow JSON is invalid',
     DUPLICATE_FIELD: 'A field is duplicated',

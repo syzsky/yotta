@@ -20,7 +20,7 @@ func TestResolveDefaultsToWindowsLocalAppData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("KnownFolderPath: %v", err)
 	}
-	want := filepath.Join(local, vendorDirectory, productDirectory)
+	want := filepath.Join(local, "yueli", "Yotta")
 	if !strings.EqualFold(roots.Root, want) {
 		t.Fatalf("root = %q, want %q", roots.Root, want)
 	}

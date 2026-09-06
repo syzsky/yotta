@@ -335,15 +335,20 @@ func (s *Store) InstallArchive(ctx context.Context, archivePath string) (Package
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return PackageInstallation{}, errors.New("node package generation path is not a directory")
 		}
-		existing, err := OpenExtracted(ctx, generation)
-		if err != nil || existing.Digest() != manifest.Digest() {
-			return PackageInstallation{}, errors.New("existing node package generation failed integrity verification")
-		}
+
 		if !generationReferenced(s.entries, manifest.Digest()) {
-			if err := os.RemoveAll(generation); err != nil {
-				return PackageInstallation{}, fmt.Errorf("remove inert node package generation: %w", err)
+			if err := retireGeneration(s.root, generation); err != nil {
+				return PackageInstallation{}, err
 			}
 			publishCandidate = true
+		} else {
+			existing, err := OpenExtracted(ctx, generation)
+			if err != nil {
+				return PackageInstallation{}, fmt.Errorf("%w: %v", ErrGenerationInvalid, err)
+			}
+			if existing.Digest() != manifest.Digest() {
+				return PackageInstallation{}, ErrGenerationInvalid
+			}
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return PackageInstallation{}, fmt.Errorf("inspect node package generation: %w", err)
@@ -382,7 +387,7 @@ func (s *Store) InstallArchive(ctx context.Context, archivePath string) (Package
 	} else if installed.Releases[index].QuarantineReason != "" {
 		return PackageInstallation{}, errors.New("quarantined node package generation cannot be reinstalled")
 	}
-	if installed.Current.Valid() {
+	if installed.Current.Valid() && installed.Current != manifest.Digest() {
 		installed.Rollback = installed.Current
 	}
 	installed.Current = manifest.Digest()
@@ -470,7 +475,9 @@ func (s *Store) Uninstall(packageID string) error {
 		return err
 	}
 	for _, release := range installed.Releases {
-		_ = os.RemoveAll(s.generationPath(release.ManifestDigest))
+		if !generationReferenced(next, release.ManifestDigest) {
+			_ = retireGeneration(s.root, s.generationPath(release.ManifestDigest))
+		}
 	}
 	return nil
 }
@@ -698,6 +705,10 @@ func cleanupInterrupted(root string) error {
 		return err
 	}
 	for _, entry := range entries {
+		if isRetiredEntry(entry) {
+			_ = os.RemoveAll(filepath.Join(root, entry.Name()))
+			continue
+		}
 		if strings.HasPrefix(entry.Name(), ".incoming-") || strings.HasPrefix(entry.Name(), ".durable-") {
 			if err := os.RemoveAll(filepath.Join(root, entry.Name())); err != nil {
 				return fmt.Errorf("clean interrupted node package incoming directory: %w", err)
@@ -713,7 +724,7 @@ func validateStoreRoot(root string) error {
 		return err
 	}
 	for _, entry := range entries {
-		if entry.Name() != generationsDir && entry.Name() != registryFilename {
+		if entry.Name() != generationsDir && entry.Name() != registryFilename && !isRetiredEntry(entry) {
 			return fmt.Errorf("unexpected node package store entry %q", entry.Name())
 		}
 	}
@@ -737,9 +748,9 @@ func cleanupOrphanGenerations(root string, installed map[string]PackageInstallat
 			return fmt.Errorf("unexpected node package generation store entry %q", entry.Name())
 		}
 		if _, found := referenced[entry.Name()]; !found {
-			if err := os.RemoveAll(filepath.Join(directory, entry.Name())); err != nil {
-				return fmt.Errorf("clean orphan node package generation: %w", err)
-			}
+			// An unreferenced mapped image must not prevent the store from opening.
+			// A later install or startup retries retirement after the process exits.
+			_ = retireGeneration(root, filepath.Join(directory, entry.Name()))
 		}
 	}
 	return nil

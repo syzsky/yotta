@@ -473,19 +473,30 @@ func (e *PatchError) RPCErrorEnvelope() apperr.Envelope {
 type IDFactory func() string
 
 type Engine struct {
+	packages   map[nodecontract.NodeRef]schema.NodePackageDependency
 	catalog    nodecatalog.Snapshot
 	projection nodeauthoring.Snapshot
 	newID      IDFactory
 }
 
-func New(catalog nodecatalog.Snapshot, projection nodeauthoring.Snapshot, newID IDFactory) (*Engine, error) {
+func New(catalog nodecatalog.Snapshot, projection nodeauthoring.Snapshot, newID IDFactory, packages ...schema.NodePackageDependency) (*Engine, error) {
 	if !catalog.Valid() || !projection.Valid() || projection.CatalogHash() != catalog.Hash() {
 		return nil, errors.New("authoring engine requires matching trusted Catalog and projection")
 	}
 	if newID == nil {
 		newID = uuid.NewString
 	}
-	return &Engine{catalog: catalog, projection: projection, newID: newID}, nil
+	byNode := map[nodecontract.NodeRef]schema.NodePackageDependency{}
+	for _, p := range packages {
+		for _, ref := range p.NodeRefs {
+			entry, ok := catalog.Lookup(ref.NodeTypeID)
+			if !ok || entry.Contract.NodeRef() != ref || entry.Implementation.PackageID != p.PackageID || entry.Implementation.ArtifactDigest != p.ManifestDigest {
+				return nil, errors.New("package dependency does not match Catalog")
+			}
+			byNode[ref] = p
+		}
+	}
+	return &Engine{catalog: catalog, projection: projection, newID: newID, packages: byNode}, nil
 }
 
 func (e *Engine) Apply(source schema.WorkflowSource, commands []Command) (Result, error) {
@@ -501,6 +512,40 @@ func (e *Engine) Apply(source schema.WorkflowSource, commands []Command) (Result
 	for index := range commands {
 		if err := e.applyCommand(&working, commands[index], index, handles, &generated); err != nil {
 			return Result{}, err
+		}
+	}
+	for _, graph := range working.Graphs {
+		for _, node := range graph.Nodes {
+			dependency, ok := e.packages[node.NodeRef]
+			if !ok {
+				continue
+			}
+			found := false
+			for index := range working.Dependencies {
+				current := &working.Dependencies[index]
+				if current.PackageID != dependency.PackageID {
+					continue
+				}
+				found = true
+				if current.ManifestDigest != dependency.ManifestDigest {
+					break
+				}
+				hasRef := false
+				for _, ref := range current.NodeRefs {
+					if ref == node.NodeRef {
+						hasRef = true
+						break
+					}
+				}
+				if !hasRef {
+					current.NodeRefs = append(current.NodeRefs, node.NodeRef)
+				}
+				break
+			}
+			if !found {
+				dependency.NodeRefs = []nodecontract.NodeRef{node.NodeRef}
+				working.Dependencies = append(working.Dependencies, dependency)
+			}
 		}
 	}
 	if working.Revision >= schema.MaxRevision {

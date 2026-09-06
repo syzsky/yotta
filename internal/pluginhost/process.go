@@ -103,7 +103,7 @@ func (host *ProcessHost) HostFeatures() []string {
 	if host == nil || host.runner == nil || !host.runner.Available() {
 		return []string{}
 	}
-	return []string{ProcessIsolationHostFeatureID}
+	return []string{ProcessIsolationHostFeatureID, ConfiguredTargetsHostFeatureID}
 }
 
 // Adapters projects only process-ABI nodes and pins each closure to its exact
@@ -180,6 +180,7 @@ func (host *ProcessHost) invoke(parent context.Context, node nodepackage.Runtime
 	defer cancelExecution()
 	session := &processSession{
 		catalog: host.catalog, invocation: invocation,
+		targetSpecs:  node.Contract.Machine().ConfiguredTargets,
 		nextSequence: 2, maxHostCalls: host.options.MaxHostCalls, maxStatusEvents: host.options.MaxStatusEvents,
 	}
 	result, err := executeSandboxed(executionContext, host.runner, processsandbox.Request{
@@ -258,6 +259,7 @@ type processControl interface {
 }
 
 type processSession struct {
+	targetSpecs     []nodecontract.ConfiguredTargetSpec
 	ctx             context.Context
 	catalog         nodecatalog.Snapshot
 	invocation      nodeadapter.Invocation
@@ -379,7 +381,13 @@ func (session *processSession) hostCall(requestID string, buildResponse func() *
 func (session *processSession) open(request *pluginprotocol.HostOpenRequest) *pluginprotocol.Frame {
 	response := &pluginprotocol.HostOpenResponse{RequestId: request.RequestId}
 	binding := session.invocation.Sessions[request.RequirementId]
-	if binding == nil {
+	if binding == nil && session.configuredTarget(request.RequirementId) != nil {
+		var err error
+		response.HandleJson, err = session.openTarget(request)
+		if err != nil {
+			response.Failure = hostFailure("configured target open failed")
+		}
+	} else if binding == nil {
 		response.Failure = hostFailure("resource requirement is unavailable")
 	} else if handle, err := binding.Open(session.ctx, request.Operations, request.ConfigJson); err != nil {
 		response.Failure = hostFailure("resource open was denied")
@@ -393,8 +401,16 @@ func (session *processSession) invoke(request *pluginprotocol.HostInvokeRequest)
 	response := &pluginprotocol.HostInvokeResponse{RequestId: request.RequestId}
 	binding := session.invocation.Sessions[request.RequirementId]
 	var handle resource.Handle
-	if binding == nil || decodeCanonical(request.HandleJson, &handle) != nil || handle.Validate() != nil {
+	if decodeCanonical(request.HandleJson, &handle) != nil || handle.Validate() != nil {
 		response.Failure = hostFailure("resource invocation authority is invalid")
+	} else if binding == nil && session.configuredTarget(request.RequirementId) != nil && session.invocation.Targets != nil {
+		var err error
+		response.Payload, err = session.invocation.Targets.Invoke(session.ctx, handle, request.Operation, request.Payload)
+		if err != nil {
+			response.Failure = hostFailure("configured target invocation failed")
+		}
+	} else if binding == nil {
+		response.Failure = hostFailure("resource requirement is unavailable")
 	} else if payload, err := binding.Invoke(session.ctx, handle, request.Operation, request.Payload); err != nil {
 		response.Failure = hostFailure("resource invocation failed")
 	} else {
@@ -407,8 +423,14 @@ func (session *processSession) drop(request *pluginprotocol.HostDropRequest) *pl
 	response := &pluginprotocol.HostDropResponse{RequestId: request.RequestId}
 	binding := session.invocation.Sessions[request.RequirementId]
 	var handle resource.Handle
-	if binding == nil || decodeCanonical(request.HandleJson, &handle) != nil || handle.Validate() != nil {
+	if decodeCanonical(request.HandleJson, &handle) != nil || handle.Validate() != nil {
 		response.Failure = hostFailure("resource drop authority is invalid")
+	} else if binding == nil && session.configuredTarget(request.RequirementId) != nil && session.invocation.Targets != nil {
+		if err := session.invocation.Targets.Drop(session.ctx, handle); err != nil {
+			response.Failure = hostFailure("configured target drop failed")
+		}
+	} else if binding == nil {
+		response.Failure = hostFailure("resource requirement is unavailable")
 	} else if err := binding.Drop(session.ctx, handle); err != nil {
 		response.Failure = hostFailure("resource drop failed")
 	}

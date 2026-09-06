@@ -6,11 +6,17 @@
 其次 `YOTTA_ROOT`，最后平台默认目录。Windows 默认值是：
 
 ```text
-%LOCALAPPDATA%\Yotta\Yotta
+%LOCALAPPDATA%\yueli\Yotta
 ```
 
-Linux/macOS 预览 host 使用 `os.UserConfigDir()` 下的 `Yotta/Yotta`。`task dev` 使用仓库内隔离 profile；
+Linux/macOS 预览 host 使用 `os.UserConfigDir()` 下的 `yueli/Yotta`。`task dev` 使用仓库内隔离 profile；
 exe 目录、当前工作目录、根目录的 `data/` 或 `settings.json` 都不是生产数据位置。
+
+旧默认目录 `%LOCALAPPDATA%\Yotta\Yotta` 会在首次默认启动时自动迁移；显式 profile 不受影响。
+迁移持有旧 profile 的 writer lease，复制并逐文件校验后发布新目录，并保留旧 profile 备份。
+配置里的根路径会重新定位；不可变 Workflow/Run/Blob/插件内容保持原样，账号凭据身份通过
+`config/profile-identity.json` 保留。迁移文件清单见 `config/profile-relocation.json`。
+已有新目录不会被旧数据覆盖或自动合并。
 
 profile 由 `root.json` 标识为 `yotta.storage-root`。进程持有 `runtime/writer.lock`，同一 profile 同一时间只能
 有一个 writer。未知 identity/layout、非空未认领目录或未来 schema 都 fail closed。当前 root/database/store

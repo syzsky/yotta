@@ -1036,7 +1036,8 @@ export default {
       template_preview_unmatched: 'Below threshold',
       template_preview_threshold: 'Match threshold {value}%',
       template_preview_required:
-        'Select a target and template. Threshold and region must use fixed values.',
+        '{field} comes from a connection or variable. Set a fixed value first.',
+      template_preview_invalid: 'Check the {field} setting.',
       template_preview_hint:
         'Checks the live image without input actions. Threshold and region changes apply automatically.',
       title: 'Inspector',

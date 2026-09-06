@@ -120,7 +120,10 @@ const localeItems = computed(() => [
 async function onLocaleChange(value: string) {
   const ok = await settingsStore.patch({ locale: value })
   if (!ok) return
-  setLocale(value as Locale)
+  if (!(await setLocale(value as Locale))) {
+    toast.add({ title: t('settings.language_load_failed'), color: 'error' })
+    return
+  }
   if (value === 'en') {
     toast.add({
       title: t('toast.lang_en_warn_title'),

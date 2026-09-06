@@ -42,7 +42,9 @@
     :model-value="numberValue"
     :min="numericConstraint(port.type.constraints.minimum)"
     :max="numericConstraint(port.type.constraints.maximum)"
-    :step="port.type.control === 'integer' ? 1 : 'any'"
+    :step="port.type.control === 'integer' ? 1 : 0.01"
+    :step-snapping="false"
+    :format-options="{ maximumFractionDigits: port.type.control === 'integer' ? 0 : 20 }"
     :size="compact ? 'xs' : 'sm'"
     class="w-full"
     @update:model-value="emit('update:model-value', Number($event))"
@@ -61,7 +63,7 @@
     :model-value="textValue"
     :size="compact ? 'xs' : 'sm'"
     class="w-full"
-    @change="setText"
+    @update:model-value="emit('update:model-value', $event)"
   />
   <UTextarea
     v-else-if="adapter === 'multiline-text'"
@@ -70,20 +72,24 @@
     :size="compact ? 'xs' : 'sm'"
     autoresize
     class="w-full text-sm leading-relaxed"
-    @change="setText"
+    @update:model-value="emit('update:model-value', $event)"
   />
-  <UTextarea
-    v-else
-    :model-value="jsonValue"
-    :rows="compact ? 2 : 5"
-    :size="compact ? 'xs' : 'sm'"
-    class="w-full font-mono text-xs"
-    @change="setJSON"
-  />
+  <template v-else>
+    <UTextarea
+      v-model="jsonDraft"
+      :rows="compact ? 2 : 5"
+      :size="compact ? 'xs' : 'sm'"
+      :aria-invalid="Boolean(jsonError)"
+      class="w-full font-mono text-xs"
+      @blur="commitJSON"
+    />
+    <p v-if="jsonError" role="alert" class="mt-1 text-xs text-error">{{ jsonError }}</p>
+  </template>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { PortProjection } from '../../../../contracts/node/current/authoring-projection'
 import type { ValueEditorAdapter } from './authoringSurface'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
@@ -102,6 +108,9 @@ const props = defineProps<{
   compact?: boolean
 }>()
 const emit = defineEmits<{ 'update:model-value': [value: unknown] }>()
+const { t } = useI18n()
+const jsonDraft = ref('')
+const jsonError = ref('')
 const keyChordValue = computed(() =>
   Array.isArray(props.modelValue)
     ? props.modelValue.filter((value): value is string => typeof value === 'string')
@@ -123,20 +132,26 @@ const jsonValue = computed(() =>
     ? ''
     : JSON.stringify(props.modelValue, null, props.compact ? 0 : 2),
 )
+watch(
+  jsonValue,
+  (value) => {
+    jsonDraft.value = value
+    jsonError.value = ''
+  },
+  { immediate: true },
+)
 
 function numericConstraint(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined
 }
 
-function setJSON(event: Event): void {
+function commitJSON(): void {
   try {
-    emit('update:model-value', JSON.parse((event.target as HTMLTextAreaElement).value))
+    const value: unknown = JSON.parse(jsonDraft.value)
+    jsonError.value = ''
+    emit('update:model-value', value)
   } catch {
-    return
+    jsonError.value = t('workflow.inspector.invalid_json')
   }
-}
-
-function setText(event: Event): void {
-  emit('update:model-value', (event.target as HTMLInputElement).value)
 }
 </script>

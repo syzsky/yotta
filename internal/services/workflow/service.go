@@ -39,6 +39,12 @@ type Service struct {
 
 type ReferenceResolver func(workflowID string) []SourceReference
 
+// GetNodePackageDependencies supplies authoring metadata separately from the
+// immutable Node Authoring Projection schema.
+func (s *Service) GetNodePackageDependencies() []schema.NodePackageDependency {
+	return s.application.NodePackageDependencies()
+}
+
 type Option func(*Service)
 
 func WithRegistryAccount(account *nativeoidc.Session) Option {

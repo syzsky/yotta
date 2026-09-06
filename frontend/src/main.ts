@@ -7,7 +7,7 @@ import App from './App.vue'
 import { router } from './router'
 import { wireEvents } from './lib/events'
 import { useSettingsStore } from './stores/settings'
-import { i18n } from './i18n'
+import { i18n, setLocale } from './i18n'
 
 import './style.css'
 
@@ -28,6 +28,7 @@ wireEvents()
 ;(async () => {
   const settingsStore = useSettingsStore()
   await settingsStore.load()
+  await setLocale(settingsStore.data?.locale === 'en' ? 'en' : 'zh')
   settingsStore.startSync()
   app.mount('#app')
 })()

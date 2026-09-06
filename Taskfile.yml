@@ -14,6 +14,11 @@ vars:
     sh: go run ./cmd/yotta-versions show
 
 tasks:
+  plugins:export-sdk:
+    summary: Exports the public plugin SDK to an explicit local Go module proxy
+    cmds:
+      - python scripts/export-plugin-sdk.py --out .task/sdk-proxy
+
   check:
     summary: Runs checks relevant to the current Git change set
     cmds:

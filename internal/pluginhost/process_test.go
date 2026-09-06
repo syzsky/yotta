@@ -346,7 +346,7 @@ func TestProcessHostConstructionAdvertisesOnlyAvailableIsolation(t *testing.T) {
 	}
 	features := host.HostFeatures()
 	if host.runner.Available() {
-		if len(features) != 1 || features[0] != ProcessIsolationHostFeatureID {
+		if len(features) != 2 || features[0] != ProcessIsolationHostFeatureID || features[1] != ConfiguredTargetsHostFeatureID {
 			t.Fatalf("HostFeatures = %#v", features)
 		}
 	} else if len(features) != 0 {

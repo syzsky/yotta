@@ -468,6 +468,11 @@ func archivePayloads(manifest Manifest) (map[string]archivePayload, error) {
 			return nil, err
 		}
 	}
+	for _, payload := range manifest.Resources() {
+		if err := mergeArchivePayload(payloads, archivePayload{payload: payload, executable: payload.MediaType == "application/vnd.microsoft.portable-executable" || payload.MediaType == "application/x-executable"}); err != nil {
+			return nil, err
+		}
+	}
 	return payloads, nil
 }
 

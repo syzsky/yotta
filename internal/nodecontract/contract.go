@@ -588,6 +588,18 @@ func (c Contract) Authoring() Authoring {
 	return authoring
 }
 
+// WithAuthoring replaces presentation metadata without changing NodeRef.
+func (c Contract) WithAuthoring(authoring Authoring) (Contract, error) {
+	if !c.Valid() {
+		return Contract{}, errors.New("node contract is invalid")
+	}
+	normalized, err := normalizeAuthoring(authoring, c.state.machine.Ports)
+	if err != nil {
+		return Contract{}, err
+	}
+	return sealNormalized(c.state.machine, normalized)
+}
+
 func (c Contract) Machine() MachineContract {
 	if !c.Valid() {
 		return MachineContract{}

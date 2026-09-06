@@ -77,6 +77,7 @@
       <UTextarea
         v-else-if="jsonControl"
         v-model="jsonText"
+        :aria-invalid="Boolean(jsonError)"
         :rows="5"
         class="w-full font-mono text-xs"
         @blur="commitJson"
