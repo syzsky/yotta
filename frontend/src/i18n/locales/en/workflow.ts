@@ -354,6 +354,8 @@ export default {
       search_placeholder: 'Search node names, types, or tags',
       no_results: 'No matching nodes',
       category: {
+        panel: 'Panels',
+        plugins: 'Third-party nodes',
         ai: 'AI',
         application: 'Application',
         automation: 'Automation',
@@ -775,6 +777,11 @@ export default {
       show_optional_inputs: 'Show {n} optional inputs',
       hide_optional_inputs: 'Hide optional inputs',
       port: {
+        id: 'ID',
+        generation: 'Reference version',
+        panel: 'Panel reference',
+        kind: 'Component type',
+
         a: 'Value A',
         all: 'All',
         area: 'Area',
@@ -1153,6 +1160,7 @@ export default {
       since_start: '{value} after Run start',
       occurred_at: 'Occurred at {value}',
       source_revision: 'Source revision {revision}',
+      failed_node: 'Failed node',
       locate_node: 'Locate node',
       ai_diagnose: 'AI diagnose',
       unhandled_route: 'The “{route}” output is not connected; this Run ends here',

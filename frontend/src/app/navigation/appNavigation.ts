@@ -39,6 +39,7 @@ const destinations = [
 ] as const
 
 const utilityContexts: Record<string, { titleKey: string; icon: string }> = {
+  'panel-manager': { titleKey: 'panels.manager', icon: 'i-tabler-layout-dashboard' },
   settings: { titleKey: 'sidebar.settings', icon: 'i-tabler-settings' },
   about: { titleKey: 'sidebar.about', icon: 'i-tabler-info-circle' },
 }

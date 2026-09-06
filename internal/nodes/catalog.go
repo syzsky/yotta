@@ -406,11 +406,24 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	panelDefinitions, err := definePanelNodes(map[string]datatype.TypeRef{"string": stringType.TypeRef(), "number": numberType.TypeRef(), "boolean": booleanType.TypeRef(), "json": jsonType.TypeRef()})
+	if err != nil {
+		return Builtins{}, err
+	}
+	panelTypes, panelRefs, err := sealPanelTypes(stringType.TypeRef())
+	if err != nil {
+		return Builtins{}, err
+	}
+	managedPanelDefinitions, err := defineManagedPanelNodes(map[string]datatype.TypeRef{"string": stringType.TypeRef(), "number": numberType.TypeRef(), "boolean": booleanType.TypeRef(), "json": jsonType.TypeRef()}, panelRefs)
+	if err != nil {
+		return Builtins{}, err
+	}
 	types := []datatype.Definition{
 		stringType, binaryType, imageType, inputClipType, macroType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType,
 		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
 		pointerButtonType, pointerMotionType, keyCodeType, heldInputType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
 	}
+	types = append(types, panelTypes...)
 	structureDefinitions, err := defineStructureNodes(types)
 	if err != nil {
 		return Builtins{}, err
@@ -442,6 +455,8 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, matchTemplateDefinition)
 	definitions = append(definitions, visionAnalysisDefinitions...)
 	definitions = append(definitions, systemDefinitions...)
+	definitions = append(definitions, panelDefinitions...)
+	definitions = append(definitions, managedPanelDefinitions...)
 	definitions = append(definitions, structureDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))

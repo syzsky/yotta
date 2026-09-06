@@ -29,6 +29,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/panel"
 	"github.com/yottaapp/yotta/internal/pluginhost"
 	"github.com/yottaapp/yotta/internal/resource"
 	run "github.com/yottaapp/yotta/internal/run"
@@ -56,6 +57,7 @@ type Limits struct {
 }
 
 type Config struct {
+	Panels                   *panel.Service
 	DataRoot                 string
 	ProgramCacheRoot         string
 	WorkflowRepository       *catalog.WorkflowRepository
@@ -270,7 +272,7 @@ func Build(config Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	adapters, err := noderuntime.Installed(builtins, noderuntime.Dependencies{Script: config.ScriptRuntime, Log: config.LogEmitter})
+	adapters, err := noderuntime.Installed(builtins, noderuntime.Dependencies{Script: config.ScriptRuntime, Log: config.LogEmitter, Panels: config.Panels})
 	if err != nil {
 		return nil, err
 	}

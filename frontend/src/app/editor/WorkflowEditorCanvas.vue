@@ -229,6 +229,10 @@
           </div>
         </template>
       </UPopover>
+      <WorkflowPanelDefault
+        :model-value="workflowDefaultPanelSlot ?? ''"
+        @update:model-value="emit('set-default-panel', $event)"
+      />
       <template v-if="!selectedNodeCount && selectedEdgeCount">
         <template v-if="hasSingleSourceEdge">
           <UButton
@@ -352,6 +356,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkflowPanelDefault from './WorkflowPanelDefault.vue'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -414,6 +419,7 @@ defineProps<{
   aiPanelOpen: boolean
   workflowDefaultTargetLabel: string
   workflowDefaultTargetSlot: string
+  workflowDefaultPanelSlot?: string
   workflowAutomationTargetItems: Array<{ label: string; value: string }>
   hasSingleSourceEdge: boolean
   hasActiveRun: boolean
@@ -474,6 +480,7 @@ const emit = defineEmits<{
   'update-assist-hidden': [hidden: boolean]
   'update:minimapOpen': [open: boolean]
   'set-default-target': [value: unknown]
+  'set-default-panel': [value: string]
   'add-reroute': []
   'clear-reroutes': []
   'clear-run-trace': []

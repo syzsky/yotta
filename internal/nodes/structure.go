@@ -92,5 +92,13 @@ func structureTags(typeID string, fields []string) []string {
 	result := []string{"break", "structure", "field"}
 	result = append(result, segments...)
 	result = append(result, fields...)
-	return result
+	unique := make([]string, 0, len(result))
+	seen := map[string]bool{}
+	for _, tag := range result {
+		if !seen[tag] {
+			seen[tag] = true
+			unique = append(unique, tag)
+		}
+	}
+	return unique
 }

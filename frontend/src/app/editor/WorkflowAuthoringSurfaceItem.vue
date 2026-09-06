@@ -1,5 +1,39 @@
 <template>
-  <div v-if="item.kind === 'config'" class="space-y-2">
+  <PanelNodeField
+    v-if="
+      item.kind === 'config' &&
+      (item.field.editorAdapter === 'panel-reference' ||
+        item.field.editorAdapter?.startsWith('panel-component-'))
+    "
+    :component="item.field.id === 'component'"
+    :write="
+      projection.nodeRef.nodeTypeId.includes('/write-') ||
+      projection.nodeRef.nodeTypeId.endsWith('/log')
+    "
+    :kind="item.field.editorAdapter?.replace('panel-component-', '')"
+    :panel="
+      String(node.config.panel ?? targetDefaults.find((d) => d.target === 'panel')?.slot ?? '')
+    "
+    :value="
+      String(
+        item.field.id === 'panel'
+          ? (node.config.panel ?? targetDefaults.find((d) => d.target === 'panel')?.slot ?? '')
+          : (node.config.component ?? ''),
+      )
+    "
+    :override="Object.prototype.hasOwnProperty.call(node.config, item.field.id)"
+    :connected="connectedInputIds?.has(item.field.id === 'panel' ? 'panel-ref' : 'component-ref')"
+    @change="
+      emit('command', {
+        kind: 'set-config',
+        nodeId: node.id,
+        fieldId: item.field.id,
+        value: $event,
+      })
+    "
+    @inherit="emit('command', { kind: 'clear-config', nodeId: node.id, fieldId: item.field.id })"
+  />
+  <div v-else-if="item.kind === 'config'" class="space-y-2">
     <GeneratedFieldEditor
       :field="item.field"
       :model-value="effectiveConfigValue"
@@ -104,6 +138,7 @@ import type {
 import { projectionLabel } from '@/app/editor/projectionLabels'
 import type { EditorCommand, Node, NodeProjection } from './EditorSession'
 import type { AuthoringSurfaceItem } from './authoringSurface'
+import PanelNodeField from './PanelNodeField.vue'
 import GeneratedFieldEditor from './GeneratedFieldEditor.vue'
 import WorkflowInputBindingEditor from './WorkflowInputBindingEditor.vue'
 import { useSettingsStore } from '@/stores/settings'

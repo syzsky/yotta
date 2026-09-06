@@ -1,4 +1,38 @@
 export default {
+  rowEditor: {
+    selected: '已选 {count} 项',
+    select_all: '全选',
+    select_row: '选择第 {n} 行',
+    order: '顺序',
+    drag: '拖拽排序（Alt+↑/↓）',
+    more: '更多',
+    more_row: '第 {n} 行更多操作',
+    more_selected: '所选项目更多操作',
+    top: '置顶',
+    bottom: '置底',
+    delete: '删除',
+    delete_selected: '删除所选 {count} 项',
+    move: '批量移动',
+    destination: '选择移动位置',
+    before: '第 {n} 行「{name}」之前',
+    clear_selection: '取消选择',
+    batch_edit: '批量修改',
+    field: '修改字段',
+    value: '新值',
+    apply: '应用到 {count} 项',
+    no_common_fields: '所选项目没有可共同修改的字段，可继续批量移动。',
+    pick_icon: '选择图标',
+    clear_icon: '清除图标',
+    icon: '图标',
+    name: '名称',
+    workflow: '工作流',
+    row_name: '第 {n} 行名称',
+    row_workflow: '第 {n} 行工作流',
+    type: '类型',
+    parameters: '参数',
+    id: 'ID',
+    unnamed: '未命名',
+  },
   appClosing: {
     title: '正在关闭 Yotta',
     checking: '正在检查未完成的操作…',
@@ -164,6 +198,38 @@ export default {
     },
   },
   type: {
+    panel: {
+      panel: {
+        break_title: '拆解面板引用',
+        title: '面板',
+        description: '由面板管理器提供的稳定类型引用。',
+      },
+      string: {
+        break_title: '拆解文本组件引用',
+        title: '文本组件',
+        description: '由面板管理器提供的稳定类型引用。',
+      },
+      number: {
+        break_title: '拆解数值组件引用',
+        title: '数值组件',
+        description: '由面板管理器提供的稳定类型引用。',
+      },
+      boolean: {
+        break_title: '拆解开关组件引用',
+        title: '开关组件',
+        description: '由面板管理器提供的稳定类型引用。',
+      },
+      event: {
+        break_title: '拆解交互组件引用',
+        title: '交互组件',
+        description: '由面板管理器提供的稳定类型引用。',
+      },
+      log: {
+        break_title: '拆解日志组件引用',
+        title: '日志组件',
+        description: '由面板管理器提供的稳定类型引用。',
+      },
+    },
     core: {
       string: { title: '字符串', description: '可持久化的 Unicode 文本。' },
       number: { title: '数值', description: '有限的 binary64 数值。' },
@@ -372,6 +438,34 @@ export default {
     },
   },
   error: {
+    'workflow.connection.conversion_insert_failed':
+      '未能插入转换节点。请关闭转换窗口，重新连接两端后再选择转换。原节点和连线已保留。',
+    'panels.load_failed': '面板配置加载失败，请检查本地配置文件后重试。',
+    'panels.save_failed': '面板未能保存，请重试。当前编辑内容已保留。',
+    'panels.presentation_unavailable':
+      '当前执行环境不能打开面板窗口。请在 Yotta 桌面应用中显示面板。',
+    'panels.workflow_creation_retired':
+      '工作流不再创建面板。请在面板管理器配置面板，将旧节点替换为“使用面板”和相应的读写节点。原有节点和配置已保留。',
+    'panels.panel_missing': '尚未选择可用面板。请在工作流的默认面板中选择，或单独指定面板。',
+    'panels.component_missing': '所选组件不存在。请在面板管理器确认组件后，重新选择。',
+    'panels.component_conflict':
+      '组件“{component}”已用于另一种组件。请为新组件填写不同的组件标识。',
+    'panels.component_read_only':
+      '组件“{component}”由系统维护，不能写入。请换用自己创建的组件标识。',
+    'panels.component_no_value':
+      '组件“{component}”没有可读写的值。请改用输入、开关、下拉或数值/文本组件。',
+    'panels.component_not_interactive':
+      '组件“{component}”不支持交互。请等待已注册的按钮、输入框、开关或下拉组件。',
+    'panels.invalid_value':
+      '组件“{component}”的值不匹配。请检查输入类型；下拉值必须来自已配置的选项。',
+    'panels.invalid_definition': '面板或组件配置无效。请检查标识、显示名称和下拉选项后重试。',
+    'panels.panel_ended': '面板已删除或配置发生变化。请刷新面板列表并重新选择后运行。',
+    'panels.capacity': '运行面板数量已达上限。请结束不再使用的面板后重试。',
+    'panels.unavailable': '运行面板服务不可用。请重新运行工作流；若仍失败，重启 Yotta。',
+    'panels.node_failed': '面板操作未完成。请检查所选面板、组件及输入值。',
+    'panels.wait_timeout': '等待面板交互超时。可延长等待时限，或连接失败分支处理。',
+    'panels.queue_full': '面板交互队列已满，请等待流程处理后再操作。',
+
     'plugins.location_unavailable': '目录不可用，请刷新插件信息后重试。',
     'plugins.location_open_failed': '无法打开文件夹，可复制显示的路径在资源管理器中打开。',
     'plugins.files_busy': '插件文件暂时无法移动，请关闭相关后台程序后重试。',
@@ -392,6 +486,14 @@ export default {
       '插件需要的目标名称已被使用，请在网络目标或桌面应用设置中更名后重试。',
     'plugins.disabled': '所需插件已禁用，请在设置中的插件页启用。',
     'plugins.endpoint_conflict': '采集地址正被其他程序使用，请停止冲突程序后重试。',
+    'panels.closed': '面板服务已关闭，请重新打开 Yotta。',
+    'panels.not_found': '面板来源已停用或移除，请刷新面板列表。',
+    'panels.changed': '面板会话或控件已变化，请检查最新内容后重新操作。',
+    'panels.source_unavailable': '面板来源未连接，请检查插件后台服务，或稍后刷新。',
+    'panels.invalid_data': '面板数据格式不兼容，请更新插件后重试。',
+    'panels.invalid_event': '此控件不接受该操作，请刷新面板后重试。',
+    'panels.result_unknown': '操作结果尚未确认，请检查最新状态；没有自动重复执行。',
+    'panels.action_failed': '面板操作失败，请检查插件状态后重试。',
     'plugins.start_failed': '采集程序启动失败，请检查游戏和采集依赖后重试。',
     'plugins.not_loaded': '插件目录已变化，请保存工作流并重启 Yotta 后运行。',
     UNSUPPORTED_WORKFLOW_FORMAT: '不支持的工作流格式或版本',

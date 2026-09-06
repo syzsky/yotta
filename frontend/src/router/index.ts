@@ -1,6 +1,17 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
+  {
+    path: '/panels',
+    name: 'panel-manager',
+    component: () => import('@/views/PanelManagerView.vue'),
+  },
+  {
+    path: '/tools/panels',
+    name: 'extension-panels',
+    component: () => import('@/views/tools/ExtensionPanelsView.vue'),
+    meta: { standalone: true },
+  },
   { path: '/', redirect: '/workflows' },
   {
     path: '/workflows',

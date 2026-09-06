@@ -45,6 +45,14 @@ func Write(output string, build Build, key ed25519.PrivateKey) (string, error) {
 		files[name] = data
 	}
 	build.Descriptor.Format = "yotta.plugin/v1"
+	if len(build.Descriptor.Panels) > 0 {
+		build.Descriptor.Format = "yotta.plugin/v2"
+		for _, p := range build.Descriptor.Panels {
+			if err := p.Definition.Validate(); err != nil {
+				return "", err
+			}
+		}
+	}
 	build.Descriptor.PublicKey = base64.StdEncoding.EncodeToString(key.Public().(ed25519.PublicKey))
 	raw, err := artifact.Marshal(build.Descriptor)
 	if err != nil {

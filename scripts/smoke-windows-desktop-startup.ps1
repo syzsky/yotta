@@ -110,6 +110,31 @@ try {
             }
         }
     }
+    # Killing the test GUI can leave its WebView children mapping BrowserMetrics
+    # files. Restrict cleanup to this unique test profile and its descendants;
+    # other Yotta windows and their browser processes must remain untouched.
+    $browserProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" -ErrorAction SilentlyContinue)
+    $ownedBrowserIds = New-Object 'System.Collections.Generic.HashSet[int]'
+    foreach ($browserProcess in $browserProcesses) {
+        if ($browserProcess.CommandLine -and $browserProcess.CommandLine.IndexOf($profileRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            [void]$ownedBrowserIds.Add([int]$browserProcess.ProcessId)
+        }
+    }
+    do {
+        $addedBrowser = $false
+        foreach ($browserProcess in $browserProcesses) {
+            if ($ownedBrowserIds.Contains([int]$browserProcess.ParentProcessId)) {
+                $addedBrowser = $ownedBrowserIds.Add([int]$browserProcess.ProcessId) -or $addedBrowser
+            }
+        }
+    } while ($addedBrowser)
+    foreach ($browserId in $ownedBrowserIds) {
+        $ownedBrowser = Get-Process -Id $browserId -ErrorAction SilentlyContinue
+        if ($null -ne $ownedBrowser) {
+            Stop-Process -Id $browserId -Force -ErrorAction SilentlyContinue
+            [void]$ownedBrowser.WaitForExit(5000)
+        }
+    }
     $resolvedSmoke = [System.IO.Path]::GetFullPath($scratchRoot)
     $resolvedTask = [System.IO.Path]::GetFullPath($taskRoot)
     if (-not $resolvedSmoke.StartsWith($resolvedTask + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {

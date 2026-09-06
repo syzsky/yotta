@@ -1,5 +1,6 @@
 import type { Connection, OnConnectStartParams } from '@vue-flow/core'
-import { ref, type Ref } from 'vue'
+import { ref, shallowRef, type Ref } from 'vue'
+import { normalizeError, RPCError } from '@/lib/invoke'
 import type { Edge } from '../../../../contracts/workflow/current/workflow-source'
 import type { EditorCommand, EditorSession } from './EditorSession'
 import { parseGraphHandle, type ParsedHandle } from './graphHandles'
@@ -48,10 +49,11 @@ interface ConnectionAuthoringOptions {
 }
 
 export function useWorkflowConnectionAuthoring(options: ConnectionAuthoringOptions) {
-  const connectionStart = ref<ConnectionAnchor | null>(null)
-  const connectionMenu = ref<ConnectionMenuState | null>(null)
-  const pendingConversion = ref<PendingConversion | null>(null)
-  const pendingStatePromotion = ref<PendingStatePromotion | null>(null)
+  // Immutable command snapshots must remain plain data for EditorSession cloning.
+  const connectionStart = shallowRef<ConnectionAnchor | null>(null)
+  const connectionMenu = shallowRef<ConnectionMenuState | null>(null)
+  const pendingConversion = shallowRef<PendingConversion | null>(null)
+  const pendingStatePromotion = shallowRef<PendingStatePromotion | null>(null)
   const statePromotionName = ref('')
   const connectionHint = ref('')
   const connectionError = ref('')
@@ -212,7 +214,17 @@ export function useWorkflowConnectionAuthoring(options: ConnectionAuthoringOptio
       pendingConversion.value = null
       connectionMadeThisGesture = true
     } catch (error) {
-      options.showError(options.translate('workflow.connection.conversion_failed'), error)
+      const normalized = normalizeError(error)
+      const failure =
+        normalized.id || normalized.errors?.length
+          ? error
+          : new RPCError(
+              { id: 'workflow.connection.conversion_insert_failed', category: 'validation' },
+              'workflow.insertConversionBridge',
+              crypto.randomUUID(),
+              error,
+            )
+      options.showError(options.translate('workflow.connection.conversion_failed'), failure)
     }
   }
 

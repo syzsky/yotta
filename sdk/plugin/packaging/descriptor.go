@@ -1,6 +1,8 @@
 // Package packaging builds complete, signed plugin archives for desktop import.
 package packaging
 
+import "github.com/yottaapp/yotta/sdk/plugin/panel"
+
 const DescriptorPath = "yotta-plugin.json"
 
 // Descriptor is a signed payload inside the existing Node Package format.
@@ -12,6 +14,7 @@ type Descriptor struct {
 	PublicKey   string                       `json:"publicKey"`
 	Messages    map[string]map[string]string `json:"messages,omitempty"`
 	Companions  []Companion                  `json:"companions,omitempty"`
+	Panels      []panel.Contribution         `json:"panels,omitempty"`
 }
 
 // Companion declares a cooperative local background service and its configured

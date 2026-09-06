@@ -122,6 +122,12 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 			URL: "/#/tools/launcher", Frameless: true, AlwaysOnTop: true,
 			BackgroundColour: darkBackground,
 		}, nil
+	case tools.WindowPanels:
+		return application.WebviewWindowOptions{
+			Title: "扩展面板", Width: 760, Height: 660, MinWidth: 420, MinHeight: 360,
+			URL: "/#/tools/panels", Frameless: true, AlwaysOnTop: true,
+			BackgroundColour: darkBackground,
+		}, nil
 	case tools.WindowCalibratorHUD:
 		query.Set("id", request.RequestID)
 		return application.WebviewWindowOptions{

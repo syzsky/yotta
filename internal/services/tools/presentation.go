@@ -8,6 +8,7 @@ const (
 	WindowMouseHUD      WindowKind = "mouse-hud"
 	WindowRecordingHUD  WindowKind = "recording-hud"
 	WindowLauncher      WindowKind = "launcher"
+	WindowPanels        WindowKind = "panels"
 	WindowCalibratorHUD WindowKind = "calibrator-hud"
 	WindowScreenPicker  WindowKind = "screen-picker"
 )

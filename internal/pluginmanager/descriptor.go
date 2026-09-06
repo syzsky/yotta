@@ -13,6 +13,7 @@ import (
 
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/sdk/plugin/packaging"
+	"github.com/yottaapp/yotta/sdk/plugin/panel"
 )
 
 func readDescriptor(root string, manifest nodepackage.Manifest) (packaging.Descriptor, error) {
@@ -37,7 +38,7 @@ func readDescriptor(root string, manifest nodepackage.Manifest) (packaging.Descr
 	if err = json.Unmarshal(raw, &d); err != nil {
 		return d, err
 	}
-	if d.Format != "yotta.plugin/v1" || len(d.Name) == 0 || len(d.Name) > 256 || len(d.Description) > 2048 || len(d.Companions) > 16 {
+	if (d.Format != "yotta.plugin/v1" && d.Format != "yotta.plugin/v2") || len(d.Name) == 0 || len(d.Name) > 256 || len(d.Description) > 2048 || len(d.Companions) > 16 || len(d.Panels) > 32 || (d.Format == "yotta.plugin/v1" && len(d.Panels) > 0) {
 		return d, errors.New("invalid plugin descriptor")
 	}
 	key, err := base64.StdEncoding.DecodeString(d.PublicKey)
@@ -67,6 +68,18 @@ func readDescriptor(root string, manifest nodepackage.Manifest) (packaging.Descr
 	}
 	// Plugins may translate only keys belonging to their declared contracts.
 	allowed := map[string]bool{}
+	panelIDs := map[string]bool{}
+	for _, p := range d.Panels {
+		if p.Definition.Validate() != nil || panelIDs[p.Definition.ID] || !seen[p.CompanionID] || !panel.Endpoint(p.SnapshotPath) || !panel.Endpoint(p.EventPath) {
+			return d, errors.New("invalid panel contribution")
+		}
+		panelIDs[p.Definition.ID] = true
+		for _, key := range p.Definition.MessageKeys() {
+			if key != "" {
+				allowed[key] = true
+			}
+		}
+	}
 	for _, n := range manifest.Nodes() {
 		a := n.Contract.Authoring()
 		allowed[a.TitleKey] = true

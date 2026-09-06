@@ -1,4 +1,38 @@
 export default {
+  rowEditor: {
+    selected: '{count} selected',
+    select_all: 'Select all',
+    select_row: 'Select row {n}',
+    order: 'Order',
+    drag: 'Drag to reorder (Alt+↑/↓)',
+    more: 'More',
+    more_row: 'More actions for row {n}',
+    more_selected: 'More actions for selected items',
+    top: 'Move to top',
+    bottom: 'Move to bottom',
+    delete: 'Delete',
+    delete_selected: 'Delete {count} selected items',
+    move: 'Move selected',
+    destination: 'Choose destination',
+    before: 'Before row {n}: {name}',
+    clear_selection: 'Clear selection',
+    batch_edit: 'Edit selected',
+    field: 'Field',
+    value: 'New value',
+    apply: 'Apply to {count} items',
+    no_common_fields: 'No shared editable fields. You can still move the selected items.',
+    pick_icon: 'Choose icon',
+    clear_icon: 'Clear icon',
+    icon: 'Icon',
+    name: 'Name',
+    workflow: 'Workflow',
+    row_name: 'Name for row {n}',
+    row_workflow: 'Workflow for row {n}',
+    type: 'Type',
+    parameters: 'Parameters',
+    id: 'ID',
+    unnamed: 'Unnamed',
+  },
   appClosing: {
     title: 'Closing Yotta',
     checking: 'Checking unfinished work…',
@@ -171,6 +205,38 @@ export default {
     },
   },
   type: {
+    panel: {
+      panel: {
+        break_title: 'Inspect panel reference',
+        title: 'Panel',
+        description: 'A stable typed reference supplied by the panel manager.',
+      },
+      string: {
+        break_title: 'Inspect text component reference',
+        title: 'Text component',
+        description: 'A stable typed reference supplied by the panel manager.',
+      },
+      number: {
+        break_title: 'Inspect number component reference',
+        title: 'Number component',
+        description: 'A stable typed reference supplied by the panel manager.',
+      },
+      boolean: {
+        break_title: 'Inspect toggle component reference',
+        title: 'Toggle component',
+        description: 'A stable typed reference supplied by the panel manager.',
+      },
+      event: {
+        break_title: 'Inspect interactive component reference',
+        title: 'Interactive component',
+        description: 'A stable typed reference supplied by the panel manager.',
+      },
+      log: {
+        break_title: 'Inspect log component reference',
+        title: 'Log component',
+        description: 'A stable typed reference supplied by the panel manager.',
+      },
+    },
     core: {
       string: { title: 'String', description: 'Durable Unicode text.' },
       number: { title: 'Number', description: 'A finite binary64 number.' },
@@ -408,6 +474,44 @@ export default {
     },
   },
   error: {
+    'workflow.connection.conversion_insert_failed':
+      'Could not insert the conversion node. Close the conversion dialog, reconnect the ports and choose a conversion again. Existing nodes and connections are preserved.',
+    'panels.load_failed':
+      'Panel configuration could not be loaded. Check local configuration and retry.',
+    'panels.save_failed': 'Could not save the panel. Retry; your edits have been retained.',
+    'panels.presentation_unavailable':
+      'This environment cannot open panel windows. Show the panel in the Yotta desktop app.',
+    'panels.workflow_creation_retired':
+      'Workflows no longer create panels. Configure a panel in the manager and replace these nodes with Use panel and read/write nodes. Existing nodes and settings are preserved.',
+    'panels.panel_missing':
+      'No available panel is selected. Choose a workflow default panel or override this node.',
+    'panels.component_missing':
+      'The selected component is missing. Check it in the panel manager and select it again.',
+    'panels.component_conflict':
+      'Component “{component}” already identifies a different component kind. Give the new component a different ID.',
+    'panels.component_read_only':
+      'Component “{component}” is managed by Yotta and cannot be written. Use an ID for your own component.',
+    'panels.component_no_value':
+      'Component “{component}” has no readable or writable value. Use an input, toggle, select, number or text component.',
+    'panels.component_not_interactive':
+      'Component “{component}” is not interactive. Wait for a registered button, input, toggle or select.',
+    'panels.invalid_value':
+      'The value for component “{component}” does not match. Check the input type; select values must match a configured option.',
+    'panels.invalid_definition':
+      'The panel or component configuration is invalid. Check IDs, display names and select options.',
+    'panels.panel_ended':
+      'The panel was deleted or its definition changed. Refresh, select the panel again and rerun.',
+    'panels.capacity':
+      'The run panel limit has been reached. End panels you no longer need and retry.',
+    'panels.unavailable':
+      'Run panels are unavailable. Run the workflow again; if it still fails, restart Yotta.',
+    'panels.node_failed':
+      'Panel operation failed. Check the selected panel, component and input value.',
+    'panels.wait_timeout':
+      'Panel interaction timed out. Increase the timeout or handle the failed route.',
+    'panels.queue_full':
+      'Panel interaction queue is full. Wait for the workflow to process queued events.',
+
     'plugins.location_unavailable':
       'The directory is unavailable. Refresh plugin information and retry.',
     'plugins.location_open_failed':
@@ -436,6 +540,18 @@ export default {
     'plugins.disabled': 'The required plugin is disabled. Enable it in Settings → Plugins.',
     'plugins.endpoint_conflict':
       'Another service is using the capture address. Stop the conflicting service and retry.',
+    'panels.closed': 'Panel service is closed. Reopen Yotta.',
+    'panels.not_found': 'Panel source was disabled or removed. Refresh the panel list.',
+    'panels.changed':
+      'The panel session or control changed. Review its current state before trying again.',
+    'panels.source_unavailable':
+      'Panel source is unreachable. Check the plugin service or refresh later.',
+    'panels.invalid_data': 'Panel data is incompatible. Update the plugin and try again.',
+    'panels.invalid_event':
+      'This control does not accept the action. Refresh the panel and try again.',
+    'panels.result_unknown':
+      'Action result is unknown. Check the latest state; it was not retried automatically.',
+    'panels.action_failed': 'Panel action failed. Check the plugin state before trying again.',
     'plugins.start_failed':
       'The capture service failed to start. Check the game and capture dependencies, then retry.',
     'plugins.not_loaded':

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-06T21:13:50.726916Z",
+  "title": "Design System: Yotta extension panels",
+  "extensions": {
+    "breakpoints": [
+      {
+        "value": "640px",
+        "name": "sm"
+      },
+      {
+        "value": "768px",
+        "name": "md"
+      }
+    ]
+  },
+  "components": [],
+  "narrative": {
+    "rules": [
+      "Inherit the established dark Yotta Operate, HUD and Nuxt UI system.",
+      "Panels are independently managed or plugin-owned; workflows use typed references.",
+      "Workflow completion ends waiting subscriptions, not the panel or its editable controls.",
+      "Separate panel status, latest writer state and waiting information.",
+      "Managed buttons require a matching waiting subscription; switches and inputs remain usable without one.",
+      "Manager previews do not dispatch live behavior; plugin definitions are read-only.",
+      "Workflow default selection and node overrides select existing typed resources.",
+      "Preserve focused drafts and reader scroll position during live updates.",
+      "Panel preview starts expanded in a persistent settings card and never dispatches behavior.",
+      "Default-panel settings live beside the automation target in the always-visible canvas toolbar, including blank workflows.",
+      "Nodes inherit by default; an explicit checkbox enables individual panel overrides.",
+      "Use panel is a legacy-compatible node hidden from new-node menus, not a prerequisite.",
+      "Manager retains SettingsSection and SettingsView.css and reuses the shared launcher arrangement table.",
+      "Names, icons and initial values edit inline in stable columns; narrow tables scroll horizontally.",
+      "Multi-selection drag and bulk destination movement preserve relative row order.",
+      "Bulk editing offers compatible common fields; row More holds delete and top/bottom movement.",
+      "Do not restore row accordions or permanent up/down controls.",
+      "The 40px selection toolbar replaces column headers without shifting rows; it includes select all and clear selection.",
+      "Layout preview defaults open in a settings card; the card remains when collapsed."
+    ]
+  }
+}

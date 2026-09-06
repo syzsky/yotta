@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useWorkflowConnectionAuthoring } from './useWorkflowConnectionAuthoring'
+import { graphHandle } from './graphHandles'
 import authoringDocument from '../../../../contracts/node/current/builtin-authoring'
 import type {
   TypeExpression,
@@ -7,6 +9,7 @@ import type {
 } from '../../../../contracts/node/current/authoring-projection'
 import type {
   Graph,
+  NodePackageDependency,
   YottaWorkflowSource,
 } from '../../../../contracts/workflow/current/workflow-source'
 import type {
@@ -17,7 +20,7 @@ import type {
   WorkflowTransport,
   DebugSnapshot,
 } from '@/app/transport/workflow'
-import { RPCError } from '@/lib/invoke'
+import { RPCError, errorMessage } from '@/lib/invoke'
 import { assignable, EditorSession } from './EditorSession'
 import { createEditorSession } from './createEditorSession'
 
@@ -47,6 +50,31 @@ const playInputClip = node('https://schemas.yotta.dev/nodes/automation/play-inpu
 const aiExtract = node('https://schemas.yotta.dev/nodes/ai/extract')
 
 describe('EditorSession', () => {
+  it('identifies packaged nodes from the installed package catalog, not their category', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    transport.getNodePackageDependencies = vi.fn(async (): Promise<NodePackageDependency[]> => [
+      {
+        packageId: 'https://example.test/packages/tools/v1',
+        packageVersion: '1.0.0',
+        publisherNamespace: 'https://example.test',
+        manifestDigest: `sha256:${'a'.repeat(64)}`,
+        nodeRefs: [
+          {
+            nodeTypeId: 'https://example.test/nodes/measure',
+            version: '1.0.0',
+            semanticDigest: `sha256:${'b'.repeat(64)}`,
+          },
+        ],
+      },
+    ])
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    expect(session.isPackagedNode('https://example.test/nodes/measure')).toBe(true)
+    expect(session.isPackagedNode(concat.nodeRef.nodeTypeId)).toBe(false)
+    expect(session.isPackagedNode('https://example.test/nodes/not-installed')).toBe(false)
+  })
+
   it('persists edits made while an earlier save is still awaiting its response', async () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))
@@ -1022,6 +1050,87 @@ describe('EditorSession', () => {
         to: { nodeId: 'log', portId: 'in' },
       },
     ])
+  })
+
+  it('inserts number to string before a panel log using the generic converter', async () => {
+    const source = emptySource()
+    const session = new EditorSession(
+      mockTransport(sourceView(source), runView('QUEUED')),
+      () => 'number-as-text',
+    )
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: 'https://schemas.yotta.dev/nodes/panels/read-number',
+      nodeId: 'number',
+      position: { x: 0, y: 0 },
+    })
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: 'https://schemas.yotta.dev/nodes/panels/log',
+      nodeId: 'log',
+      position: { x: 400, y: 0 },
+    })
+    const edge = {
+      channel: 'data' as const,
+      from: { nodeId: 'number', portId: 'value' },
+      to: { nodeId: 'log', portId: 'value' },
+    }
+    const plan = session.connectionCompatibility(edge)
+    const candidate = plan.conversions?.find((c) => c.nodeTypeId === toString.nodeRef.nodeTypeId)
+    expect(candidate).toBeDefined()
+    if (!candidate) throw new Error('missing to-string candidate')
+    const showError = vi.fn()
+    const connection = useWorkflowConnectionAuthoring({
+      session,
+      canvasElement: ref(null),
+      selectedNodeId: ref(''),
+      selectedNodeIds: ref(new Set<string>()),
+      applyCommand: (command) => {
+        session.apply(command)
+        return true
+      },
+      addNode: vi.fn(),
+      screenToFlowCoordinate: (p) => p,
+      uniqueStateName: (n) => n,
+      translate: (k) => k,
+      translationExists: () => false,
+      showError,
+    })
+    connection.connect({
+      source: 'number',
+      target: 'log',
+      sourceHandle: graphHandle('data', 'output', 'value'),
+      targetHandle: graphHandle('data', 'input', 'value'),
+    })
+    const offered = connection.pendingConversion.value?.candidates.find(
+      (c) => c.nodeTypeId === toString.nodeRef.nodeTypeId,
+    )
+    if (!offered) throw new Error('conversion dialog did not open')
+    connection.applyConversion(offered)
+    expect(showError).not.toHaveBeenCalled()
+    expect(session.currentGraph?.edges).toHaveLength(2)
+    expect(session.currentGraph?.nodes.find((n) => n.id === 'number-as-text')?.nodeRef).toEqual(
+      toString.nodeRef,
+    )
+    session.undo()
+    expect(session.currentGraph?.nodes).toHaveLength(2)
+    expect(session.currentGraph?.edges).toHaveLength(0)
+    connection.connect({
+      source: 'number',
+      target: 'log',
+      sourceHandle: graphHandle('data', 'output', 'value'),
+      targetHandle: graphHandle('data', 'input', 'value'),
+    })
+    session.apply({ kind: 'remove-node', nodeId: 'log' })
+    connection.applyConversion(candidate)
+    expect(showError).toHaveBeenCalledOnce()
+    const failure = showError.mock.calls[0]?.[1]
+    expect(failure).toBeInstanceOf(RPCError)
+    expect(errorMessage(failure)).toContain('重新连接')
+    expect(errorMessage(failure)).not.toContain('未知错误')
+    expect(connection.pendingConversion.value).not.toBeNull()
+    expect(session.currentGraph?.nodes.map((n) => n.id)).toEqual(['number'])
   })
 
   it('inserts a visible conversion bridge as one undoable edit', async () => {

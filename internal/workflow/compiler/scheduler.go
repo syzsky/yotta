@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
@@ -33,6 +34,9 @@ type scheduledInvocation struct {
 }
 
 type scheduler struct {
+	runID          string
+	workflowID     string
+	runStartedAt   time.Time
 	executor       *Executor
 	graph          *programGraph
 	owner          *run.Owner
@@ -56,7 +60,13 @@ type scheduler struct {
 }
 
 func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter, state *runState) *scheduler {
+	startedAt := time.Time{}
+	if at := journal.Current().Timing().StartedAt; at != nil {
+		startedAt = *at
+	}
 	s := &scheduler{
+		runStartedAt: startedAt,
+		runID:        journal.Current().Admission().RunID, workflowID: journal.Current().Admission().WorkflowID,
 		executor: executor, graph: graph, owner: owner, targets: targets, journal: journal, state: state,
 		nodes: make(map[string]programNode, len(graph.Nodes)), routes: make(map[routeKey][]programSignalRoute),
 		dataConsumers: make(map[string]int), volatile: make(map[string]bool), attempts: make(map[string]int),
@@ -284,6 +294,7 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadap
 		}
 	}
 	outcome, runErr := installed.Run(ctx, nodeadapter.Invocation{
+		RunID: s.runID, WorkflowID: s.workflowID, RunStartedAt: s.runStartedAt,
 		InvocationID: invocationID, Attempt: attempt, GraphID: graphID, NodeID: sourceNodeID, Config: config, Inputs: inputs,
 		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, Targets: s.targets, State: stateBindings,
 		Trigger: adapterTrigger, ObservedAt: observedAt, MonotonicNow: s.executor.monotonicNow, ReadEntropy: s.executor.readEntropy,

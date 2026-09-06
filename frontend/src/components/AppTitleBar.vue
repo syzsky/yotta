@@ -68,6 +68,16 @@
       <RegistryAccount />
       <button
         type="button"
+        data-testid="open-panels"
+        class="flex w-10 items-center justify-center text-muted transition-colors hover:bg-elevated/60 hover:text-highlighted"
+        :title="t('panels.manage')"
+        :aria-label="t('panels.manage')"
+        @click="openPanels"
+      >
+        <UIcon name="i-tabler-layout-dashboard" class="size-4" />
+      </button>
+      <button
+        type="button"
         data-testid="open-launcher"
         class="flex w-10 items-center justify-center text-muted transition-colors duration-150 hover:bg-elevated/60 hover:text-highlighted disabled:opacity-50"
         :title="t('sidebar.open_launcher')"
@@ -156,6 +166,8 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@/composables/useAppToast'
+import { errorMessage } from '@/lib/invoke'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -173,7 +185,16 @@ const route = useRoute()
 const router = useRouter()
 const { isMaximised, onMinimise, onToggleMaximise, closeImmediate } = useWindowControls()
 const appVersion = ref('')
+const panelToast = useToast()
 const launcherOpening = ref(false)
+
+async function openPanels() {
+  try {
+    await router.push('/panels')
+  } catch (error) {
+    panelToast.add({ color: 'error', title: t('panels.manage'), description: errorMessage(error) })
+  }
+}
 const closeRequestPending = ref(false)
 const closeStage = ref<MainWindowCloseStage>('checking')
 const closeFeedbackVisible = computed(

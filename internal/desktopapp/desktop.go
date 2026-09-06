@@ -33,6 +33,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/asset"
 	"github.com/yottaapp/yotta/internal/services/calibration"
 	"github.com/yottaapp/yotta/internal/services/mcpserver"
+	"github.com/yottaapp/yotta/internal/services/panels"
 	"github.com/yottaapp/yotta/internal/services/plugins"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/resourceauthoring"
@@ -543,6 +544,14 @@ func Run(config Config) error {
 		OnLauncherHidden: launcherHotkeys.clear,
 	})
 
+	local.Panels.SetPresenter(func(id string) error {
+		if err := toolsSvc.OpenPanels(); err != nil {
+			return err
+		}
+		toolsPresenter.Emit("panels:selected", id)
+		return nil
+	})
+
 	// 悬浮窗启动器 呼出/隐藏 热键：默认未绑（空），从 settings.UI 读，rebind 经 onSystemHotkeyChange 写回。
 	// os-global 机制（跟 execution-stop 一致）。按键 → toggle 启动器悬浮窗显隐。
 	launcherToggleHk := strings.TrimSpace(app.Settings().UI.LauncherToggleHotkey)
@@ -645,6 +654,7 @@ func Run(config Config) error {
 	wailsServices = append(wailsServices,
 		application.NewServiceWithOptions(settingsSvc, serviceErrors),
 		application.NewServiceWithOptions(plugins.NewService(local.Plugins, local.Roots), serviceErrors),
+		application.NewServiceWithOptions(panels.NewService(local.Panels), serviceErrors),
 		application.NewServiceWithOptions(services.NewMCPService(), serviceErrors),
 		application.NewServiceWithOptions(services.NewAppInfoService(), serviceErrors),
 		application.NewServiceWithOptions(workflowSvc, serviceErrors),

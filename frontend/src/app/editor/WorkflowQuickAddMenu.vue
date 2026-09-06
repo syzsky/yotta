@@ -147,7 +147,11 @@ const categories = computed(() => {
     { value: 'all', label: t('workflow.quick_add.all'), count: props.items.length },
     ...[...counts.entries()]
       .map(([value, item]) => ({ value, ...item }))
-      .sort((left, right) => left.label.localeCompare(right.label)),
+      .sort((left, right) => {
+        const rank = (value: string) =>
+          value === 'node:plugins' ? 0 : value === 'node:panel' ? 1 : 2
+        return rank(left.value) - rank(right.value) || left.label.localeCompare(right.label)
+      }),
   ]
 })
 const visibleItems = computed(() =>

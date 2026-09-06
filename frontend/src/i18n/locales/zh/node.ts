@@ -1,5 +1,623 @@
 export default {
   node: {
+    managed_panel: {
+      config: { panel: '面板', component: '组件', show: '同时显示面板' },
+      use: {
+        title: '使用面板',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      show: {
+        title: '显示面板',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'read-text': {
+        title: '读取组件文本',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'read-number': {
+        title: '读取组件数值',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'read-toggle': {
+        title: '读取组件开关值',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'write-text': {
+        title: '更新组件文本',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'write-number': {
+        title: '更新组件数值',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'write-toggle': {
+        title: '更新组件开关值',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      log: {
+        title: '追加面板日志',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      wait: {
+        title: '等待面板交互',
+        description: '从此节点开始等待用户交互，超时进入失败分支；运行结束只释放本次等待。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'ref-text': {
+        title: '获取文本组件引用',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'ref-number': {
+        title: '获取数值组件引用',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'ref-toggle': {
+        title: '获取开关组件引用',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'ref-event': {
+        title: '获取交互组件引用',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+      'ref-log': {
+        title: '获取日志组件引用',
+        description: '使用已管理的面板，默认跟随工作流设置；单独选择或接入引用可覆盖。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+        output: {
+          panel: { title: '面板引用', description: '选中的独立面板。' },
+          reference: { title: '组件引用', description: '选中的类型化组件。' },
+          'panel-ref': { title: '面板引用', description: '使用匹配类型的值或引用。' },
+          'component-ref': { title: '组件引用', description: '使用匹配类型的值或引用。' },
+          value: { title: '值', description: '使用匹配类型的值或引用。' },
+          component: { title: '组件', description: '使用匹配类型的值或引用。' },
+        },
+      },
+    },
+    panel: {
+      'write-text': {
+        title: '设置已有文本值',
+        description:
+          '只更新已有组件，不会创建组件。请先注册或显示对应组件，并使用相同的面板标识和组件标识。',
+        input: { value: { title: '新值', description: '写入组件的值，类型需与组件一致。' } },
+      },
+      'write-number': {
+        title: '设置已有数值',
+        description:
+          '只更新已有组件，不会创建组件。请先注册或显示对应组件，并使用相同的面板标识和组件标识。',
+        input: { value: { title: '新值', description: '写入组件的值，类型需与组件一致。' } },
+      },
+      'write-toggle': {
+        title: '设置已有开关值',
+        description:
+          '只更新已有组件，不会创建组件。请先注册或显示对应组件，并使用相同的面板标识和组件标识。',
+        input: { value: { title: '新值', description: '写入组件的值，类型需与组件一致。' } },
+      },
+      end: {
+        title: '结束运行面板',
+        description: '保留最后结果并停止本面板的交互，不会停止工作流。',
+      },
+      config: {
+        panel: '面板标识（同一运行内）',
+        component: '组件标识',
+        title: '显示名称',
+        choices: '下拉选项',
+        event_component: '等待的组件（留空为任意组件）',
+        timeout: '等待时限（毫秒）',
+      },
+      create: {
+        title: '创建运行面板',
+        description: '为本次运行创建独立面板。运行结束后保留结果，停止接收交互。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      number: {
+        title: '显示面板数值',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      text: {
+        title: '显示面板文本',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      status: {
+        title: '显示面板状态',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      select: {
+        title: '注册面板下拉',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '初始值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      toggle: {
+        title: '注册面板开关',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '初始值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      input: {
+        title: '注册面板输入框',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '初始值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      button: {
+        title: '注册面板按钮',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      log: {
+        title: '追加面板日志',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      'read-text': {
+        title: '读取面板文本',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      'read-number': {
+        title: '读取面板数值',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      'read-toggle': {
+        title: '读取面板开关',
+        description: '先创建同一标识的面板；组件标识相同则更新已有内容。控件重复注册保留用户选择。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+      wait: {
+        title: '等待面板交互',
+        description:
+          '消费已注册组件的下一条交互；早于此节点的点击也会保留。可按组件过滤，超时走失败输出。',
+        input: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+        },
+        output: {
+          value: {
+            title: '值',
+            description: '本次节点执行记录的值。',
+          },
+          component: {
+            title: '组件标识',
+            description: '本次节点执行记录的值。',
+          },
+          event: {
+            title: '事件名称',
+            description: '本次节点执行记录的值。',
+          },
+        },
+      },
+    },
     ai: {
       generate: {
         title: 'AI 生成文本',

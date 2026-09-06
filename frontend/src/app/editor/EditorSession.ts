@@ -412,6 +412,12 @@ export class EditorSession {
     return this.projections.get(nodeTypeId)
   }
 
+  isPackagedNode(nodeTypeId: string): boolean {
+    return this.nodePackages.some((pkg) =>
+      pkg.nodeRefs.some((ref) => ref.nodeTypeId === nodeTypeId),
+    )
+  }
+
   nodeInstanceProjection(node: Node): NodeProjection | undefined {
     const base = this.projections.get(node.nodeRef.nodeTypeId)
     if (!base || base.nodeRef.semanticDigest !== node.nodeRef.semanticDigest) return undefined

@@ -49,6 +49,19 @@
           </template>
         </template>
       </WorkflowEditorToolbar>
+      <UAlert
+        v-if="
+          session.source.graphs.some((g) =>
+            g.nodes.some((n) =>
+              n.nodeRef.nodeTypeId.startsWith('https://schemas.yotta.dev/nodes/panel/'),
+            ),
+          )
+        "
+        class="mx-4 my-2"
+        color="warning"
+        :title="t('panels.legacy_title')"
+        :description="t('panels.legacy_hint')"
+      />
 
       <WorkflowMetadataDialog
         v-model:open="workflowSettingsOpen"
@@ -227,6 +240,9 @@
           :ai-panel-open="aiPanelOpen"
           :workflow-default-target-label="workflowDefaultTargetLabel"
           :workflow-default-target-slot="workflowDefaultTargetSlot"
+          :workflow-default-panel-slot="
+            session.source.targetDefaults?.find((d) => d.target === 'panel')?.slot ?? ''
+          "
           :workflow-automation-target-items="workflowAutomationTargetItems"
           :has-single-source-edge="Boolean(selectedSourceEdge())"
           :has-active-run="Boolean(session.activeRun)"
@@ -288,6 +304,7 @@
           @toggle-ai="toggleAIReview"
           @update-assist-hidden="setCanvasAssistHidden"
           @set-default-target="setWorkflowDefaultTarget"
+          @set-default-panel="session.setTargetDefault('panel', $event)"
           @add-reroute="addEdgeReroute"
           @clear-reroutes="clearEdgeReroutes"
           @clear-run-trace="clearRunTrace"

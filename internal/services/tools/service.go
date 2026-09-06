@@ -39,6 +39,7 @@ type Service struct {
 	recordingHUD    windowSlot
 	calibratorHUD   windowSlot
 	launcher        windowSlot
+	panels          windowSlot
 	launcherVisible bool // 只反映本 feature 的 Show/Hide，不强保证跟 OS 同步
 	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
 	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
@@ -151,7 +152,7 @@ func (s *Service) shutdown() {
 	s.launcherVisible = false
 	launcherHidden := s.onLauncherHidden
 
-	slots := []*windowSlot{&s.hud, &s.recordingHUD, &s.calibratorHUD, &s.launcher}
+	slots := []*windowSlot{&s.hud, &s.recordingHUD, &s.calibratorHUD, &s.launcher, &s.panels}
 	for _, slot := range s.pickerWindows {
 		if slot != nil {
 			slots = append(slots, slot)

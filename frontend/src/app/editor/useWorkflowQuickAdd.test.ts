@@ -4,6 +4,40 @@ import type { Edge, EditorSession } from './EditorSession'
 import { useWorkflowQuickAdd } from './useWorkflowQuickAdd'
 
 describe('useWorkflowQuickAdd', () => {
+  it('groups installed package nodes under third party and searches its label', () => {
+    const session = { isPackagedNode: () => true } as unknown as EditorSession
+    const quickAdd = useWorkflowQuickAdd({
+      session,
+      snippets: { items: [] } as never,
+      canvasElement: ref(null),
+      catalogNodes: computed(
+        () =>
+          [
+            { nodeRef: { nodeTypeId: 'plugin/position' }, category: 'network', icon: 'box' },
+          ] as never,
+      ),
+      selectedEdgeIds: ref(new Set()),
+      selectedNodeId: ref(''),
+      selectedNodeIds: ref(new Set()),
+      lastCanvasPointer: ref(null),
+      selectedSourceEdges: () => [],
+      conversionNodePosition: () => ({ x: 0, y: 0 }),
+      screenToFlowCoordinate: (p) => p,
+      viewport: () => ({ x: 0, y: 0, zoom: 1 }),
+      canvasAssistCollapsed: () => false,
+      addNode: vi.fn(),
+      useSnippet: vi.fn(),
+      projectionTitle: () => '坐标',
+      categoryLabel: (category) => (category === 'plugins' ? '第三方节点' : category),
+      catalogSearchText: () => '坐标 network',
+      translate: (k) => k,
+      translationExists: () => false,
+      showError: vi.fn(),
+    })
+    expect(quickAdd.items.value[0]?.category).toBe('node:plugins')
+    expect(quickAdd.items.value[0]?.searchText).toContain('第三方节点')
+  })
+
   it('filters batch insertion candidates by every selected signal channel', () => {
     const edges = [{ channel: 'exec' }, { channel: 'error' }] as Edge[]
     const session = {

@@ -994,6 +994,9 @@ export const backend = {
     startWin32WindowTargetCapture: () => invokeTools('StartWin32WindowTargetCapture'),
     cancelWin32WindowTargetCapture: (id: string) =>
       invokeTools('CancelWin32WindowTargetCapture', id),
+    openPanels: () => invokeTools('OpenPanels'),
+    hidePanels: () => invokeTools('HidePanels'),
+    setPanelsAlwaysOnTop: (on: boolean) => invokeTools('SetPanelsAlwaysOnTop', on),
     openLauncher: () => invokeTools('OpenLauncher'),
     openLauncherSettings: () => invokeTools('OpenLauncherSettings'),
     toggleLauncher: () => invokeTools('ToggleLauncher'),

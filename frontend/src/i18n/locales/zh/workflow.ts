@@ -340,6 +340,8 @@ export default {
       search_placeholder: '搜索节点名称、类型或标签',
       no_results: '没有匹配的节点',
       category: {
+        panel: '面板',
+        plugins: '第三方节点',
         ai: 'AI',
         application: '应用',
         automation: '自动化',
@@ -739,6 +741,11 @@ export default {
       show_optional_inputs: '显示 {n} 个可选输入',
       hide_optional_inputs: '收起可选输入',
       port: {
+        id: '标识',
+        generation: '引用版本',
+        panel: '面板引用',
+        kind: '组件类型',
+
         a: '值 A',
         all: '全部',
         area: '面积',
@@ -1105,6 +1112,7 @@ export default {
       since_start: '运行开始后 {value}',
       occurred_at: '发生时间 {value}',
       source_revision: '来源修订 {revision}',
+      failed_node: '失败节点',
       locate_node: '定位节点',
       ai_diagnose: 'AI 诊断',
       unhandled_route: '“{route}”出口未连接，本次运行会在这里结束',

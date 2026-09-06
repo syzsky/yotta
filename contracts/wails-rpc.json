@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 17,
-    "methods": 183,
-    "models": 268
+    "services": 18,
+    "methods": 194,
+    "models": 279
   },
   "services": [
     {
@@ -926,6 +926,105 @@
       ]
     },
     {
+      "module": "internal/services/panels/service",
+      "methods": [
+        {
+          "name": "Delete",
+          "bindingId": "3119829461",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "revision",
+              "optional": false,
+              "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "Dispatch",
+          "bindingId": "85053876",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "event",
+              "optional": false,
+              "type": "panel$0.Event"
+            }
+          ],
+          "returns": "$CancellablePromise<panel$0.Result>"
+        },
+        {
+          "name": "Edit",
+          "bindingId": "245736326",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<panel$1.Draft>"
+        },
+        {
+          "name": "List",
+          "bindingId": "1608771366",
+          "parameters": [],
+          "returns": "$CancellablePromise<panel$1.Source[]>"
+        },
+        {
+          "name": "Read",
+          "bindingId": "3953778706",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<panel$0.Snapshot>"
+        },
+        {
+          "name": "Save",
+          "bindingId": "629721783",
+          "parameters": [
+            {
+              "name": "d",
+              "optional": false,
+              "type": "panel$1.Draft"
+            }
+          ],
+          "returns": "$CancellablePromise<panel$1.Draft>"
+        },
+        {
+          "name": "Selected",
+          "bindingId": "77073667",
+          "parameters": [],
+          "returns": "$CancellablePromise<string>"
+        },
+        {
+          "name": "Show",
+          "bindingId": "756624191",
+          "parameters": [
+            {
+              "name": "id",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
       "module": "internal/services/plugins/service",
       "methods": [
         {
@@ -1511,6 +1610,12 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "HidePanels",
+          "bindingId": "1275193101",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "MousePos",
           "bindingId": "1897317081",
           "parameters": [
@@ -1556,6 +1661,12 @@
               "type": "string"
             }
           ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "OpenPanels",
+          "bindingId": "2450082317",
+          "parameters": [],
           "returns": "$CancellablePromise<void>"
         },
         {
@@ -1651,6 +1762,18 @@
               "name": "height",
               "optional": false,
               "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SetPanelsAlwaysOnTop",
+          "bindingId": "1945637556",
+          "parameters": [
+            {
+              "name": "on",
+              "optional": false,
+              "type": "boolean"
             }
           ],
           "returns": "$CancellablePromise<void>"
@@ -3972,6 +4095,139 @@
               "name": "\"semanticDigest\"",
               "optional": false,
               "type": "artifact$0.Digest"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "internal/panel/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "ComponentDraft",
+          "fields": [
+            {
+              "name": "\"icon\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"initial\"",
+              "optional": false,
+              "type": "any"
+            },
+            {
+              "name": "\"options\"",
+              "optional": true,
+              "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Draft",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"components\"",
+              "optional": false,
+              "type": "ComponentDraft[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Source",
+          "fields": [
+            {
+              "name": "\"waitingComponents\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"waiting\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"updatedAt\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lastRunId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"lastRunStatus\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"managed\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"ownerId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"ownerName\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"generation\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"definition\"",
+              "optional": false,
+              "type": "panel$0.Definition"
             }
           ]
         }
@@ -10673,6 +10929,259 @@
               "name": "\"inputClip\"",
               "optional": true,
               "type": "InputClipResource | null"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "sdk/plugin/panel/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Component",
+          "fields": [
+            {
+              "name": "\"icon\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"titleKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"field\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"unitKey\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"event\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"precision\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"options\"",
+              "optional": true,
+              "type": "Option[]"
+            },
+            {
+              "name": "\"children\"",
+              "optional": true,
+              "type": "Component[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Definition",
+          "fields": [
+            {
+              "name": "\"format\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"titleKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"descriptionKey\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"fields\"",
+              "optional": false,
+              "type": "Field[]"
+            },
+            {
+              "name": "\"components\"",
+              "optional": false,
+              "type": "Component[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Event",
+          "fields": [
+            {
+              "name": "\"sessionId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"eventId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"componentId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "any"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Field",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Option",
+          "fields": [
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"labelKey\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Record",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"timeMs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"level\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"text\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"messageKey\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Result",
+          "fields": [
+            {
+              "name": "\"eventId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"snapshot\"",
+              "optional": false,
+              "type": "Snapshot"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Snapshot",
+          "fields": [
+            {
+              "name": "\"protocol\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sessionId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"values\"",
+              "optional": false,
+              "type": "{ [_ in string]?: any }"
+            },
+            {
+              "name": "\"controlRevisions\"",
+              "optional": false,
+              "type": "{ [_ in string]?: number }"
+            },
+            {
+              "name": "\"records\"",
+              "optional": false,
+              "type": "{ [_ in string]?: Record[] }"
             }
           ]
         }

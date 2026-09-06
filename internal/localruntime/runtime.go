@@ -18,6 +18,7 @@ import (
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodepackage"
 	"github.com/yottaapp/yotta/internal/noderuntime"
+	"github.com/yottaapp/yotta/internal/panel"
 	"github.com/yottaapp/yotta/internal/pluginmanager"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/services"
@@ -42,6 +43,7 @@ type Config struct {
 // Runtime owns every non-presentation resource opened for one local profile.
 // Callers use the projected repositories but close only Runtime.
 type Runtime struct {
+	Panels   *panel.Service
 	Plugins  *pluginmanager.Manager
 	Roots    storage.Roots
 	Settings *services.App
@@ -152,7 +154,12 @@ func Open(ctx context.Context, config Config) (_ *Runtime, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
+	opened.Panels, err = panel.Open(nil, filepath.Join(opened.Roots.Config, "panels.json"))
+	if err != nil {
+		return nil, err
+	}
 	opened.Workflow, err = appbootstrap.Build(appbootstrap.Config{
+		Panels:             opened.Panels,
 		DataRoot:           opened.Roots.Data,
 		ProgramCacheRoot:   filepath.Join(opened.Roots.Cache, "programs"),
 		WorkflowRepository: foundation.Workflows(),
@@ -177,8 +184,16 @@ func Open(ctx context.Context, config Config) (_ *Runtime, resultErr error) {
 		LogEmitter:               config.WorkflowLog,
 		OwnerCloseTimeout:        10 * time.Second,
 		Now:                      config.Now,
-		OnRunEvent:               config.OnRunEvent,
-		OnDebugEvent:             config.OnDebugEvent,
+		OnRunEvent: func(event appcore.RunEvent) {
+			switch event.Status {
+			case "succeeded", "failed", "cancelled", "interrupted":
+				opened.Panels.EndRun(event.RunID, string(event.Status))
+			}
+			if config.OnRunEvent != nil {
+				config.OnRunEvent(event)
+			}
+		},
+		OnDebugEvent: config.OnDebugEvent,
 	})
 	if err != nil {
 		return nil, err
@@ -188,6 +203,7 @@ func Open(ctx context.Context, config Config) (_ *Runtime, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
+	opened.Panels.SetCatalog(opened.Plugins)
 	return opened, nil
 }
 
@@ -199,6 +215,9 @@ func (runtime *Runtime) Close(ctx context.Context) error {
 	if runtime.Workflow != nil {
 		result = errors.Join(result, runtime.Workflow.Close(ctx))
 		runtime.Workflow = nil
+	}
+	if runtime.Panels != nil {
+		result = errors.Join(result, runtime.Panels.Close())
 	}
 	if runtime.Settings != nil {
 		result = errors.Join(result, runtime.Settings.ShutdownContext(ctx))

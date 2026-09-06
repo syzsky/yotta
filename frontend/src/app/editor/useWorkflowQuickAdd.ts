@@ -34,23 +34,35 @@ export function useWorkflowQuickAdd(options: WorkflowQuickAddOptions) {
   const intent = ref<'add' | 'insert-edge'>('add')
 
   const items = computed<WorkflowQuickAddItem[]>(() => [
-    ...options.catalogNodes.value.map((projection) => {
-      const description =
-        projection.descriptionKey && options.translationExists(projection.descriptionKey)
-          ? options.translate(projection.descriptionKey)
-          : projection.nodeRef.nodeTypeId
-      const category = `node:${projection.category || 'other'}`
-      return {
-        id: projection.nodeRef.nodeTypeId,
-        kind: 'node' as const,
-        title: options.projectionTitle(projection),
-        description,
-        category,
-        categoryLabel: options.categoryLabel(projection.category || 'other'),
-        icon: `i-tabler-${projection.icon || 'box'}`,
-        searchText: options.catalogSearchText(projection),
-      }
-    }),
+    ...options.catalogNodes.value
+      .filter(
+        (p) =>
+          p.category !== 'panel-legacy' &&
+          p.nodeRef.nodeTypeId !== 'https://schemas.yotta.dev/nodes/panels/use',
+      )
+      .map((projection) => {
+        const description =
+          projection.descriptionKey && options.translationExists(projection.descriptionKey)
+            ? options.translate(projection.descriptionKey)
+            : projection.nodeRef.nodeTypeId
+        const group = options.session.isPackagedNode?.(projection.nodeRef.nodeTypeId)
+          ? 'plugins'
+          : projection.category || 'other'
+        const category = `node:${group}`
+        const categoryLabel = options.categoryLabel(group)
+        return {
+          id: projection.nodeRef.nodeTypeId,
+          kind: 'node' as const,
+          title: options.projectionTitle(projection),
+          description,
+          category,
+          categoryLabel,
+          icon: `i-tabler-${projection.icon || 'box'}`,
+          searchText: [options.catalogSearchText(projection), categoryLabel]
+            .join(' ')
+            .toLocaleLowerCase(),
+        }
+      }),
     ...options.snippets.items.map((snippet) => ({
       id: snippet.id,
       kind: 'snippet' as const,

@@ -82,6 +82,9 @@ type StateBinding interface {
 }
 
 type Invocation struct {
+	RunID        string
+	WorkflowID   string
+	RunStartedAt time.Time
 	InvocationID string
 	Attempt      int
 	GraphID      string

@@ -60,6 +60,11 @@
         class="w-full"
         @update:model-value="updateNumber"
       />
+      <PanelChoicesEditor
+        v-else-if="field.editorAdapter === 'panel-choices'"
+        :model-value="modelValue"
+        @update:model-value="emit('update:modelValue', $event)"
+      />
       <StructuredOutputFieldsEditor
         v-else-if="field.editorAdapter === 'structured-output-fields'"
         :model-value="modelValue"
@@ -96,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+import PanelChoicesEditor from './PanelChoicesEditor.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FieldProjection } from '@/contracts/node'

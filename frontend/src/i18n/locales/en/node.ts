@@ -1,5 +1,936 @@
 export default {
   node: {
+    managed_panel: {
+      config: { panel: 'Panel', component: 'Component', show: 'Show panel when used' },
+      use: {
+        title: 'Use panel',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      show: {
+        title: 'Show panel',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'read-text': {
+        title: 'Read component text',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'read-number': {
+        title: 'Read component number',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'read-toggle': {
+        title: 'Read component toggle',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'write-text': {
+        title: 'Update component text',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'write-number': {
+        title: 'Update component number',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'write-toggle': {
+        title: 'Update component toggle',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      log: {
+        title: 'Append panel log',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      wait: {
+        title: 'Wait for panel interaction',
+        description:
+          'Waits for an interaction from this point onward. Timeout follows the failed route; ending the run releases only this subscription.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'ref-text': {
+        title: 'Get text component reference',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'ref-number': {
+        title: 'Get number component reference',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'ref-toggle': {
+        title: 'Get toggle component reference',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'ref-event': {
+        title: 'Get interactive component reference',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+      'ref-log': {
+        title: 'Get log component reference',
+        description:
+          'Uses an existing managed panel. Follows the workflow default unless a panel or reference is supplied.',
+        input: {
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+        output: {
+          panel: { title: 'Panel reference', description: 'The selected independent panel.' },
+          reference: { title: 'Component reference', description: 'The selected typed component.' },
+          'panel-ref': {
+            title: 'Panel reference',
+            description: 'A value or reference of the matching type.',
+          },
+          'component-ref': {
+            title: 'Component reference',
+            description: 'A value or reference of the matching type.',
+          },
+          value: { title: 'Value', description: 'A value or reference of the matching type.' },
+          component: {
+            title: 'Component',
+            description: 'A value or reference of the matching type.',
+          },
+        },
+      },
+    },
+    panel: {
+      'write-text': {
+        title: 'Set existing text value',
+        description:
+          'Only updates an existing component; it does not create one. Register or show the component first with the same panel and component IDs.',
+        input: {
+          value: {
+            title: 'New value',
+            description: 'Value to write, matching the registered component type.',
+          },
+        },
+      },
+      'write-number': {
+        title: 'Set existing number value',
+        description:
+          'Only updates an existing component; it does not create one. Register or show the component first with the same panel and component IDs.',
+        input: {
+          value: {
+            title: 'New value',
+            description: 'Value to write, matching the registered component type.',
+          },
+        },
+      },
+      'write-toggle': {
+        title: 'Set existing toggle value',
+        description:
+          'Only updates an existing component; it does not create one. Register or show the component first with the same panel and component IDs.',
+        input: {
+          value: {
+            title: 'New value',
+            description: 'Value to write, matching the registered component type.',
+          },
+        },
+      },
+      end: {
+        title: 'End run panel',
+        description:
+          'Keeps final results and stops this panel interaction without stopping the workflow.',
+      },
+      config: {
+        panel: 'Panel ID (within this run)',
+        component: 'Component ID',
+        title: 'Display name',
+        choices: 'Select options',
+        event_component: 'Component to await (empty means any)',
+        timeout: 'Wait timeout (ms)',
+      },
+      create: {
+        title: 'Create run panel',
+        description:
+          'Creates an independent panel for this run. Results remain after the run ends and interaction stops.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      number: {
+        title: 'Show panel number',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      text: {
+        title: 'Show panel text',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      status: {
+        title: 'Show panel status',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      select: {
+        title: 'Register panel select',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Initial value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      toggle: {
+        title: 'Register panel toggle',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Initial value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      input: {
+        title: 'Register panel input',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Initial value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      button: {
+        title: 'Register panel button',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      log: {
+        title: 'Append panel log',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      'read-text': {
+        title: 'Read panel text',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      'read-number': {
+        title: 'Read panel number',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      'read-toggle': {
+        title: 'Read panel toggle',
+        description:
+          'Create the panel first. Stable component IDs update existing content; repeated control registration preserves user selection.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+      wait: {
+        title: 'Wait for panel interaction',
+        description:
+          'Consumes the next queued interaction, including clicks before this node. Filter by component; timeout follows the failed route.',
+        input: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+        output: {
+          value: {
+            title: 'Value',
+            description: 'The value recorded by this node execution.',
+          },
+          component: {
+            title: 'Component ID',
+            description: 'The value recorded by this node execution.',
+          },
+          event: {
+            title: 'Event name',
+            description: 'The value recorded by this node execution.',
+          },
+        },
+      },
+    },
     ai: {
       generate: {
         title: 'Generate AI text',

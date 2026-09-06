@@ -16,6 +16,7 @@ import (
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/internal/panel"
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/scriptengine"
 	"github.com/yottaapp/yotta/internal/stream"
@@ -24,6 +25,7 @@ import (
 const conversionChunkBytes = 64 << 10
 
 type Dependencies struct {
+	Panels *panel.Service
 	Script ScriptExecutor
 	Log    LogEmitter
 	Now    func() time.Time
@@ -111,6 +113,12 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		nodes.ControlDualColorBarNodeID:  controlDualColorBar(builtins),
 		nodes.LogNodeID:                  writeLog(dependencies.Log),
 		nodes.ThrowNodeID:                throwFailure(),
+	}
+	for _, id := range nodes.ManagedPanelIDs {
+		specialized[id] = managedPanelAdapter(builtins, dependencies.Panels, id)
+	}
+	for _, id := range nodes.PanelNodeIDs {
+		specialized[id] = panelAdapter(builtins, id)
 	}
 	for _, definition := range builtins.Definitions() {
 		trusted, err := trustedDefinition(builtins, definition.Contract.NodeRef().NodeTypeID)

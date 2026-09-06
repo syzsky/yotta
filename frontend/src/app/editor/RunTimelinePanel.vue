@@ -89,11 +89,24 @@
           </span>
         </span>
       </UButton>
-      <div v-if="run.failure" class="mb-3 rounded-lg border border-error/35 bg-error/10 px-3 py-2">
+      <div
+        v-if="run.failure"
+        data-testid="run-failure"
+        role="alert"
+        class="mb-3 rounded-lg border border-error/35 bg-error/10 px-3 py-2"
+      >
         <p class="text-xs font-medium text-error">{{ failureMessage }}</p>
-        <p class="mt-1 text-[11px] text-muted">
-          {{ run.failure.category }}{{ run.failure.nodeId ? ` / ${run.failure.nodeId}` : '' }}
-        </p>
+        <UButton
+          v-if="run.failure.nodeId"
+          class="mt-2"
+          size="xs"
+          color="neutral"
+          variant="soft"
+          @click="emit('focus-node', failureGraphPath, run.failure.nodeId)"
+        >
+          {{ t('workflow.timeline.locate_node') }} ·
+          {{ nodeLabels?.[run.failure.nodeId] || t('workflow.timeline.failed_node') }}
+        </UButton>
       </div>
       <div v-if="run.timelineTotal > run.timeline.length" class="mb-3 flex items-center gap-2">
         <span class="mr-auto text-[11px] text-muted">
@@ -243,8 +256,16 @@ const activeAttemptStatus = computed(() => {
 const canCancel = computed(() => ['QUEUED', 'RUNNING'].includes(props.run.status.toUpperCase()))
 const failureMessage = computed(() => {
   if (!props.run.failure) return ''
-  const key = `error.${props.run.failure.code}`
-  return te(key) ? t(key, props.run.failure.params ?? {}) : props.run.failure.code
+  const failure = props.run.failure
+  const key = `error[${JSON.stringify(failure.code)}]`
+  return te(key) ? t(key, failure.params ?? {}) : failure.code
+})
+const failureGraphPath = computed(() => {
+  const failure = props.run.failure
+  const entry = props.run.timeline.findLast(
+    (item) => item.nodeId === failure?.nodeId && item.graphPath.at(-1) === failure?.graphId,
+  )
+  return entry?.graphPath ?? (failure?.graphId ? [failure.graphId] : [])
 })
 const statusColor = computed(() => {
   switch (props.run.status.toUpperCase()) {

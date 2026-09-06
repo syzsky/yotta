@@ -163,119 +163,78 @@
           <UIcon name="i-tabler-layout-off" class="size-6 text-dimmed" />
           <p class="text-sm font-medium text-default">{{ t('settingsLauncher.empty') }}</p>
         </div>
-        <VueDraggable
+        <ArrangementTable
           v-else
           v-model="editItems"
-          :animation="150"
-          handle=".drag-h"
-          class="launcher-block-list"
-          @end="persist"
+          v-model:selection="selectedIds"
+          :columns="tableColumns"
+          :row-label="rowLabel"
+          @activate="selectBlock"
+          @change="persist"
+          @remove="removeBlocks"
         >
-          <article
-            v-for="block in editItems"
-            :key="block.id"
-            class="launcher-block"
-            :class="{ 'launcher-block--selected': selectedBlockId === block.id }"
-            @click="selectBlock(block.id)"
-            @focusin="selectBlock(block.id)"
-          >
-            <UIcon
-              name="i-tabler-grip-vertical"
-              class="drag-h size-4 shrink-0 cursor-grab text-dimmed"
-            />
-            <template v-if="block.type === 'workflow'">
-              <UPopover :ui="{ content: 'w-[300px] p-2' }">
-                <UButton
-                  size="xs"
-                  variant="outline"
-                  color="neutral"
-                  square
-                  :title="t('settingsLauncher.pick_icon')"
-                  :aria-label="t('settingsLauncher.pick_icon')"
-                >
-                  <UIcon :name="block.icon || 'i-tabler-photo-plus'" class="size-4" />
-                </UButton>
-                <template #content>
-                  <div class="space-y-2">
-                    <IconPicker
-                      :model-value="block.icon"
-                      @update:model-value="(value: string) => setIcon(block.id, value)"
-                    />
-                    <UButton
-                      v-if="block.icon"
-                      size="xs"
-                      variant="ghost"
-                      color="neutral"
-                      block
-                      @click="setIcon(block.id, '')"
-                    >
-                      {{ t('settingsLauncher.clear_icon') }}
-                    </UButton>
-                  </div>
-                </template>
-              </UPopover>
-              <div class="min-w-0 flex-1">
-                <UInput
-                  :model-value="block.label"
-                  size="sm"
-                  :placeholder="workflowName(block.workflowId)"
-                  :aria-label="t('settingsLauncher.label_placeholder')"
-                  @update:model-value="
-                    (value: string | number) => setLabel(block.id, String(value))
-                  "
-                  @change="persist"
-                />
-                <p class="mt-1 truncate text-[11px] text-dimmed">
-                  {{
-                    t('settingsLauncher.from_workflow', {
-                      name: workflowName(block.workflowId),
-                    })
-                  }}
-                  <span v-if="addedCounts[block.workflowId ?? ''] > 1">
-                    ·
-                    {{
-                      t('settingsLauncher.entry_count', {
-                        n: addedCounts[block.workflowId ?? ''],
-                      })
-                    }}
-                  </span>
-                </p>
-              </div>
-            </template>
-            <template v-else-if="block.type === 'label'">
-              <UIcon name="i-tabler-heading" class="size-4 shrink-0 text-dimmed" />
-              <UInput
-                :model-value="block.label"
-                class="min-w-0 flex-1"
-                size="sm"
-                :placeholder="t('settingsLauncher.label_placeholder')"
-                @update:model-value="(value: string | number) => setLabel(block.id, String(value))"
-                @change="persist"
-              />
-            </template>
-            <div v-else class="flex min-w-0 flex-1 items-center gap-2 text-xs text-dimmed">
-              <UIcon
+          <template #bulk
+            ><BatchEditPopover
+              :fields="batchFields"
+              :count="selectedIds.length"
+              @apply="applyBatchEdit"
+          /></template>
+          <template #cells="{ row: entry, index }">
+            <td class="px-2 py-2">
+              <InlineIconPicker
+                v-if="entry.type === 'workflow'"
+                :model-value="entry.icon"
+                fallback="i-tabler-route"
+                @update:model-value="setIcon(entry.id, $event)"
+              /><UIcon
+                v-else
                 :name="
-                  block.type === 'hsep'
-                    ? 'i-tabler-separator-horizontal'
-                    : 'i-tabler-separator-vertical'
+                  entry.type === 'label'
+                    ? 'i-tabler-heading'
+                    : entry.type === 'hsep'
+                      ? 'i-tabler-separator-horizontal'
+                      : 'i-tabler-separator-vertical'
                 "
-                class="size-4"
+                class="size-4 text-muted"
               />
-              {{ t(block.type === 'hsep' ? 'settingsLauncher.hsep' : 'settingsLauncher.vsep') }}
-            </div>
-            <div class="ml-auto flex shrink-0 items-center">
-              <UButton
+            </td>
+            <td class="px-2 py-2">
+              <UInput
+                v-if="entry.type === 'workflow' || entry.type === 'label'"
+                :model-value="entry.label ?? ''"
                 size="xs"
-                variant="ghost"
-                color="error"
-                icon="i-tabler-trash"
-                :aria-label="t('settingsLauncher.delete_block')"
-                @click="removeBlock(block.id)"
-              />
-            </div>
-          </article>
-        </VueDraggable>
+                class="w-full"
+                :placeholder="
+                  entry.type === 'workflow'
+                    ? workflowName(entry.workflowId)
+                    : t('settingsLauncher.label_placeholder')
+                "
+                :aria-label="t('rowEditor.row_name', { n: index + 1 })"
+                @update:model-value="setLabel(entry.id, String($event))"
+                @change="persist"
+              /><span v-else class="text-muted">{{
+                t(entry.type === 'hsep' ? 'settingsLauncher.hsep' : 'settingsLauncher.vsep')
+              }}</span>
+            </td>
+            <td class="px-2 py-2">
+              <AdaptiveSelect
+                v-if="entry.type === 'workflow'"
+                :model-value="entry.workflowId ?? ''"
+                :items="workflowOptions(entry.workflowId)"
+                width-mode="fill"
+                size="xs"
+                :aria-label="t('rowEditor.row_workflow', { n: index + 1 })"
+                @update:model-value="setWorkflow(entry.id, String($event))"
+              /><UBadge v-else color="neutral" variant="subtle" size="xs">{{
+                t(
+                  entry.type === 'label'
+                    ? 'settingsLauncher.label_block'
+                    : 'settingsLauncher.separator_block',
+                )
+              }}</UBadge>
+            </td>
+          </template>
+        </ArrangementTable>
       </div>
     </SettingsSection>
 
@@ -290,11 +249,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { VueDraggable } from 'vue-draggable-plus'
+import ArrangementTable from '@/components/arrangement/ArrangementTable.vue'
+import BatchEditPopover from '@/components/arrangement/BatchEditPopover.vue'
+import InlineIconPicker from '@/components/arrangement/InlineIconPicker.vue'
+import type { BatchField } from '@/components/arrangement/batchFields'
 import { useSettingsStore, type LauncherBlock } from '@/stores/settings'
 import { backend } from '@/lib/backend'
 import { workflowTransport, type SourceView } from '@/app/transport/workflow'
-import IconPicker from '@/components/common/IconPicker.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import WorkflowPickerModal from '@/components/launcher/WorkflowPickerModal.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
@@ -318,6 +279,9 @@ const dependenciesLoaded = ref(false)
 const cleanupUndo = ref<LauncherBlock[] | null>(null)
 const workflowPickerOpen = ref(false)
 const selectedBlockId = ref('')
+const selectedIds = ref<string[]>([])
+let localDirty = false
+let ownWrites = 0
 const slotHotkeysEnabled = computed(() => !settingsStore.data?.ui.launcherSlotHotkeysDisabled)
 const slotModifierOptions = ['Ctrl', 'Shift', 'Alt'] as const
 const slotModifiers = computed(() =>
@@ -329,8 +293,16 @@ const slotModifiers = computed(() =>
 )
 const slotModifierText = computed(() => slotModifiers.value.join('+'))
 const copyItems = (items: LauncherBlock[]) => items.map((block) => ({ ...block }))
-const syncFromStore = () =>
-  (editItems.value = copyItems(settingsStore.data?.ui.launcherItems ?? []))
+const syncFromStore = () => {
+  if (ownWrites) return
+  const incoming = copyItems(settingsStore.data?.ui.launcherItems ?? [])
+  if (JSON.stringify(incoming) === JSON.stringify(editItems.value)) {
+    localDirty = false
+    return
+  }
+  if (localDirty) return
+  editItems.value = incoming
+}
 watch(() => settingsStore.data?.ui.launcherItems, syncFromStore, { immediate: true })
 
 const display = computed<LauncherDisplay>(() =>
@@ -361,7 +333,19 @@ const addedCounts = computed<Record<string, number>>(() => {
 })
 const resolution = computed(() => resolveLauncher(editItems.value, workflows.value))
 const staleCount = computed(() => resolution.value.staleBlocks.length)
-const persist = () => settingsStore.patch({ ui: { launcherItems: copyItems(editItems.value) } })
+async function persist() {
+  const snapshot = copyItems(editItems.value)
+  localDirty = true
+  ownWrites++
+  try {
+    const saved = await settingsStore.patch({ ui: { launcherItems: snapshot } })
+    if (saved && ownWrites === 1 && JSON.stringify(editItems.value) === JSON.stringify(snapshot))
+      localDirty = false
+    return saved
+  } finally {
+    ownWrites--
+  }
+}
 const setDisplay = (value: string) => void settingsStore.patch({ ui: { launcherDisplay: value } })
 const setSize = (value: LauncherSize) => void settingsStore.patch({ ui: { launcherSize: value } })
 const separatorMenuItems = computed(() => [
@@ -411,10 +395,11 @@ function addHsep() {
 function addVsep() {
   insertBlocks([{ id: genId(), type: 'vsep' }])
 }
-function removeBlock(id: string) {
-  editItems.value = editItems.value.filter((item) => item.id !== id)
-  if (selectedBlockId.value === id) selectedBlockId.value = ''
-  persist()
+function removeBlocks(ids: string[]) {
+  editItems.value = editItems.value.filter((item) => !ids.includes(item.id))
+  selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id))
+  if (ids.includes(selectedBlockId.value)) selectedBlockId.value = ''
+  void persist()
 }
 function selectBlock(id: string) {
   selectedBlockId.value = id
@@ -431,6 +416,8 @@ async function cleanupStale() {
   const saved = await persist()
   if (!saved) {
     editItems.value = previousBlocks
+    localDirty =
+      JSON.stringify(editItems.value) !== JSON.stringify(settingsStore.data?.ui.launcherItems ?? [])
     cleanupBusy.value = false
     return
   }
@@ -448,6 +435,8 @@ async function undoCleanup() {
     cleanupUndo.value = null
   } else {
     editItems.value = currentBlocks
+    localDirty =
+      JSON.stringify(editItems.value) !== JSON.stringify(settingsStore.data?.ui.launcherItems ?? [])
   }
   cleanupBusy.value = false
 }
@@ -460,8 +449,70 @@ function setIcon(id: string, icon: string) {
 }
 function setLabel(id: string, label: string) {
   const item = block(id)
-  if (item) item.label = label
+  if (item) {
+    item.label = label
+    localDirty = true
+  }
 }
+const tableColumns = computed(() => [
+  { key: 'icon', label: t('rowEditor.icon'), width: '44px' },
+  { key: 'name', label: t('rowEditor.name'), width: '42%' },
+  { key: 'workflow', label: t('rowEditor.workflow') },
+])
+const rowLabel = (entry: LauncherBlock) =>
+  entry.label ||
+  (entry.type === 'workflow'
+    ? workflowName(entry.workflowId)
+    : t(
+        entry.type === 'label'
+          ? 'settingsLauncher.label_block'
+          : entry.type === 'hsep'
+            ? 'settingsLauncher.hsep'
+            : 'settingsLauncher.vsep',
+      ))
+function workflowOptions(current?: string) {
+  const options = workflows.value.map((w) => ({ label: w.name, value: w.workflowId }))
+  if (current && !options.some((item) => item.value === current))
+    options.unshift({ label: t('settingsLauncher.deleted_workflow'), value: current })
+  return options
+}
+function setWorkflow(id: string, workflowId: string) {
+  const item = block(id)
+  if (item?.type === 'workflow') {
+    item.workflowId = workflowId
+    void persist()
+  }
+}
+const batchFields = computed<BatchField[]>(() => {
+  const selected = editItems.value.filter((item) => selectedIds.value.includes(item.id))
+  if (!selected.length) return []
+  const fields: BatchField[] = []
+  if (selected.every((item) => item.type === 'workflow' || item.type === 'label'))
+    fields.push({ id: 'label', label: t('rowEditor.name'), kind: 'text' })
+  if (selected.every((item) => item.type === 'workflow'))
+    fields.push(
+      { id: 'icon', label: t('rowEditor.icon'), kind: 'icon' },
+      {
+        id: 'workflowId',
+        label: t('rowEditor.workflow'),
+        kind: 'select',
+        required: true,
+        options: workflowOptions(),
+      },
+    )
+  return fields
+})
+function applyBatchEdit(field: string, value: string | number | boolean) {
+  if (!batchFields.value.some((item) => item.id === field)) return
+  for (const item of editItems.value) {
+    if (!selectedIds.value.includes(item.id)) continue
+    if (field === 'label') item.label = String(value)
+    if (field === 'icon') item.icon = String(value)
+    if (field === 'workflowId') item.workflowId = String(value)
+  }
+  void persist()
+}
+
 async function toggleSlotModifier(modifier: (typeof slotModifierOptions)[number]) {
   const next = new Set(slotModifiers.value)
   if (next.has(modifier)) {
@@ -496,37 +547,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.launcher-block {
-  display: flex;
-  min-height: 60px;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  transition:
-    border-color 140ms ease,
-    background-color 140ms ease;
-}
-
-.launcher-block:hover {
-  background: var(--settings-row-hover-bg);
-}
-
-.launcher-block--selected {
-  background: color-mix(in oklab, var(--ui-primary) 7%, var(--ui-bg));
-}
-
-.launcher-block-list {
-  overflow: hidden;
-  border-block: 1px solid var(--ui-border);
-}
-
-.launcher-block-list > * + * {
-  border-top: 1px solid color-mix(in oklab, var(--ui-border) 76%, transparent);
-}
-
 .launcher-library {
   padding: 14px 16px;
   border-block: 1px dashed var(--ui-border);

@@ -39,7 +39,7 @@ describe('settings visual system', () => {
     expect(styles).toContain('.settings-inset {')
     expect(styles).toMatch(/\.settings-collection\s*\{[\s\S]*?background:\s*transparent/)
     expect(launcher).not.toContain('launcher-health-card')
-    expect(launcher).toMatch(/\.launcher-block\s*\{[\s\S]*?background:\s*transparent/)
+    expect(launcher).toContain('<ArrangementTable')
     expect(applications).toContain('class="settings-collection"')
     expect(network).toContain('class="settings-collection"')
     expect(automation).toContain('class="settings-collection"')
