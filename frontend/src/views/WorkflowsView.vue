@@ -594,12 +594,12 @@
             :label="t('workflow.market.category')"
             required
             :description="t('workflow.market.category_hint')"
-            ><USelectMenu
+            ><MarketCategorySelect
               v-model="publishDraft.listing.category"
               @update:model-value="publishTouched.add('category')"
               data-testid="workflow-publish-category"
-              :items="publishCategoryOptions"
-              value-key="value"
+              :categories="publishCategoryDirectory"
+              active-only
               :disabled="publishing || publishLoading || publishHistoryFailed"
               class="w-full"
               :placeholder="t('workflow.market.category_select')"
@@ -1041,6 +1041,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 import WorkflowHotkeyField from '@/components/hotkeys/WorkflowHotkeyField.vue'
 import WorkflowMarketPanel from '@/components/workflow/WorkflowMarketPanel.vue'
+import MarketCategorySelect from '@/components/workflow/MarketCategorySelect.vue'
+import { categoryRows, type MarketCategory } from '@/lib/marketCategories'
 import { useWorkflowLibraryQuery } from '@/app/workflow-library/useWorkflowLibraryQuery'
 import {
   useWorkflowLibrarySelection,
@@ -1195,7 +1197,12 @@ const publishMarkdownValid = computed(
     Array.from(publishDraft.releaseNotes).length <= 20000,
 )
 const publishSection = ref('listing')
-const publishCategoryOptions = ref<{ label: string; value: string }[]>([])
+const publishCategoryDirectory = ref<MarketCategory[]>([])
+const publishCategoryOptions = computed(() =>
+  categoryRows(publishCategoryDirectory.value)
+    .filter((item) => item.active)
+    .map((item) => ({ label: item.label, value: item.key })),
+)
 const publishCategoryValid = computed(() =>
   publishCategoryOptions.value.some((item) => item.value === publishDraft.listing.category),
 )
@@ -1609,7 +1616,7 @@ function openPublish(source: SourceView): void {
 
 function initializePublish(source: SourceView): void {
   publishBundle.value = null
-  publishCategoryOptions.value = []
+  publishCategoryDirectory.value = []
   publishNeedsLogin.value = false
   publishHistoryFailed.value = false
   publishLoading.value = true
@@ -1642,12 +1649,7 @@ function initializePublish(source: SourceView): void {
     .then(([releases, bundle, categories]) => {
       if (generation !== publishGeneration || !publishOpen.value) return
       publishBundle.value = bundle
-      publishCategoryOptions.value = categories
-        .filter((item) => item.active)
-        .map((item) => ({
-          label: item.name,
-          value: item.key,
-        }))
+      publishCategoryDirectory.value = categories
       const previous = releases.reduce<(typeof releases)[number] | undefined>(
         (best, item) =>
           !best || isNewerRelease(item.releaseVersion, best.releaseVersion) ? item : best,
@@ -1662,11 +1664,7 @@ function initializePublish(source: SourceView): void {
       if (!publishTouched.has('summary')) publishDraft.summary = previous.summary
       const listing = {
         icon: previous.listing?.icon || 'i-tabler-route',
-        category: publishCategoryOptions.value.some(
-          (item) => item.value === previous.listing?.category,
-        )
-          ? previous.listing.category || ''
-          : '',
+        category: previous.listing?.category || '',
         tags: [...(previous.listing?.tags || source.tags || [])],
         description: previous.listing?.description || '',
         instructions: previous.listing?.instructions || '',

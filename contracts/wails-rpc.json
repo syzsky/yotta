@@ -4445,6 +4445,16 @@
           "name": "Category",
           "fields": [
             {
+              "name": "\"icon\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"imageMediaKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"key\"",
               "optional": false,
               "type": "string"
@@ -4458,6 +4468,11 @@
               "name": "\"parentKey\"",
               "optional": false,
               "type": "string"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "number"
             },
             {
               "name": "\"active\"",
@@ -4533,6 +4548,11 @@
           "kind": "class",
           "name": "SearchOptions",
           "fields": [
+            {
+              "name": "\"includeDescendants\"",
+              "optional": true,
+              "type": "boolean"
+            },
             {
               "name": "\"workflowIds\"",
               "optional": true,

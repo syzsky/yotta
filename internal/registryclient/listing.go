@@ -34,17 +34,21 @@ type Facets struct {
 	Tags       []string `json:"tags"`
 }
 type SearchOptions struct {
-	WorkflowIDs []string `json:"workflowIds,omitempty"`
-	Search      string   `json:"search"`
-	Category    string   `json:"category"`
-	Tag         string   `json:"tag"`
-	Sort        string   `json:"sort"`
-	Cursor      string   `json:"cursor"`
-	Limit       int      `json:"limit"`
+	IncludeDescendants bool     `json:"includeDescendants,omitempty"`
+	WorkflowIDs        []string `json:"workflowIds,omitempty"`
+	Search             string   `json:"search"`
+	Category           string   `json:"category"`
+	Tag                string   `json:"tag"`
+	Sort               string   `json:"sort"`
+	Cursor             string   `json:"cursor"`
+	Limit              int      `json:"limit"`
 }
 
 func (client *Client) SearchCatalog(ctx context.Context, options SearchOptions) (SearchPage, error) {
 	query := url.Values{"q": {options.Search}, "category": {options.Category}, "tag": {options.Tag}, "sort": {options.Sort}, "cursor": {options.Cursor}}
+	if options.IncludeDescendants {
+		query.Set("includeDescendants", "true")
+	}
 	if len(options.WorkflowIDs) > 0 {
 		query.Set("workflowIds", strings.Join(options.WorkflowIDs, ","))
 	}

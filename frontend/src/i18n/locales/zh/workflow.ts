@@ -197,6 +197,7 @@ export default {
       category: '分类',
       tags: '标签',
       category_hint: '选择服务器提供的分类，本地分类不会自动用于市场。',
+      category_empty: '没有匹配的分类',
       category_select: '搜索并选择分类',
       tags_hint: '输入后按回车添加，最多 16 个标签。',
       description: '详细说明',

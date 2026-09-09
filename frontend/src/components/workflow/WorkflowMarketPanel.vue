@@ -28,12 +28,13 @@
         </form>
         <div class="mt-2 grid grid-cols-2 gap-2">
           <UFormField :label="t('workflow.market.category')" size="sm"
-            ><AdaptiveSelect
+            ><MarketCategorySelect
               v-model="categorySelection"
-              :items="categoryItems"
+              :categories="categoryDirectory"
+              :all-label="t('workflow.market.all_categories')"
+              class="w-full"
               data-testid="market-category"
               size="sm"
-              width-mode="fill"
           /></UFormField>
           <UFormField :label="t('workflow.market.sort')" size="sm"
             ><AdaptiveSelect
@@ -129,9 +130,13 @@
                 class="market-result-category"
                 :title="t('workflow.market.category') + ': ' + categoryLabel(item.listing.category)"
               >
-                <UIcon name="i-tabler-folder" class="size-3 shrink-0" /><span class="truncate">{{
-                  categoryLabel(item.listing.category)
-                }}</span>
+                <WorkflowMarketIcon
+                  :name="
+                    categoryDirectory.find((category) => category.key === item.listing.category)
+                      ?.icon || 'i-tabler-folder'
+                  "
+                  class="size-3 shrink-0"
+                /><span class="truncate">{{ categoryLabel(item.listing.category) }}</span>
               </span>
             </span>
           </span>
@@ -426,17 +431,18 @@ import WorkflowMarketDocument from './WorkflowMarketDocument.vue'
 import AccountAvatar from '@/components/AccountAvatar.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import WorkflowReviews from './WorkflowReviews.vue'
+import MarketCategorySelect from './MarketCategorySelect.vue'
+import { categoryRows, type MarketCategory } from '@/lib/marketCategories'
 import type { Summary as ReviewSummary } from '@bindings/github.com/yottaapp/yotta/internal/communityclient/models.js'
 
 const { t, locale } = useI18n()
 const router = useRouter()
 const reviewSummary = ref<ReviewSummary | null>(null)
-const categoryNames = ref(new Map<string, string>())
+const categoryDirectory = ref<MarketCategory[]>([])
+const categoryNames = computed(
+  () => new Map(categoryRows(categoryDirectory.value).map((item) => [item.key, item.label])),
+)
 const categoryLabel = (key: string) => categoryNames.value.get(key) || key
-const categoryItems = computed(() => [
-  { label: t('workflow.market.all_categories'), value: 'all' },
-  ...facets.value.categories.map((value) => ({ label: categoryLabel(value), value: 'v:' + value })),
-])
 const tagItems = computed(() => [
   { label: t('workflow.market.all_tags'), value: 'all' },
   ...facets.value.tags.map((value) => ({ label: value, value: 'v:' + value })),
@@ -446,9 +452,9 @@ const sortItems = computed(() => [
   { label: t('workflow.market.sort_name'), value: 'name' },
 ])
 const categorySelection = computed({
-  get: () => (category.value ? 'v:' + category.value : 'all'),
+  get: () => category.value,
   set: (value: string) => {
-    category.value = value === 'all' ? '' : value.slice(2)
+    category.value = value
     void search()
   },
 })
@@ -563,6 +569,7 @@ async function load(append: boolean) {
       shopTransport.discover({
         search: query.value,
         category: category.value,
+        includeDescendants: true,
         tag: tag.value,
         sort: sort.value,
         cursor: append ? nextCursor.value : '',
@@ -572,7 +579,7 @@ async function load(append: boolean) {
       shopTransport.categories(),
     ])
     if (ticket !== queryGeneration) return
-    categoryNames.value = new Map(categories.map((item) => [item.key, item.name]))
+    categoryDirectory.value = categories
     installations.value = local
     facets.value = { categories: page.facets?.categories || [], tags: page.facets?.tags || [] }
     nextCursor.value = page.nextCursor || ''

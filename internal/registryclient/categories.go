@@ -7,10 +7,13 @@ import (
 
 // Category is the Registry-owned publication directory, independent of local folders.
 type Category struct {
-	Key       string `json:"key"`
-	Name      string `json:"name"`
-	ParentKey string `json:"parentKey"`
-	Active    bool   `json:"active"`
+	Icon          string `json:"icon"`
+	ImageMediaKey string `json:"imageMediaKey"`
+	Key           string `json:"key"`
+	Name          string `json:"name"`
+	ParentKey     string `json:"parentKey"`
+	Position      int    `json:"position"`
+	Active        bool   `json:"active"`
 }
 
 func (client *Client) Categories(ctx context.Context) ([]Category, error) {

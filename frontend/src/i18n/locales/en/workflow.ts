@@ -201,6 +201,7 @@ export default {
       category: 'Category',
       tags: 'Tags',
       category_hint: 'Choose a server category. Local categories are separate from the market.',
+      category_empty: 'No matching categories',
       category_select: 'Search and select a category',
       tags_hint: 'Press Enter to add a tag, up to 16 tags.',
       description: 'Detailed description',
