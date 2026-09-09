@@ -4,7 +4,7 @@
 
 | 要找什么 | 从这里开始 |
 | --- | --- |
-| 安装、界面和常用功能怎么使用 | [用户指南](user-guide/index.md) |
+| 安装、界面和常用功能怎么使用 | [用户指南](https://github.com/yottaapp/docs/blob/main/content/index.md) |
 | 领域术语与核心运行模型 | [Repository context](../CONTEXT.md) |
 | Workflow Source、图、节点、Snippet 与导入导出 | [Workflow 与创作](product/workflows.md) |
 | Target Slot、Configured Target、Capability 与资源 | [Target 与资源](product/targets-and-resources.md) |
@@ -22,6 +22,7 @@
 
 ## 知识职责
 
+- 独立 `yottaapp/docs` 仓库：公开用户指南、截图与文档打包发布。
 - `docs/`：当前产品模型、架构、数据、兼容、安全和操作边界。
 - `flightdeck/knowledge/`：完成一类修改时可直接执行的项目指南。
 - `flightdeck/work/`：仍在进行或已经结束的工作上下文，不是当前架构权威。

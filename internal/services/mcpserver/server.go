@@ -15,12 +15,14 @@ import (
 
 	"github.com/yottaapp/yotta/internal/apperr"
 	appcore "github.com/yottaapp/yotta/internal/application"
+	"github.com/yottaapp/yotta/internal/authoringcontext"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/workflow/authoring"
 	"github.com/yottaapp/yotta/pkg/version"
 )
 
 type registrar struct {
+	observation *authoringcontext.Service
 	application *appcore.Application
 	projection  nodeauthoring.Snapshot
 	schemas     map[string]toolSchemas
@@ -34,10 +36,13 @@ type toolSchemas struct {
 // BuildProtocol creates the validated in-process MCP protocol surface. The
 // returned SDK server is transport-neutral; callers may explicitly own stdio
 // or a separately authenticated transport.
-func BuildProtocol(application *appcore.Application) (*server.MCPServer, error) {
+func BuildProtocol(application *appcore.Application, observation ...*authoringcontext.Service) (*server.MCPServer, error) {
 	registrar, err := newRegistrar(application)
 	if err != nil {
 		return nil, err
+	}
+	if len(observation) > 0 {
+		registrar.observation = observation[0]
 	}
 	return registrar.protocol(), nil
 }
@@ -94,6 +99,9 @@ func (s *registrar) protocol() *server.MCPServer {
 }
 
 func (s *registrar) register(protocol *server.MCPServer) {
+	if s.observation != nil {
+		s.registerObservation(protocol)
+	}
 	protocol.AddTool(s.tool(
 		"catalog_search", "Search the admitted Yotta node catalog without loading the full projection."),
 		structuredToolHandler(func(_ context.Context, _ mcp.CallToolRequest, request CatalogSearchRequest) (CatalogSearchResult, error) {

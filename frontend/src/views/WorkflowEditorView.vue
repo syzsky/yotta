@@ -514,7 +514,12 @@ import type {
   WorkflowResource,
 } from '../../../contracts/workflow/current/workflow-source'
 import { createEditorSession } from '@/app/editor/createEditorSession'
-import { onDebugChanged, onRunChanged, workflowTransport } from '@/app/transport/workflow'
+import {
+  onDebugChanged,
+  onRunChanged,
+  setEditorContext,
+  workflowTransport,
+} from '@/app/transport/workflow'
 import { useConfirm } from '@/composables/useConfirm'
 import { useRecordingStart } from '@/composables/useRecordingStart'
 import { useRecordingStartFeedback } from '@/composables/useRecordingStartFeedback'
@@ -1450,6 +1455,21 @@ function setWorkflowDefaultTarget(value: unknown): void {
   session.setTargetDefault('target', typeof value === 'string' ? value : '')
 }
 
+// Serialize updates so delayed RPC completion cannot restore an older editor state.
+let editorContextUpdate = Promise.resolve()
+watch(
+  () =>
+    [editorViewActive.value, session.workflowId, session.currentGraph?.id, session.dirty] as const,
+  ([active, workflowId, graphId, dirty]) => {
+    editorContextUpdate = editorContextUpdate
+      .then(() =>
+        setEditorContext(active ? workflowId : '', active ? (graphId ?? '') : '', active && dirty),
+      )
+      .catch((error) => showError(t('workflow.toast.refresh_failed'), error))
+  },
+  { immediate: true },
+)
+
 watch(
   () => recording.state.pending,
   () =>
@@ -1520,6 +1540,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  void editorContextUpdate
+    .then(() => setEditorContext('', '', false))
+    .catch((error) => showError(t('workflow.toast.refresh_failed'), error))
   document.removeEventListener('keydown', handleEditorKeydown)
   unsubscribeRun?.()
   unsubscribeDebug?.()

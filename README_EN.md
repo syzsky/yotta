@@ -18,7 +18,7 @@ Yotta turns repetitive operations into visual workflows. Add nodes, connect exec
 targets and resources, then run, debug, reuse, or share the result without expressing every task as
 a script.
 
-![Yotta workflow editor](docs/user-guide/assets/workflow-editor.png)
+![Yotta workflow editor](https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/workflow-editor.png)
 
 ## What you can do
 
@@ -34,7 +34,7 @@ a script.
 The workflow library supports search, categories, tags, sorting, import, and export. The editor keeps
 node creation, typed connections, configuration, validation, execution, and debugging in one place.
 
-![Workflow library](docs/user-guide/assets/workflows.png)
+![Workflow library](https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/workflows.png)
 
 Portable workflows keep logical target slots instead of machine-specific window identities. After
 importing a workflow on another computer, bind its slots to targets configured on that device.
@@ -46,8 +46,8 @@ continuous pointer movement, drag paths, relative camera motion, and original ti
 
 <table>
   <tr>
-    <td><img src="docs/user-guide/assets/macro-editor.png" alt="Macro editor"></td>
-    <td><img src="docs/user-guide/assets/precise-recording.png" alt="Precise recording editor"></td>
+    <td><img src="https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/macro-editor.png" alt="Macro editor"></td>
+    <td><img src="https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/precise-recording.png" alt="Precise recording editor"></td>
   </tr>
   <tr>
     <td align="center">Editable macro</td>
@@ -70,26 +70,26 @@ The current version is **4.0.0-alpha.2**, with full support focused on **Windows
 
 Start with a safe desktop click: add a desktop application, create a Windows automation target,
 create a workflow, select its default target, then connect Run Started to Click Pointer. Follow the
-[step-by-step guide](docs/user-guide/en/getting-started/index.md).
+[step-by-step guide](https://github.com/yottaapp/docs/blob/main/content/en/getting-started/index.md).
 
-![Yotta settings](docs/user-guide/assets/settings.png)
+![Yotta settings](https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/settings.png)
 
 ## Documentation
 
-Read the complete [Yotta User Guide](docs/user-guide/en/index.md).
+Read the complete [Yotta User Guide](https://github.com/yottaapp/docs/blob/main/content/en/index.md).
 
-- [Getting started](docs/user-guide/en/getting-started/index.md)
-- [Workflow editor](docs/user-guide/en/workflow-editor/index.md)
-- [Node basics](docs/user-guide/en/nodes/index.md)
-- [Automation targets](docs/user-guide/en/automation/index.md)
-- [Input recordings](docs/user-guide/en/resources/index.md)
-- [Floating launcher](docs/user-guide/en/launcher/index.md)
-- [Settings](docs/user-guide/en/settings/index.md)
-- [Runs and debugging](docs/user-guide/en/runs/index.md)
-- [Schedules](docs/user-guide/en/schedules/index.md)
-- [Shortcuts](docs/user-guide/en/shortcuts/index.md)
-- [Updates and backups](docs/user-guide/en/maintenance/index.md)
-- [Troubleshooting](docs/user-guide/en/troubleshooting/index.md)
+- [Getting started](https://github.com/yottaapp/docs/blob/main/content/en/getting-started/index.md)
+- [Workflow editor](https://github.com/yottaapp/docs/blob/main/content/en/workflow-editor/index.md)
+- [Node basics](https://github.com/yottaapp/docs/blob/main/content/en/nodes/index.md)
+- [Automation targets](https://github.com/yottaapp/docs/blob/main/content/en/automation/index.md)
+- [Input recordings](https://github.com/yottaapp/docs/blob/main/content/en/resources/index.md)
+- [Floating launcher](https://github.com/yottaapp/docs/blob/main/content/en/launcher/index.md)
+- [Settings](https://github.com/yottaapp/docs/blob/main/content/en/settings/index.md)
+- [Runs and debugging](https://github.com/yottaapp/docs/blob/main/content/en/runs/index.md)
+- [Schedules](https://github.com/yottaapp/docs/blob/main/content/en/schedules/index.md)
+- [Shortcuts](https://github.com/yottaapp/docs/blob/main/content/en/shortcuts/index.md)
+- [Updates and backups](https://github.com/yottaapp/docs/blob/main/content/en/maintenance/index.md)
+- [Troubleshooting](https://github.com/yottaapp/docs/blob/main/content/en/troubleshooting/index.md)
 
 ## Data, privacy, and license
 

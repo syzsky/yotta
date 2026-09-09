@@ -213,7 +213,7 @@ type openAITool struct {
 type openAIFunctionOutput struct {
 	Type   string `json:"type"`
 	CallID string `json:"call_id"`
-	Output string `json:"output"`
+	Output any    `json:"output"`
 }
 
 type openAITextConfig struct {
@@ -582,7 +582,11 @@ func (p *nativeProvider) ContinueAgent(ctx context.Context, credential string, s
 	}
 	outputs := make([]openAIFunctionOutput, 0, len(request.Results))
 	for _, result := range request.Results {
-		outputs = append(outputs, openAIFunctionOutput{Type: "function_call_output", CallID: result.CallID, Output: string(result.Value)})
+		var output any = string(result.Value)
+		if result.Image != nil {
+			output = []map[string]any{{"type": "input_text", "text": string(result.Value)}, {"type": "input_image", "image_url": imageDataURL(*result.Image)}}
+		}
+		outputs = append(outputs, openAIFunctionOutput{Type: "function_call_output", CallID: result.CallID, Output: output})
 	}
 	payload := openAIRequest{
 		Model: profile.Model, Instructions: manifest.Machine().Instructions, Input: outputs, PreviousResponseID: current.previousResponseID,
@@ -772,7 +776,7 @@ type anthropicTool struct {
 type anthropicToolResult struct {
 	Type      string `json:"type"`
 	ToolUseID string `json:"tool_use_id"`
-	Content   string `json:"content"`
+	Content   any    `json:"content"`
 }
 
 type anthropicToolChoice struct {
@@ -938,7 +942,8 @@ func (p *nativeProvider) continueAnthropicAgent(ctx context.Context, credential 
 	}
 	results := make([]anthropicToolResult, 0, len(request.Results))
 	for _, result := range request.Results {
-		results = append(results, anthropicToolResult{Type: "tool_result", ToolUseID: result.CallID, Content: string(result.Value)})
+		content := anthropicUserInput(string(result.Value), result.Image)
+		results = append(results, anthropicToolResult{Type: "tool_result", ToolUseID: result.CallID, Content: content})
 	}
 	messages := append([]anthropicInput(nil), current.messages...)
 	messages = append(messages, anthropicInput{Role: "user", Content: results})

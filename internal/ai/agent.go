@@ -224,6 +224,7 @@ type ToolResult struct {
 	CallID string          `json:"callId"`
 	Name   string          `json:"name"`
 	Value  json.RawMessage `json:"value"`
+	Image  *ImageInput     `json:"image,omitempty"`
 }
 
 type AgentContinueRequest struct {
@@ -244,6 +245,11 @@ func (r AgentContinueRequest) Validate() error {
 	}
 	seen := make(map[string]struct{}, len(r.Results))
 	for _, result := range r.Results {
+		if result.Image != nil {
+			if err := result.Image.Validate(); err != nil {
+				return err
+			}
+		}
 		if !attemptIDPattern.MatchString(result.CallID) || !toolNamePattern.MatchString(result.Name) || len(result.Value) == 0 || len(result.Value) > MaxPromptBytes {
 			return errors.New("invalid AI agent tool result")
 		}
@@ -258,9 +264,10 @@ func (r AgentContinueRequest) Validate() error {
 type ToolHandler func(context.Context, json.RawMessage) (json.RawMessage, error)
 
 type ToolBinding struct {
-	Name     string
-	Approval artifact.Digest
-	Handler  ToolHandler
+	Name         string
+	Approval     artifact.Digest
+	Handler      ToolHandler
+	ImageHandler func(context.Context, json.RawMessage) (json.RawMessage, *ImageInput, error)
 }
 
 type ToolExecutor struct {
@@ -280,7 +287,7 @@ func NewToolExecutor(toolSet ToolSet, bindings []ToolBinding) (ToolExecutor, err
 	resolved := make(map[string]ToolBinding, len(bindings))
 	for _, binding := range bindings {
 		tool, ok := tools[binding.Name]
-		if !ok || binding.Handler == nil {
+		if !ok || (binding.Handler == nil && binding.ImageHandler == nil) || (binding.Handler != nil && binding.ImageHandler != nil) {
 			return ToolExecutor{}, ErrAgentUnknownTool
 		}
 		if _, duplicate := resolved[binding.Name]; duplicate {
@@ -328,9 +335,21 @@ func (e ToolExecutor) Execute(ctx context.Context, calls []ToolCall, maxParallel
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrAgentToolSchema, err)
 		}
-		value, err := e.bindings[call.Name].Handler(ctx, arguments)
+		var value json.RawMessage
+		var image *ImageInput
+		binding := e.bindings[call.Name]
+		if binding.ImageHandler != nil {
+			value, image, err = binding.ImageHandler(ctx, arguments)
+		} else {
+			value, err = binding.Handler(ctx, arguments)
+		}
 		if err != nil {
 			return nil, err
+		}
+		if image != nil {
+			if err := image.Validate(); err != nil {
+				return nil, err
+			}
 		}
 		output, err := CompileStructuredOutput(call.Name+"_output", tool.OutputSchema)
 		if err != nil {
@@ -340,7 +359,7 @@ func (e ToolExecutor) Execute(ctx context.Context, calls []ToolCall, maxParallel
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrAgentToolSchema, err)
 		}
-		results = append(results, ToolResult{CallID: call.CallID, Name: call.Name, Value: value})
+		results = append(results, ToolResult{CallID: call.CallID, Name: call.Name, Value: value, Image: image})
 	}
 	return results, nil
 }

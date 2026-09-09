@@ -18,6 +18,7 @@ import (
 	"github.com/yottaapp/yotta/internal/ai"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/authoringcontext"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/nodeauthoring"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -163,6 +164,7 @@ type reviewState struct {
 }
 
 type Manager struct {
+	observation   *authoringcontext.Service
 	application   *appcore.Application
 	projection    nodeauthoring.Snapshot
 	prompt        ai.PromptManifest
@@ -174,7 +176,7 @@ type Manager struct {
 	conversations *ConversationStore
 }
 
-func NewManager(application *appcore.Application, builtins nodes.Builtins, now func() time.Time) (*Manager, error) {
+func NewManager(application *appcore.Application, builtins nodes.Builtins, now func() time.Time, observation ...*authoringcontext.Service) (*Manager, error) {
 	if application == nil || !builtins.AIAuthoringPrompt.Valid() || !builtins.AIAuthoringToolSet.Valid() {
 		return nil, errors.New("AI authoring manager requires Application and trusted authoring artifacts")
 	}
@@ -185,7 +187,11 @@ func NewManager(application *appcore.Application, builtins nodes.Builtins, now f
 	if now == nil {
 		now = time.Now
 	}
-	return &Manager{application: application, projection: projection, prompt: builtins.AIAuthoringPrompt, tools: builtins.AIAuthoringToolSet, now: now, reviews: make(map[string]*reviewState)}, nil
+	manager := &Manager{application: application, projection: projection, prompt: builtins.AIAuthoringPrompt, tools: builtins.AIAuthoringToolSet, now: now, reviews: make(map[string]*reviewState), observation: &authoringcontext.Service{Application: application}}
+	if len(observation) > 0 && observation[0] != nil {
+		manager.observation = observation[0]
+	}
+	return manager, nil
 }
 
 func (m *Manager) AttachConversationStore(store *ConversationStore) error {
@@ -400,7 +406,10 @@ func (m *Manager) Propose(ctx context.Context, runtime Runtime, request ProposeR
 	if maxIterations == 0 {
 		maxIterations = DefaultMaxIterations
 	}
-	budget := ai.RunBudget{MaxInputTokens: 250_000, MaxOutputTokens: 64_000, MaxCostMicrounits: 50_000_000, MaxWallTimeMillis: 120_000, MaxIterations: maxIterations, MaxToolCalls: 48, MaxParallelism: 4}
+	// Input usage includes the retained workflow, tool schemas and images on every
+	// model round. Allow that context across the configured number of rounds;
+	// cost, elapsed time, output and tool limits remain independent bounds.
+	budget := ai.RunBudget{MaxInputTokens: 64_000 * int64(maxIterations), MaxOutputTokens: 64_000, MaxCostMicrounits: 50_000_000, MaxWallTimeMillis: 120_000, MaxIterations: maxIterations, MaxToolCalls: 48, MaxParallelism: 4}
 	tracker, err := ai.NewBudgetTracker(budget, m.now())
 	if err != nil {
 		return Review{}, err
@@ -626,6 +635,9 @@ type proposalState struct {
 
 func (s *proposalState) executor() (ai.ToolExecutor, error) {
 	bindings := []ai.ToolBinding{
+		{Name: "authoring_context", Handler: s.authoringContext},
+		{Name: "automation_target", Handler: s.automationTarget},
+		{Name: "automation_capture", ImageHandler: s.automationCapture},
 		{Name: "catalog_search", Handler: s.catalogSearch},
 		{Name: "catalog_describe", Handler: s.catalogDescribe},
 		{Name: "workflow_inspect", Handler: s.workflowInspect},

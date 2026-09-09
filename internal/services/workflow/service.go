@@ -12,6 +12,7 @@ import (
 	"github.com/yottaapp/yotta/internal/apperr"
 	appcore "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/authoringcontext"
 	"github.com/yottaapp/yotta/internal/communityclient"
 	"github.com/yottaapp/yotta/internal/durablefs"
 	"github.com/yottaapp/yotta/internal/nativeoidc"
@@ -26,6 +27,7 @@ import (
 )
 
 type Service struct {
+	observation       *authoringcontext.Service
 	community         *communityclient.Client
 	application       *appcore.Application
 	authoring         nodeauthoring.Snapshot
@@ -46,6 +48,17 @@ func (s *Service) GetNodePackageDependencies() []schema.NodePackageDependency {
 }
 
 type Option func(*Service)
+
+func WithAuthoringContext(observation *authoringcontext.Service) Option {
+	return func(s *Service) { s.observation = observation }
+}
+
+// SetEditorContext publishes only the active editor identity and save state.
+func (s *Service) SetEditorContext(workflowID, graphID string, dirty bool) {
+	if s.observation != nil {
+		s.observation.SetEditor(authoringcontext.Editor{WorkflowID: workflowID, GraphID: graphID, Dirty: dirty})
+	}
+}
 
 func WithRegistryAccount(account *nativeoidc.Session) Option {
 	return func(s *Service) { s.account = account }

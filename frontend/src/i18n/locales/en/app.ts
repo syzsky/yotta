@@ -474,6 +474,20 @@ export default {
     },
   },
   error: {
+    'authoring.observation.unavailable': 'Authoring context is unavailable. Reopen the workflow.',
+    'authoring.observation.workflow_not_found': 'Workflow not found. Refresh the workflow list.',
+    'authoring.observation.invalid_capture': 'Choose either a target capture or a screen capture.',
+    'authoring.observation.screen_unavailable':
+      'Screen capture is unavailable. Check that a Windows desktop is available.',
+    'authoring.observation.save_first': 'Save the workflow before capturing its default target.',
+    'authoring.observation.default_target_missing':
+      'Set and save a default automation target, or specify a target to capture.',
+    'authoring.observation.invalid_image':
+      'The captured image could not be processed. Check the target and retry.',
+    'authoring.observation.capture_failed':
+      'Capture failed. Check the window, device or browser connection and retry.',
+    'authoring.observation.target_unavailable':
+      'The target is unavailable. Check its configuration and connection.',
     'workflow.connection.conversion_insert_failed':
       'Could not insert the conversion node. Close the conversion dialog, reconnect the ports and choose a conversion again. Existing nodes and connections are preserved.',
     'panels.load_failed':

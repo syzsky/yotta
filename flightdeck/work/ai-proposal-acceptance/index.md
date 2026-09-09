@@ -38,6 +38,7 @@ Problem 通过 canonical formatter 展示 params 和 operationId。真实 Run �
 
 ## Progress
 
+- 2026-09-09 视觉创作验收发现仍有模型稳定性缺口：gpt-5.6-luna 创建泛型 Log 时可能猜错输入/端口，或产生 UNRESOLVED_TYPE 后用错误的 patch 字段修复，当前工具错误会终止本轮。不要将文本节点看图提案成功等同于任意结构修改稳定。视觉 Work 已补充读取所有相关节点合同的提示，并修复截图多轮累计输入的 25 万上限；后续本 Work 应补齐泛型节点配置与可恢复工具错误的完整旅程。
 - 2026-09-03 根据 owner 建议为 AI Run evidence 增加结构化 `elapsedMilliseconds`：运行中使用当前时刻，终态使用
   `endedAt`，并通过 Run timing accessor 测试覆盖持久时间投影。
 - 2026-09-03 复现 owner 的真实 `ai.authoring.failed`：Run 读取与 Source 检查成功后，模型在无候选时调用

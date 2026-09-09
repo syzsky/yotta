@@ -573,7 +573,7 @@
                   v-model="target.mouseCounts360"
                   :min="1"
                   :max="10000000"
-                  :step="100"
+                  :step="1"
                   size="sm"
                   class="w-full sm:w-48"
                   @change="commit"

@@ -161,6 +161,14 @@ export interface WorkflowTransport {
   installRegistryWorkflow(releaseId: string): Promise<SourceView>
 }
 
+export function setEditorContext(
+  workflowId: string,
+  graphId: string,
+  dirty: boolean,
+): Promise<void> {
+  return invoke(WorkflowService.SetEditorContext, workflowId, graphId, dirty)
+}
+
 export const workflowTransport: WorkflowTransport = {
   listSources: () => invoke(WorkflowService.ListSources),
   querySources: (query) => invoke(WorkflowService.QuerySources, query),

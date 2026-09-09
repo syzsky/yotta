@@ -17,7 +17,7 @@
 Yotta 可以把重复操作变成可视化工作流。添加节点、连接执行顺序、选择目标和资源，就可以运行、调试、复用
 或分享自动化流程，不必把日常操作都写成脚本。
 
-![Yotta 工作流编辑器](docs/user-guide/assets/workflow-editor.png)
+![Yotta 工作流编辑器](https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/workflow-editor.png)
 
 ## 可以做什么
 
@@ -34,7 +34,7 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
 工作流首页支持搜索、分类、标签、排序、导入和导出。进入编辑器后，可以在同一画布上完成节点添加、连线、
 配置、检查、运行和调试。
 
-![工作流首页](docs/user-guide/assets/workflows.png)
+![工作流首页](https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/workflows.png)
 
 工作流只保存可移植的逻辑和目标槽位。应用路径、窗口匹配、设备地址和凭据保留在本机设置中；从其他电脑
 导入工作流后，只需重新绑定本机目标。
@@ -45,8 +45,8 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
 
 <table>
   <tr>
-    <td><img src="docs/user-guide/assets/macro-editor.png" alt="键鼠宏编辑器"></td>
-    <td><img src="docs/user-guide/assets/precise-recording.png" alt="精准录制编辑器"></td>
+    <td><img src="https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/macro-editor.png" alt="键鼠宏编辑器"></td>
+    <td><img src="https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/precise-recording.png" alt="精准录制编辑器"></td>
   </tr>
   <tr>
     <td align="center">键鼠宏</td>
@@ -67,25 +67,25 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
 ## 第一次自动化
 
 推荐从一次安全的桌面点击开始：添加桌面应用、创建 Windows 自动化目标、新建工作流、选择工作流默认目标，
-再连接“Run 开始”和“点击指针”。完整九步教程见[快速开始](docs/user-guide/zh/getting-started/index.md)。
+再连接“Run 开始”和“点击指针”。完整九步教程见[快速开始](https://github.com/yottaapp/docs/blob/main/content/zh/getting-started/index.md)。
 
-![Yotta 设置](docs/user-guide/assets/settings.png)
+![Yotta 设置](https://raw.githubusercontent.com/yottaapp/docs/main/content/assets/settings.png)
 
 ## 用户文档
 
-- [快速开始](docs/user-guide/zh/getting-started/index.md)
-- [认识主界面](docs/user-guide/zh/getting-started/interface.md)
-- [工作流编辑器](docs/user-guide/zh/workflow-editor/index.md)
-- [节点入门](docs/user-guide/zh/nodes/index.md)
-- [自动化目标](docs/user-guide/zh/automation/index.md)
-- [资源与录制](docs/user-guide/zh/resources/index.md)
-- [悬浮启动器](docs/user-guide/zh/launcher/index.md)
-- [设置](docs/user-guide/zh/settings/index.md)
-- [Run 与调试](docs/user-guide/zh/runs/index.md)
-- [计划](docs/user-guide/zh/schedules/index.md)
-- [快捷键](docs/user-guide/zh/shortcuts/index.md)
-- [更新与备份](docs/user-guide/zh/maintenance/index.md)
-- [故障排查](docs/user-guide/zh/troubleshooting/index.md)
+- [快速开始](https://github.com/yottaapp/docs/blob/main/content/zh/getting-started/index.md)
+- [认识主界面](https://github.com/yottaapp/docs/blob/main/content/zh/getting-started/interface.md)
+- [工作流编辑器](https://github.com/yottaapp/docs/blob/main/content/zh/workflow-editor/index.md)
+- [节点入门](https://github.com/yottaapp/docs/blob/main/content/zh/nodes/index.md)
+- [自动化目标](https://github.com/yottaapp/docs/blob/main/content/zh/automation/index.md)
+- [资源与录制](https://github.com/yottaapp/docs/blob/main/content/zh/resources/index.md)
+- [悬浮启动器](https://github.com/yottaapp/docs/blob/main/content/zh/launcher/index.md)
+- [设置](https://github.com/yottaapp/docs/blob/main/content/zh/settings/index.md)
+- [Run 与调试](https://github.com/yottaapp/docs/blob/main/content/zh/runs/index.md)
+- [计划](https://github.com/yottaapp/docs/blob/main/content/zh/schedules/index.md)
+- [快捷键](https://github.com/yottaapp/docs/blob/main/content/zh/shortcuts/index.md)
+- [更新与备份](https://github.com/yottaapp/docs/blob/main/content/zh/maintenance/index.md)
+- [故障排查](https://github.com/yottaapp/docs/blob/main/content/zh/troubleshooting/index.md)
 
 ## 数据、隐私与许可证
 
@@ -110,3 +110,7 @@ Yotta 当前采用 [source-available 许可证](LICENSE)，允许个人、教育
 ```powershell
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 ```
+
+## 用户文档
+
+使用指南维护在 [独立文档仓库](https://github.com/yottaapp/docs/blob/main/content/index.md)，支持 AI 提案、MCP、目标配置和截图说明。文档包构建与同步见 [发布说明](docs/user-documentation.md)。

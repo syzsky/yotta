@@ -11,6 +11,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 	appcore "github.com/yottaapp/yotta/internal/application"
+	"github.com/yottaapp/yotta/internal/authoringcontext"
 )
 
 // RuntimeConfig deliberately exposes only a loopback port. Yotta's desktop
@@ -28,16 +29,21 @@ type runtimeInstance struct {
 
 // Runtime owns the optional Streamable HTTP transport for the desktop process.
 type Runtime struct {
+	observation *authoringcontext.Service
 	application *appcore.Application
 	mu          sync.Mutex
 	current     *runtimeInstance
 }
 
-func NewRuntime(application *appcore.Application) (*Runtime, error) {
+func NewRuntime(application *appcore.Application, observation ...*authoringcontext.Service) (*Runtime, error) {
 	if application == nil {
 		return nil, errors.New("MCP runtime requires Application")
 	}
-	return &Runtime{application: application}, nil
+	runtime := &Runtime{application: application}
+	if len(observation) > 0 {
+		runtime.observation = observation[0]
+	}
+	return runtime, nil
 }
 
 // Prepare reserves the requested port before settings are committed. Commit
@@ -56,7 +62,7 @@ func (r *Runtime) Prepare(config RuntimeConfig) (commit func() error, abort func
 		if listenErr != nil {
 			return nil, nil, fmt.Errorf("listen on MCP loopback port %d: %w", config.Port, listenErr)
 		}
-		protocol, buildErr := BuildProtocol(r.application)
+		protocol, buildErr := BuildProtocol(r.application, r.observation)
 		if buildErr != nil {
 			_ = listener.Close()
 			return nil, nil, buildErr

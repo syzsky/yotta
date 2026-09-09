@@ -3,7 +3,7 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 197,
+    "methods": 198,
     "models": 282
   },
   "services": [
@@ -2425,6 +2425,28 @@
             }
           ],
           "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
+        },
+        {
+          "name": "SetEditorContext",
+          "bindingId": "2610697712",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "graphID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "dirty",
+              "optional": false,
+              "type": "boolean"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
         },
         {
           "name": "StartDebugRun",

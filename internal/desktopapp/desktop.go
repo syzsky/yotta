@@ -22,6 +22,7 @@ import (
 	"github.com/yottaapp/yotta/internal/apperr"
 	yottaapplication "github.com/yottaapp/yotta/internal/application"
 	"github.com/yottaapp/yotta/internal/appruntime"
+	"github.com/yottaapp/yotta/internal/authoringcontext"
 	"github.com/yottaapp/yotta/internal/communityclient"
 	"github.com/yottaapp/yotta/internal/hotkey"
 	"github.com/yottaapp/yotta/internal/localruntime"
@@ -185,7 +186,14 @@ func Run(config Config) error {
 	sharedHotkeys := hotkey.NewHotkeyManager()
 
 	settingsSvc := services.NewSettingsService(app, aiSecrets)
-	mcpRuntime, err := mcpserver.NewRuntime(workflowRuntime.Application)
+	observation := &authoringcontext.Service{Application: workflowRuntime.Application, Targets: workflowRuntime.AuthoringTargets(), Screen: authoringcontext.CaptureScreen, ListTargets: func() []authoringcontext.TargetInfo {
+		items := []authoringcontext.TargetInfo{}
+		for _, configured := range app.Settings().Automation.Targets {
+			items = append(items, authoringcontext.TargetInfo{Slot: configured.Slot, Label: configured.Label, Kind: configured.TargetKind, Adapter: configured.AdapterKind})
+		}
+		return items
+	}}
+	mcpRuntime, err := mcpserver.NewRuntime(workflowRuntime.Application, observation)
 	if err != nil {
 		return fmt.Errorf("initialize MCP runtime: %w", err)
 	}
@@ -335,11 +343,12 @@ func Run(config Config) error {
 		}
 		workflowOptions = append(workflowOptions, workflow.WithRegistryState(filepath.Join(roots.Data, "registry-installations.json")))
 	}
+	workflowOptions = append(workflowOptions, workflow.WithAuthoringContext(observation))
 	workflowSvc, err := workflow.NewService(workflowRuntime.Application, workflowOptions...)
 	if err != nil {
 		return fmt.Errorf("initialize workflow service: %w", err)
 	}
-	aiAuthoring, err := aiauthoring.NewManager(workflowRuntime.Application, workflowRuntime.Builtins, time.Now)
+	aiAuthoring, err := aiauthoring.NewManager(workflowRuntime.Application, workflowRuntime.Builtins, time.Now, observation)
 	if err != nil {
 		return fmt.Errorf("initialize AI authoring: %w", err)
 	}

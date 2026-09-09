@@ -44,7 +44,11 @@ func (p *codexProvider) Generate(ctx context.Context, _ string, request Generate
 	if err := client.requireChatGPTAccount(); err != nil {
 		return Outcome{}, codexFailure(err)
 	}
-	threadID, resolved, err := client.startThread(p.profile.Machine(), nil)
+	manifest, err := request.Prompt.OpenManifest()
+	if err != nil {
+		return Outcome{}, contractFailure(err.Error())
+	}
+	threadID, resolved, err := client.startThread(p.profile.Machine(), nil, manifest.Machine().Instructions)
 	if err != nil {
 		return Outcome{}, codexFailure(err)
 	}
@@ -79,7 +83,12 @@ func (p *codexProvider) StartAgent(ctx context.Context, _ string, request AgentS
 		client.close()
 		return Outcome{}, nil, codexFailure(err)
 	}
-	threadID, resolved, err := client.startThread(p.profile.Machine(), toolSet.Machine().Tools)
+	manifest, err := request.Prompt.OpenManifest()
+	if err != nil {
+		client.close()
+		return Outcome{}, nil, contractFailure(err.Error())
+	}
+	threadID, resolved, err := client.startThread(p.profile.Machine(), toolSet.Machine().Tools, manifest.Machine().Instructions)
 	if err != nil {
 		client.close()
 		return Outcome{}, nil, codexFailure(err)
@@ -117,7 +126,7 @@ func (p *codexProvider) ContinueAgent(_ context.Context, _ string, state any, re
 			current.client.close()
 			return Outcome{}, nil, contractFailure("Codex agent tool result is missing")
 		}
-		if err := current.client.respondTool(pending.requestID, result.Value); err != nil {
+		if err := current.client.respondTool(pending.requestID, result); err != nil {
 			current.client.close()
 			return Outcome{}, nil, codexFailure(err)
 		}
@@ -236,7 +245,7 @@ func (c *codexClient) requireChatGPTAccount() error {
 	return nil
 }
 
-func (c *codexClient) startThread(profile ModelProfileDraft, tools []ToolManifestDraft) (string, string, error) {
+func (c *codexClient) startThread(profile ModelProfileDraft, tools []ToolManifestDraft, instructions ...string) (string, string, error) {
 	dynamic := make([]map[string]any, 0, len(tools))
 	for _, tool := range tools {
 		var schema any
@@ -250,6 +259,9 @@ func (c *codexClient) startThread(profile ModelProfileDraft, tools []ToolManifes
 		"cwd": os.TempDir(), "environments": []any{}, "runtimeWorkspaceRoots": []any{},
 		"baseInstructions": "Act only as Yotta's bounded model provider. Do not inspect files, run commands, browse, or use tools other than the dynamic tools supplied by Yotta.",
 		"dynamicTools":     dynamic,
+	}
+	if len(instructions) > 0 {
+		params["developerInstructions"] = instructions[0]
 	}
 	var response struct {
 		Thread struct {
@@ -307,6 +319,7 @@ func (c *codexClient) readTurn() (codexTurnResult, error) {
 			result.pending = append(result.pending, codexPendingTool{requestID: message.ID, callID: params.CallID, name: params.Tool, arguments: params.Arguments})
 			return result, nil
 		case "item/completed":
+
 			var params struct {
 				Item struct {
 					Type string `json:"type"`
@@ -361,9 +374,12 @@ func (c *codexClient) readTurn() (codexTurnResult, error) {
 	return result, c.scanError()
 }
 
-func (c *codexClient) respondTool(id json.RawMessage, value json.RawMessage) error {
-	content := string(value)
-	return c.write(map[string]any{"id": id, "result": map[string]any{"success": true, "contentItems": []map[string]any{{"type": "inputText", "text": content}}}})
+func (c *codexClient) respondTool(id json.RawMessage, result ToolResult) error {
+	items := []map[string]any{{"type": "inputText", "text": string(result.Value)}}
+	if result.Image != nil {
+		items = append(items, map[string]any{"type": "inputImage", "imageUrl": imageDataURL(*result.Image)})
+	}
+	return c.write(map[string]any{"id": id, "result": map[string]any{"success": true, "contentItems": items}})
 }
 
 func (c *codexClient) call(method string, params any, target any) error {

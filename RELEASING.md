@@ -76,3 +76,7 @@ Do not publish `v4.0.0` stable until all of the following are true outside the l
 The GitHub release workflow produces a provenance-attested unsigned payload. Pushing the exact `v<VERSION>` tag is the
 owner-controlled stable release authorization; do not push that tag until the prerequisites above are satisfied. A manual
 workflow dispatch remains candidate-only and never publishes a Release.
+
+## 用户文档
+
+公开文档由 [yottaapp/docs](https://github.com/yottaapp/docs) 独立维护和发布 docs.zip。软件构建不读取相邻文档 checkout；文档包对应的产品版本见文档仓库 release metadata。分工见 [用户文档入口](docs/user-documentation.md)。

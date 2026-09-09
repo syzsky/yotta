@@ -7,8 +7,8 @@
 
 ## Documentation decisions
 
-- 当前真值保存在 Yotta 仓库 `docs/user-guide/`，只使用普通 Markdown、YAML frontmatter、相对链接和本地图片。
-- 中文与英文分别位于 `docs/user-guide/zh/` 和 `docs/user-guide/en/`，根 `index.md` 只提供语言选择；两套文档共享 assets，不复制图片。
+- 当前公开文档内容保存在独立 yottaapp/docs 仓库的 `content/`，只使用普通 Markdown、YAML frontmatter、相对链接和本地图片。
+- 中文与英文分别位于 独立 docs 仓库的 `content/zh/` 和 独立 docs 仓库的 `content/en/`，根 `index.md` 只提供语言选择；两套文档共享 assets，不复制图片。
 - 仓库产品首页使用两份文件：中文 `README.md` 为默认入口，英文 `README_EN.md` 独立维护；不在一个文件中混排。
 - 页面按用户任务组织，不按 Go/TypeScript 模块组织。
 - 节点数量和短期测试数据不写死；节点说明回查当前生成 Catalog 与 Node Contract。

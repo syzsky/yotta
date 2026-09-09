@@ -86,7 +86,7 @@
                     v-model="profile.counts360"
                     :min="0"
                     :max="999999"
-                    :step="100"
+                    :step="1"
                     size="sm"
                     class="w-40"
                     :aria-label="t('settings.input.counts.col_counts')"

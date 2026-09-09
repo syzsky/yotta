@@ -438,6 +438,17 @@ export default {
     },
   },
   error: {
+    'authoring.observation.unavailable': '创作上下文暂不可用，请重新打开工作流。',
+    'authoring.observation.workflow_not_found': '找不到此工作流，请刷新工作流列表。',
+    'authoring.observation.invalid_capture': '截图参数冲突，请选择目标截图或屏幕截图。',
+    'authoring.observation.screen_unavailable':
+      '当前无法获取屏幕画面，请确认正在使用 Windows 桌面。',
+    'authoring.observation.save_first': '请先保存当前工作流，再获取默认目标画面。',
+    'authoring.observation.default_target_missing':
+      '请先设置并保存工作流默认自动化目标，或指定截图目标。',
+    'authoring.observation.invalid_image': '无法处理截图，请检查目标画面后重试。',
+    'authoring.observation.capture_failed': '截图失败，请检查窗口、设备或浏览器连接后重试。',
+    'authoring.observation.target_unavailable': '目标暂不可用，请检查自动化目标配置和连接。',
     'workflow.connection.conversion_insert_failed':
       '未能插入转换节点。请关闭转换窗口，重新连接两端后再选择转换。原节点和连线已保留。',
     'panels.load_failed': '面板配置加载失败，请检查本地配置文件后重试。',
