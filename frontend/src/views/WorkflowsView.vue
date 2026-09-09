@@ -590,15 +590,19 @@
               class="w-full"
               :placeholder="t('workflow.market.summary_hint')"
           /></UFormField>
-          <UFormField :label="t('workflow.market.category')"
-            ><UInput
+          <UFormField
+            :label="t('workflow.market.category')"
+            required
+            :description="t('workflow.market.category_hint')"
+            ><USelectMenu
               v-model="publishDraft.listing.category"
               @update:model-value="publishTouched.add('category')"
               data-testid="workflow-publish-category"
+              :items="publishCategoryOptions"
+              value-key="value"
               :disabled="publishing || publishLoading || publishHistoryFailed"
               class="w-full"
-              maxlength="64"
-              :placeholder="t('workflow.market.category_hint')"
+              :placeholder="t('workflow.market.category_select')"
           /></UFormField>
           <UFormField
             :label="t('workflow.market.tags')"
@@ -788,6 +792,7 @@
             publishHistoryFailed ||
             !publishVersionValid ||
             publishNeedsLogin ||
+            !publishCategoryValid ||
             !publishMarkdownValid ||
             !publishDraft.title.trim() ||
             !publishDraft.summary.trim()
@@ -1190,6 +1195,10 @@ const publishMarkdownValid = computed(
     Array.from(publishDraft.releaseNotes).length <= 20000,
 )
 const publishSection = ref('listing')
+const publishCategoryOptions = ref<{ label: string; value: string }[]>([])
+const publishCategoryValid = computed(() =>
+  publishCategoryOptions.value.some((item) => item.value === publishDraft.listing.category),
+)
 const publishLoading = ref(false)
 const publishBundle = ref<BundleInfoView | null>(null)
 const publishHistoryFailed = ref(false)
@@ -1600,6 +1609,7 @@ function openPublish(source: SourceView): void {
 
 function initializePublish(source: SourceView): void {
   publishBundle.value = null
+  publishCategoryOptions.value = []
   publishNeedsLogin.value = false
   publishHistoryFailed.value = false
   publishLoading.value = true
@@ -1613,7 +1623,7 @@ function initializePublish(source: SourceView): void {
   publishDraft.releaseNotes = ''
   publishDraft.listing = {
     icon: 'i-tabler-route',
-    category: source.category || '',
+    category: '',
     tags: [...(source.tags || [])],
     description: '',
     instructions: '',
@@ -1627,10 +1637,17 @@ function initializePublish(source: SourceView): void {
   void Promise.all([
     shopTransport.history(source.workflowId),
     workflowTransport.previewSourceBundle(source.workflowId),
+    shopTransport.categories(),
   ])
-    .then(([releases, bundle]) => {
+    .then(([releases, bundle, categories]) => {
       if (generation !== publishGeneration || !publishOpen.value) return
       publishBundle.value = bundle
+      publishCategoryOptions.value = categories
+        .filter((item) => item.active)
+        .map((item) => ({
+          label: item.name,
+          value: item.key,
+        }))
       const previous = releases.reduce<(typeof releases)[number] | undefined>(
         (best, item) =>
           !best || isNewerRelease(item.releaseVersion, best.releaseVersion) ? item : best,
@@ -1645,7 +1662,11 @@ function initializePublish(source: SourceView): void {
       if (!publishTouched.has('summary')) publishDraft.summary = previous.summary
       const listing = {
         icon: previous.listing?.icon || 'i-tabler-route',
-        category: previous.listing?.category || source.category || '',
+        category: publishCategoryOptions.value.some(
+          (item) => item.value === previous.listing?.category,
+        )
+          ? previous.listing.category || ''
+          : '',
         tags: [...(previous.listing?.tags || source.tags || [])],
         description: previous.listing?.description || '',
         instructions: previous.listing?.instructions || '',
@@ -1679,6 +1700,7 @@ async function publishWorkflow(): Promise<void> {
     publishLoading.value ||
     publishHistoryFailed.value ||
     !publishVersionValid.value ||
+    !publishCategoryValid.value ||
     !publishMarkdownValid.value
   )
     return

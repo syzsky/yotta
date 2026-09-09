@@ -785,6 +785,8 @@ export default {
       'This review or reply is no longer available. Refresh the discussion.',
     'workflow.community.cancelled': 'Cancelled. Your input is preserved.',
     'workflow.registry.invalid_title': 'Use 1–160 characters for the marketplace name.',
+    'workflow.registry.submission_daily_limit':
+      'Your daily submission limit has been reached. It resets at midnight China Standard Time; an administrator can adjust it. Your draft is preserved.',
     'workflow.registry.version_not_increasing':
       'Use a version higher than the highest published version. Reopen the publish form to load the current version and try again.',
     'workflow.registry.invalid_summary':
@@ -794,7 +796,7 @@ export default {
     'workflow.registry.bundle_invalid':
       'The workflow file did not pass format validation. Export it and include the operation ID in your report; retrying unchanged content will not resolve this.',
     'workflow.registry.invalid_listing':
-      'Check the icon, category, tags and description length before publishing. Use up to 16 tags, with 32 characters per tag.',
+      'Choose an active server category and check the icon, tags and description length. Use up to 16 tags, with 32 characters per tag.',
     'workflow.registry.invalid_version':
       'Use three non-negative integers for the version, such as 1.0.0, then publish again.',
     'workflow.registry.not_owner':

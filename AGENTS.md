@@ -2,6 +2,8 @@
 
 本文件是仓库级 agent contract。保持简短；可机械执行的规则放进 `task check`、CI、schema 或测试，不在这里复制长 prompt。
 
+跨仓开发与本地进程生命周期遵守相邻 Workspace 的 `../workspace/docs/multi-project-development.md`。
+
 ## 仓库事实
 
 - Yotta 是 Wails v3 桌面应用：Go 后端位于仓库根、`internal/` 和 `pkg/`，Vue 3/TypeScript 前端位于 `frontend/`。

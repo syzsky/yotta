@@ -91,6 +91,7 @@ declare module 'vue' {
     USwitch: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Switch.vue')['default']
     UTextarea: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
     UTooltip: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_331c50f938c3ba7dcef7fc15483382d6/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']
+    WorkflowCurationBadges: typeof import('./src/components/workflow/WorkflowCurationBadges.vue')['default']
     WorkflowHotkeyField: typeof import('./src/components/hotkeys/WorkflowHotkeyField.vue')['default']
     WorkflowMarkdownEditor: typeof import('./src/components/workflow/WorkflowMarkdownEditor.vue')['default']
     WorkflowMarketDocument: typeof import('./src/components/workflow/WorkflowMarketDocument.vue')['default']

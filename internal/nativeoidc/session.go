@@ -132,6 +132,15 @@ func (session *Session) Token(ctx context.Context) (string, error) {
 // Only explicit login actions may open the system browser. API calls can
 // refresh credentials silently, but must return an authentication problem.
 func (session *Session) Login(ctx context.Context) (string, error) {
+	return session.authenticate(ctx, false)
+}
+
+// Register keeps the same PKCE callback while starting at Account's registration page.
+func (session *Session) Register(ctx context.Context) (string, error) {
+	return session.authenticate(ctx, true)
+}
+
+func (session *Session) authenticate(ctx context.Context, registration bool) (string, error) {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, session.config.LoginTimeout)
@@ -139,7 +148,13 @@ func (session *Session) Login(ctx context.Context) (string, error) {
 	session.cancel = cancel
 	session.stateMu.Unlock()
 	defer func() { cancel(); session.stateMu.Lock(); session.cancel = nil; session.stateMu.Unlock() }()
-	token, err := session.tokenLocked(ctx, true)
+	var token string
+	var err error
+	if registration {
+		token, err = session.authorize(ctx, true)
+	} else {
+		token, err = session.tokenLocked(ctx, true)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -179,6 +194,10 @@ func (session *Session) tokenLocked(ctx context.Context, interactive bool) (stri
 }
 
 func (session *Session) login(ctx context.Context) (string, error) {
+	return session.authorize(ctx, false)
+}
+
+func (session *Session) authorize(ctx context.Context, registration bool) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -229,7 +248,18 @@ func (session *Session) login(ctx context.Context) (string, error) {
 		query.Set("audience", session.config.Audience)
 	}
 	authorizationURL.RawQuery = query.Encode()
-	if err := session.config.Browser.OpenURL(authorizationURL.String()); err != nil {
+	browserURL := authorizationURL.String()
+	if registration {
+		account, err := url.Parse(session.config.AccountURL)
+		if err != nil || account.Host == "" {
+			return "", errors.New("account center URL not configured")
+		}
+		account.Path = strings.TrimRight(account.Path, "/") + "/register"
+		// Account accepts only local return paths and proxies the authorization route.
+		account.RawQuery = url.Values{"return_to": {authorizationURL.RequestURI()}}.Encode()
+		browserURL = account.String()
+	}
+	if err := session.config.Browser.OpenURL(browserURL); err != nil {
 		return "", err
 	}
 	select {

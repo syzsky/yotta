@@ -69,6 +69,8 @@ type Creator struct {
 }
 
 type WorkflowRelease struct {
+	Official           bool                `json:"official"`
+	Recommended        bool                `json:"recommended"`
 	DownloadCount      int64               `json:"downloadCount"`
 	Dependencies       []DependencySummary `json:"dependencies"`
 	Listing            Listing             `json:"listing"`

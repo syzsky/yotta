@@ -679,6 +679,8 @@ export default {
     'workflow.community.not_found': '这条评价或回复已不存在，请刷新讨论列表。',
     'workflow.community.cancelled': '操作已取消，输入已保留。',
     'workflow.registry.invalid_title': '市场名称须为 1～160 个字符，请修改名称后发布。',
+    'workflow.registry.submission_daily_limit':
+      '今日投稿次数已用完。额度在北京时间每日 00:00 重置，也可联系管理员调整；发布内容已保留。',
     'workflow.registry.version_not_increasing':
       '新版本必须高于已发布的最高版本。请重新打开发布窗口，选择更高版本后重试。',
     'workflow.registry.invalid_summary': '简介须为 1～1000 个字符；较长内容请放到“详细说明”。',
@@ -686,7 +688,7 @@ export default {
     'workflow.registry.bundle_invalid':
       '工作流文件未通过格式校验。请导出工作流，并附操作 ID 反馈；重复提交相同内容无法解决。',
     'workflow.registry.invalid_listing':
-      '请检查图标、分类、标签和说明长度后重新发布。标签最多 16 个，每个最多 32 个字符。',
+      '请选择服务器上已启用的分类，并检查图标、标签和说明长度。标签最多 16 个，每个最多 32 个字符。',
     'workflow.registry.invalid_version': '版本号必须是三个非负整数，例如 1.0.0，请修改后重新发布。',
     'workflow.registry.not_owner':
       '只有原作者可以发布此工作流的新版本。请从工作流菜单选择“克隆为新作品”后再发布。',

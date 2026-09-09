@@ -107,6 +107,7 @@
           <span class="market-result-body">
             <span class="market-result-heading">
               <strong class="market-result-title" :title="item.title">{{ item.title }}</strong>
+              <WorkflowCurationBadges :official="item.official" :recommended="item.recommended" />
               <UIcon
                 v-if="installationFor(item)"
                 :name="hasUpdate(item) ? 'i-tabler-refresh' : 'i-tabler-circle-check'"
@@ -126,10 +127,10 @@
               <span
                 v-if="item.listing?.category"
                 class="market-result-category"
-                :title="t('workflow.market.category') + ': ' + item.listing.category"
+                :title="t('workflow.market.category') + ': ' + categoryLabel(item.listing.category)"
               >
                 <UIcon name="i-tabler-folder" class="size-3 shrink-0" /><span class="truncate">{{
-                  item.listing.category
+                  categoryLabel(item.listing.category)
                 }}</span>
               </span>
             </span>
@@ -159,6 +160,11 @@
             <h2 class="break-words text-2xl font-semibold leading-tight text-highlighted">
               {{ selected.title }}
             </h2>
+            <WorkflowCurationBadges
+              class="mt-2"
+              :official="selected.official"
+              :recommended="selected.recommended"
+            />
             <div
               class="market-author-row mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted"
             >
@@ -359,7 +365,7 @@
                     @click="applyCategory(selected.listing.category)"
                   >
                     <UIcon name="i-tabler-folder" class="size-3.5 shrink-0" /><span>{{
-                      selected.listing.category
+                      categoryLabel(selected.listing.category)
                     }}</span>
                   </button>
                 </dd>
@@ -408,6 +414,7 @@
 <script setup lang="ts">
 import { isNewerRelease } from '@/app/workflow-library/releaseVersion'
 import WorkflowMarketIcon from './WorkflowMarketIcon.vue'
+import WorkflowCurationBadges from './WorkflowCurationBadges.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -424,9 +431,11 @@ import type { Summary as ReviewSummary } from '@bindings/github.com/yottaapp/yot
 const { t, locale } = useI18n()
 const router = useRouter()
 const reviewSummary = ref<ReviewSummary | null>(null)
+const categoryNames = ref(new Map<string, string>())
+const categoryLabel = (key: string) => categoryNames.value.get(key) || key
 const categoryItems = computed(() => [
   { label: t('workflow.market.all_categories'), value: 'all' },
-  ...facets.value.categories.map((value) => ({ label: value, value: 'v:' + value })),
+  ...facets.value.categories.map((value) => ({ label: categoryLabel(value), value: 'v:' + value })),
 ])
 const tagItems = computed(() => [
   { label: t('workflow.market.all_tags'), value: 'all' },
@@ -550,16 +559,20 @@ async function load(append: boolean) {
       nextCursor.value = ''
       return
     }
-    const page = await shopTransport.discover({
-      search: query.value,
-      category: category.value,
-      tag: tag.value,
-      sort: sort.value,
-      cursor: append ? nextCursor.value : '',
-      limit: 40,
-      workflowIds: filter.value === 'all' ? undefined : local.map((item) => item.workflowId),
-    })
+    const [page, categories] = await Promise.all([
+      shopTransport.discover({
+        search: query.value,
+        category: category.value,
+        tag: tag.value,
+        sort: sort.value,
+        cursor: append ? nextCursor.value : '',
+        limit: 40,
+        workflowIds: filter.value === 'all' ? undefined : local.map((item) => item.workflowId),
+      }),
+      shopTransport.categories(),
+    ])
     if (ticket !== queryGeneration) return
+    categoryNames.value = new Map(categories.map((item) => [item.key, item.name]))
     installations.value = local
     facets.value = { categories: page.facets?.categories || [], tags: page.facets?.tags || [] }
     nextCursor.value = page.nextCursor || ''

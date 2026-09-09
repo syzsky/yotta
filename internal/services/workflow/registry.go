@@ -28,6 +28,8 @@ type RegistryCreatorView struct {
 }
 
 type RegistryWorkflowReleaseView struct {
+	Official           bool                               `json:"official"`
+	Recommended        bool                               `json:"recommended"`
 	DownloadCount      int64                              `json:"downloadCount"`
 	Dependencies       []registryclient.DependencySummary `json:"dependencies"`
 	Listing            registryclient.Listing             `json:"listing"`
@@ -299,8 +301,9 @@ func registryReleaseView(release registryclient.WorkflowRelease) RegistryWorkflo
 	}
 	return RegistryWorkflowReleaseView{
 		DownloadCount: release.DownloadCount,
-		Dependencies:  release.Dependencies,
-		Listing:       release.Listing, Facts: release.Facts,
+		Official:      release.Official, Recommended: release.Recommended,
+		Dependencies: release.Dependencies,
+		Listing:      release.Listing, Facts: release.Facts,
 		ReleaseID: release.ReleaseID, PublisherNamespace: release.PublisherNamespace,
 		WorkflowID: release.WorkflowID, ReleaseVersion: release.ReleaseVersion,
 		SourceHash: release.SourceHash, BundleDigest: release.BundleDigest,
@@ -324,6 +327,8 @@ func registryError(operation string, cause error) error {
 	var problem registryclient.Problem
 	if errors.As(cause, &problem) {
 		switch problem.Code {
+		case "registry.submission.daily_limit":
+			return projectError("workflow.registry.submission_daily_limit", apperr.CategoryPolicy, nil, false, cause)
 		case "registry.version_not_increasing":
 			return projectError("workflow.registry.version_not_increasing", apperr.CategoryValidation, nil, false, cause)
 		case "registry.invalid_title":

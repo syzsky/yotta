@@ -29,6 +29,16 @@ func (s *Service) CancelRegistryLogin() {
 		s.account.CancelLogin()
 	}
 }
+
+func (s *Service) RegisterRegistry(ctx context.Context) (nativeoidc.Profile, error) {
+	if s.account == nil {
+		return nativeoidc.Profile{}, unavailable("registry")
+	}
+	if _, err := s.account.Register(ctx); err != nil {
+		return nativeoidc.Profile{}, registryError("login", err)
+	}
+	return s.account.Profile(), nil
+}
 func (s *Service) LogoutRegistry() error {
 	if s.account != nil {
 		return accountError(s.account.Logout())

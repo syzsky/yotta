@@ -18,6 +18,7 @@ func TestRegistryErrorPreservesRecoverySemantics(t *testing.T) {
 		category  string
 		retryable bool
 	}{
+		{"daily submission limit", registryclient.Problem{Code: "registry.submission.daily_limit", Status: 429}, "workflow.registry.submission_daily_limit", apperr.CategoryPolicy, false},
 		{"conflict", registryclient.Problem{Code: "registry.release_version_conflict"}, "workflow.registry.release_version_conflict", apperr.CategoryDomain, false},
 		{"ownership", registryclient.Problem{Code: "registry.workflow_not_owner"}, "workflow.registry.not_owner", apperr.CategoryPolicy, false},
 		{"authentication", registryclient.Problem{Code: "registry.authentication_required"}, "workflow.registry.authentication_required", apperr.CategoryPolicy, false},

@@ -33,6 +33,7 @@
       {{ t('workflow.market.session_only') }}
     </p>
     <UButton
+      v-if="profile.user_key"
       block
       color="neutral"
       variant="ghost"
@@ -63,17 +64,21 @@
       @click="emit('logout')"
       >{{ t('workflow.market.sign_out') }}</UButton
     >
-    <UButton
-      v-else
-      :disabled="syncing"
-      block
-      variant="ghost"
-      icon="i-tabler-login"
-      class="justify-start"
-      :loading="busy"
-      @click="emit('login')"
-      >{{ t('workflow.market.sign_in') }}</UButton
-    >
+    <div v-else class="grid grid-cols-2 gap-2">
+      <UButton :disabled="syncing || busy" block icon="i-tabler-login" @click="emit('login')">
+        {{ t('workflow.market.sign_in') }}
+      </UButton>
+      <UButton
+        :disabled="syncing || busy"
+        block
+        color="neutral"
+        variant="outline"
+        icon="i-tabler-user-plus"
+        @click="emit('register')"
+      >
+        {{ t('workflow.market.sign_up') }}
+      </UButton>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
@@ -81,6 +86,6 @@ import { useI18n } from 'vue-i18n'
 import type { Profile } from '@bindings/github.com/yottaapp/yotta/internal/nativeoidc/models.js'
 import AccountAvatar from './AccountAvatar.vue'
 defineProps<{ profile: Profile; busy: boolean; syncing: boolean; failure: string }>()
-const emit = defineEmits<{ login: []; logout: []; cancel: []; center: [] }>()
+const emit = defineEmits<{ login: []; register: []; logout: []; cancel: []; center: [] }>()
 const { t } = useI18n()
 </script>

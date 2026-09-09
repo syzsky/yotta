@@ -49,6 +49,7 @@ export const communityTransport = {
 import type { SearchOptions } from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
 
 export const shopTransport = {
+  categories: () => invoke(WorkflowService.RegistryCategories),
   refreshAccount: () => invoke(WorkflowService.RefreshRegistryAccount),
   openAccountCenter: () => invoke(WorkflowService.OpenAccountCenter),
   discover: (query: SearchOptions) => invoke(WorkflowService.DiscoverRegistry, query),
@@ -64,6 +65,7 @@ export const shopTransport = {
     ),
   account: () => invoke(WorkflowService.RegistryAccount),
   login: () => invoke(WorkflowService.LoginRegistry),
+  register: () => invoke(WorkflowService.RegisterRegistry),
   cancelLogin: () => invoke(WorkflowService.CancelRegistryLogin),
   logout: () => invoke(WorkflowService.LogoutRegistry),
   installations: () => invoke(WorkflowService.RegistryInstallations),

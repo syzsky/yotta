@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 195,
-    "models": 280
+    "methods": 197,
+    "models": 282
   },
   "services": [
     {
@@ -2279,10 +2279,22 @@
           "returns": "$CancellablePromise<nativeoidc$0.Profile>"
         },
         {
+          "name": "RegisterRegistry",
+          "bindingId": "832567514",
+          "parameters": [],
+          "returns": "$CancellablePromise<nativeoidc$0.Profile>"
+        },
+        {
           "name": "RegistryAccount",
           "bindingId": "3328618722",
           "parameters": [],
           "returns": "$CancellablePromise<nativeoidc$0.Profile>"
+        },
+        {
+          "name": "RegistryCategories",
+          "bindingId": "1189842651",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.RegistryCategory[]>"
         },
         {
           "name": "RegistryInstallations",
@@ -4425,6 +4437,32 @@
               "name": "\"blobBytes\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Category",
+          "fields": [
+            {
+              "name": "\"key\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"parentKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"active\"",
+              "optional": false,
+              "type": "boolean"
             }
           ]
         },
@@ -8242,6 +8280,11 @@
           ]
         },
         {
+          "kind": "type",
+          "name": "RegistryCategory",
+          "definition": "registryclient$0.Category"
+        },
+        {
           "kind": "class",
           "name": "RegistryCreatorView",
           "fields": [
@@ -8334,6 +8377,16 @@
           "kind": "class",
           "name": "RegistryWorkflowReleaseView",
           "fields": [
+            {
+              "name": "\"official\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"recommended\"",
+              "optional": false,
+              "type": "boolean"
+            },
             {
               "name": "\"downloadCount\"",
               "optional": false,

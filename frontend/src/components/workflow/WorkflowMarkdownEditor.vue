@@ -20,6 +20,7 @@
     </div>
     <UEditor
       v-if="mode === 'edit'"
+      ref="markdownEditor"
       v-slot="{ editor }"
       v-model="value"
       content-type="markdown"
@@ -68,7 +69,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EditorToolbarItem } from '@nuxt/ui'
 import WorkflowMarketDocument from './WorkflowMarketDocument.vue'
@@ -90,6 +91,13 @@ const value = computed({
 const { t } = useI18n()
 const modes = ['edit', 'source', 'preview'] as const
 const mode = ref<(typeof modes)[number]>('edit')
+const markdownEditor = useTemplateRef('markdownEditor')
+// UEditor uses editable at creation; keep the existing editor in sync after loading/publishing.
+watch(
+  () => [markdownEditor.value?.editor, props.disabled] as const,
+  ([editor, disabled]) => editor?.setEditable(!disabled, false),
+  { immediate: true, flush: 'post' },
+)
 const characters = computed(() => Array.from(value.value).length)
 const toolbar = computed<EditorToolbarItem[][]>(() => [
   [

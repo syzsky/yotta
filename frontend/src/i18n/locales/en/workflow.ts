@@ -154,6 +154,8 @@ export default {
         'Only the isolated corrupt source is deleted. Other workflows, assets, and run records are unchanged.',
     },
     community: {
+      official: 'Official',
+      recommended: 'Recommended',
       more_replies: 'Load more replies',
       tab: 'Ratings and discussion',
       average: 'Average {score} stars',
@@ -198,7 +200,8 @@ export default {
       dependencies: 'Node pack dependencies',
       category: 'Category',
       tags: 'Tags',
-      category_hint: 'For example: files, productivity, development',
+      category_hint: 'Choose a server category. Local categories are separate from the market.',
+      category_select: 'Search and select a category',
       tags_hint: 'Press Enter to add a tag, up to 16 tags.',
       description: 'Detailed description',
       instructions: 'How to use',
@@ -249,6 +252,7 @@ export default {
       account_hint: 'Sign in to publish and manage your work',
       account_title: 'Sign in to Yotta',
       sign_in: 'Sign in',
+      sign_up: 'Sign up',
       sign_out: 'Sign out',
       waiting_login:
         'Finish signing in in your browser. You can cancel; this ends automatically after two minutes.',

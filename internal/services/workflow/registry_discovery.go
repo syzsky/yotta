@@ -6,6 +6,22 @@ import (
 )
 
 type RegistryQuery = registryclient.SearchOptions
+type RegistryCategory = registryclient.Category
+
+func (s *Service) RegistryCategories(ctx context.Context) ([]RegistryCategory, error) {
+	client, ok := s.registry.(interface {
+		Categories(context.Context) ([]registryclient.Category, error)
+	})
+	if !ok {
+		return nil, unavailable("registry")
+	}
+	categories, err := client.Categories(ctx)
+	if err != nil {
+		return nil, registryError("categories", err)
+	}
+	return categories, nil
+}
+
 type registryDiscovery interface {
 	SearchCatalog(context.Context, registryclient.SearchOptions) (registryclient.SearchPage, error)
 	WorkflowHistory(context.Context, string) ([]registryclient.WorkflowRelease, error)

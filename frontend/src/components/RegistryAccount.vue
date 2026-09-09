@@ -21,6 +21,7 @@
         :syncing="syncing"
         :failure="failure"
         @login="accountAction(shopTransport.login)"
+        @register="accountAction(shopTransport.register)"
         @logout="accountAction(shopTransport.logout)"
         @cancel="cancel"
         @center="openAccountCenter"
