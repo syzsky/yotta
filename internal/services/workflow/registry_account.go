@@ -40,6 +40,7 @@ func (s *Service) RegisterRegistry(ctx context.Context) (nativeoidc.Profile, err
 	return s.account.Profile(), nil
 }
 func (s *Service) LogoutRegistry() error {
+	s.CancelRegistryWalletAuthorization()
 	if s.account != nil {
 		return accountError(s.account.Logout())
 	}

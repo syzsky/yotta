@@ -819,6 +819,20 @@ export default {
       'This workflow has local changes or no installation record. Clone it to preserve your work before updating the original.',
     'workflow.registry.release_version_conflict':
       'This version is already published. Increase the version and try again.',
+    'workflow.checkout.cancel_unsupported':
+      'This provider cannot cancel the payment yet. The order remains active. Check its payment status instead of placing another order.',
+    'workflow.checkout.session_expired':
+      'The payment session expired. Retry to get a new session for the same order.',
+    'workflow.wallet.insufficient':
+      'Insufficient balance. Top up or choose another payment method.',
+    'workflow.wallet.authorization_required':
+      'Balance payment authorization has expired or been revoked. Authorize again.',
+    'workflow.wallet.storage_unavailable':
+      'Unable to save payment authorization. Check system credential storage and retry.',
+    'workflow.checkout.order_changed':
+      'The order state changed. Retry to check the existing order; no new order will be created.',
+    'workflow.registry.purchase_required':
+      'Purchase this workflow first. If already purchased, sign in with the buyer account and retry installation.',
     'workflow.registry.authentication_required': 'Sign in before publishing this Workflow.',
     'workflow.registry.workflow_rejected':
       'This Workflow cannot be published yet. Check its content and try again.',

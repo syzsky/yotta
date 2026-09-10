@@ -324,7 +324,7 @@ func Run(config Config) error {
 				return fmt.Errorf("initialize native OIDC session: %w", sessionErr)
 			}
 			tokens = session
-			workflowOptions = append(workflowOptions, workflow.WithRegistryAccount(session))
+			workflowOptions = append(workflowOptions, workflow.WithRegistryAccount(session), workflow.WithWallet(securestore.New(), credentialScope+"\x00"+config.OIDCTokenEndpoint+"\x00"+config.RegistryURL, wailsApp.Browser))
 		}
 		registry, registryErr := registryclient.New(registryclient.Options{
 			BaseURL: config.RegistryURL, Tokens: tokens,

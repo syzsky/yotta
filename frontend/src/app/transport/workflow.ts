@@ -49,6 +49,24 @@ export const communityTransport = {
 import type { SearchOptions } from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
 
 export const shopTransport = {
+  openWallet: () => invoke(WorkflowService.OpenRegistryWallet),
+  wallet: () => invoke(WorkflowService.RegistryWallet),
+  authorizeWallet: () => invoke(WorkflowService.AuthorizeRegistryWallet),
+  cancelWalletAuthorization: () => invoke(WorkflowService.CancelRegistryWalletAuthorization),
+  payWallet: (
+    input: import('@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js').WalletPayment,
+  ) => invoke(WorkflowService.PayRegistryWallet, input),
+  renewPaymentSession: (orderNo: string) =>
+    invoke(WorkflowService.RenewRegistryPaymentSession, orderNo),
+  nativePayment: (orderNo: string, confirm = false) =>
+    invoke(WorkflowService.RegistryNativePayment, orderNo, confirm),
+  paymentMethods: () => invoke(WorkflowService.RegistryPaymentMethods),
+  checkout: (
+    workflowId: string,
+    input: import('@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js').CheckoutInput,
+  ) => invoke(WorkflowService.CreateRegistryCheckout, workflowId, input),
+  checkoutState: (orderNo: string, action: 'status' | 'sync' | 'cancel') =>
+    invoke(WorkflowService.RegistryCheckoutState, orderNo, action),
   categories: () => invoke(WorkflowService.RegistryCategories),
   refreshAccount: () => invoke(WorkflowService.RefreshRegistryAccount),
   openAccountCenter: () => invoke(WorkflowService.OpenAccountCenter),
@@ -159,6 +177,13 @@ export interface WorkflowTransport {
   searchRegistry(search: string, limit: number): Promise<RegistrySearchPageView>
   publishSourceToRegistry(request: PublishRegistryRequest): Promise<RegistryWorkflowReleaseView>
   installRegistryWorkflow(releaseId: string): Promise<SourceView>
+  registryCommerce?(workflowId: string): Promise<{
+    priceCents: number
+    currency: string
+    available: boolean
+    purchaseUrl: string
+    entitled: boolean
+  }>
 }
 
 export function setEditorContext(
@@ -283,6 +308,7 @@ export const workflowTransport: WorkflowTransport = {
   publishSourceToRegistry: (request) => invoke(WorkflowService.PublishSourceToRegistry, request),
   installRegistryWorkflow: (releaseId) =>
     invoke(WorkflowService.InstallRegistryWorkflow, releaseId),
+  registryCommerce: (workflowId) => invoke(WorkflowService.RegistryCommerce, workflowId),
 }
 
 export type { RegistrySearchPageView, RegistryWorkflowReleaseView }

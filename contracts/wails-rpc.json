@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 198,
-    "models": 282
+    "methods": 209,
+    "models": 292
   },
   "services": [
     {
@@ -1818,6 +1818,12 @@
           "returns": "$CancellablePromise<$models.PatchView>"
         },
         {
+          "name": "AuthorizeRegistryWallet",
+          "bindingId": "1137673753",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.WalletView>"
+        },
+        {
           "name": "BatchUpdateSourceMetadata",
           "bindingId": "615549073",
           "parameters": [
@@ -1838,6 +1844,12 @@
         {
           "name": "CancelRegistryLogin",
           "bindingId": "3317022726",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "CancelRegistryWalletAuthorization",
+          "bindingId": "1819009817",
           "parameters": [],
           "returns": "$CancellablePromise<void>"
         },
@@ -1905,6 +1917,23 @@
             }
           ],
           "returns": "$CancellablePromise<compiler$0.DebugSnapshot>"
+        },
+        {
+          "name": "CreateRegistryCheckout",
+          "bindingId": "1075275695",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "input",
+              "optional": false,
+              "type": "registryclient$0.CheckoutInput"
+            }
+          ],
+          "returns": "$CancellablePromise<registryclient$0.CheckoutPayment>"
         },
         {
           "name": "CreateSource",
@@ -2213,6 +2242,24 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "OpenRegistryWallet",
+          "bindingId": "929437498",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "PayRegistryWallet",
+          "bindingId": "593749684",
+          "parameters": [
+            {
+              "name": "input",
+              "optional": false,
+              "type": "registryclient$0.WalletPayment"
+            }
+          ],
+          "returns": "$CancellablePromise<registryclient$0.WalletPaid>"
+        },
+        {
           "name": "PreviewDeleteSources",
           "bindingId": "2449059483",
           "parameters": [
@@ -2297,10 +2344,68 @@
           "returns": "$CancellablePromise<$models.RegistryCategory[]>"
         },
         {
+          "name": "RegistryCheckoutState",
+          "bindingId": "3092809844",
+          "parameters": [
+            {
+              "name": "orderNo",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "action",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<registryclient$0.CheckoutStatus>"
+        },
+        {
+          "name": "RegistryCommerce",
+          "bindingId": "1668736180",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<registryclient$0.CommerceView>"
+        },
+        {
           "name": "RegistryInstallations",
           "bindingId": "927537972",
           "parameters": [],
           "returns": "$CancellablePromise<$models.RegistryInstallation[]>"
+        },
+        {
+          "name": "RegistryNativePayment",
+          "bindingId": "3741235546",
+          "parameters": [
+            {
+              "name": "orderNo",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "confirm",
+              "optional": false,
+              "type": "boolean"
+            }
+          ],
+          "returns": "$CancellablePromise<registryclient$0.PaymentView>"
+        },
+        {
+          "name": "RegistryPaymentMethods",
+          "bindingId": "475155123",
+          "parameters": [],
+          "returns": "$CancellablePromise<registryclient$0.PaymentMethod[]>"
+        },
+        {
+          "name": "RegistryWallet",
+          "bindingId": "1559029842",
+          "parameters": [],
+          "returns": "$CancellablePromise<$models.WalletView>"
         },
         {
           "name": "RegistryWorkflowHistory",
@@ -2313,6 +2418,18 @@
             }
           ],
           "returns": "$CancellablePromise<$models.RegistryWorkflowReleaseView[]>"
+        },
+        {
+          "name": "RenewRegistryPaymentSession",
+          "bindingId": "3794438216",
+          "parameters": [
+            {
+              "name": "orderNo",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<registryclient$0.PaymentSession>"
         },
         {
           "name": "RepairSourceRecovery",
@@ -4505,6 +4622,120 @@
         },
         {
           "kind": "class",
+          "name": "CheckoutInput",
+          "fields": [
+            {
+              "name": "\"idempotencyKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"provider\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CheckoutPayment",
+          "fields": [
+            {
+              "name": "\"paymentSession\"",
+              "optional": true,
+              "type": "PaymentSession | null"
+            },
+            {
+              "name": "\"orderNo\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"amountCents\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"currency\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"provider\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"method\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"payUrl\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"qrCode\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CheckoutStatus",
+          "fields": [
+            {
+              "name": "\"orderNo\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"deliveryState\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "CommerceView",
+          "fields": [
+            {
+              "name": "\"priceCents\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"currency\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"available\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"purchaseUrl\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"entitled\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "DependencySummary",
           "fields": [
             {
@@ -4568,8 +4799,141 @@
         },
         {
           "kind": "class",
+          "name": "PaymentMethod",
+          "fields": [
+            {
+              "name": "\"provider\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"label\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"method\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"enabled\"",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PaymentSession",
+          "fields": [
+            {
+              "name": "\"sessionId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"orderNo\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"payUrl\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"expiresAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "PaymentView",
+          "fields": [
+            {
+              "name": "\"canChooseMethod\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"orderNo\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"amountCents\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"currency\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"provider\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"orderStatus\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"deliveryState\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"expiresAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"canConfirm\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"canCancel\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"payUrl\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"qrCode\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "SearchOptions",
           "fields": [
+            {
+              "name": "\"selection\"",
+              "optional": true,
+              "type": "string"
+            },
             {
               "name": "\"includeDescendants\"",
               "optional": true,
@@ -4609,6 +4973,43 @@
               "name": "\"limit\"",
               "optional": false,
               "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WalletPaid",
+          "fields": [
+            {
+              "name": "\"orderNo\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WalletPayment",
+          "fields": [
+            {
+              "name": "\"orderNo\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"amountCents\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"currency\"",
+              "optional": false,
+              "type": "string"
             }
           ]
         }
@@ -8331,6 +8732,11 @@
           "name": "RegistryCreatorView",
           "fields": [
             {
+              "name": "\"qualityAuthor\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
               "name": "\"picture\"",
               "optional": true,
               "type": "string"
@@ -9020,6 +9426,27 @@
               "name": "\"tags\"",
               "optional": false,
               "type": "string[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WalletView",
+          "fields": [
+            {
+              "name": "\"authorized\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"currency\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"balanceCents\"",
+              "optional": false,
+              "type": "number"
             }
           ]
         }

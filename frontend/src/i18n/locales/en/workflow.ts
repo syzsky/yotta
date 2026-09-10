@@ -1,5 +1,38 @@
 export default {
   workflow: {
+    checkout: {
+      wallet_method: 'Wallet balance',
+      wallet_balance: 'Balance ¥{amount}',
+      wallet_pay: 'Confirm balance payment',
+      wallet_insufficient: 'Insufficient balance. Choose another payment method.',
+      wallet_authorize: 'Enable balance payments',
+      wallet_waiting: 'Allow balance payments in the page that opened, then return here.',
+
+      simulation_note: 'Local simulation only. No real funds are charged.',
+      choosing: 'Choose a payment method',
+      title: 'Complete purchase',
+      close: 'Close',
+      preparing: 'Preparing payment…',
+      signing_in: 'Complete account sign-in to continue this purchase.',
+      account_changed:
+        'The purchase account changed. Close this panel and start again with the current account.',
+      ended: 'This order has ended. You can start a new purchase.',
+      complete: 'Purchased. Installing…',
+      confirming: 'Payment received. Confirming download access…',
+      access_delayed:
+        'Payment succeeded, but download access is still unavailable. No further payment is needed. We will keep checking; you can also check again later.',
+      refresh_access: 'Check download access again',
+      waiting: 'Installation starts automatically after payment. No second purchase is needed.',
+      unavailable: 'No payment methods are currently available. Try again later.',
+      failed: 'Payment could not be prepared. Please retry.',
+      qr: 'Payment QR code',
+      missing_action:
+        'The payment service has not supplied a usable payment action. Try again later or cancel this order.',
+      simulate: 'Confirm simulated payment',
+      pay: 'Pay now',
+      order: 'Order: {order}',
+      cancel: 'Cancel order',
+    },
     markdown: {
       edit: 'Write',
       source: 'Source',
@@ -186,6 +219,14 @@ export default {
       member: 'Member',
     },
     market: {
+      my_wallet: 'My wallet',
+      purchase: 'Buy and install',
+      purchase_price: 'CNY {price}',
+      free: 'Free',
+      purchased: 'Purchased',
+      discontinued: 'No longer for sale',
+      download_unavailable: 'Download unavailable',
+
       account_center: 'Account center',
       session_only: 'Sign-in is temporary. Sign in again after restarting.',
       login_before_publish: 'Sign in to publish a workflow',
@@ -216,6 +257,8 @@ export default {
       add_screenshots: 'Add screenshots',
       screenshot_alt: 'Screenshot description',
       sort: 'Sort',
+      quality_author: 'Featured creator',
+      quality_authors_only: 'Featured creators only',
       sort_updated: 'Recently updated',
       sort_name: 'Name',
       all_categories: 'All categories',

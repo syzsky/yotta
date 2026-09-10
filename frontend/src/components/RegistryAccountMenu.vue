@@ -44,6 +44,16 @@
       >{{ t('workflow.market.account_center') }}</UButton
     >
     <UButton
+      v-if="profile.user_key"
+      block
+      color="neutral"
+      variant="ghost"
+      icon="i-tabler-wallet"
+      class="justify-start"
+      @click="emit('wallet')"
+      >{{ t('workflow.market.my_wallet') }}</UButton
+    >
+    <UButton
       v-if="profile.signingIn"
       block
       color="neutral"
@@ -86,6 +96,13 @@ import { useI18n } from 'vue-i18n'
 import type { Profile } from '@bindings/github.com/yottaapp/yotta/internal/nativeoidc/models.js'
 import AccountAvatar from './AccountAvatar.vue'
 defineProps<{ profile: Profile; busy: boolean; syncing: boolean; failure: string }>()
-const emit = defineEmits<{ login: []; register: []; logout: []; cancel: []; center: [] }>()
+const emit = defineEmits<{
+  login: []
+  register: []
+  logout: []
+  cancel: []
+  center: []
+  wallet: []
+}>()
 const { t } = useI18n()
 </script>

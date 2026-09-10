@@ -25,6 +25,7 @@
         @logout="accountAction(shopTransport.logout)"
         @cancel="cancel"
         @center="openAccountCenter"
+        @wallet="openWallet"
       />
     </template>
   </UPopover>
@@ -99,6 +100,13 @@ async function syncProfile() {
 async function openAccountCenter() {
   try {
     await shopTransport.openAccountCenter()
+  } catch (error) {
+    failure.value = errorMessage(error)
+  }
+}
+async function openWallet() {
+  try {
+    await shopTransport.openWallet()
   } catch (error) {
     failure.value = errorMessage(error)
   }

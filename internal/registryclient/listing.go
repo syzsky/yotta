@@ -34,6 +34,7 @@ type Facets struct {
 	Tags       []string `json:"tags"`
 }
 type SearchOptions struct {
+	Selection          string   `json:"selection,omitempty"`
 	IncludeDescendants bool     `json:"includeDescendants,omitempty"`
 	WorkflowIDs        []string `json:"workflowIds,omitempty"`
 	Search             string   `json:"search"`
@@ -45,7 +46,7 @@ type SearchOptions struct {
 }
 
 func (client *Client) SearchCatalog(ctx context.Context, options SearchOptions) (SearchPage, error) {
-	query := url.Values{"q": {options.Search}, "category": {options.Category}, "tag": {options.Tag}, "sort": {options.Sort}, "cursor": {options.Cursor}}
+	query := url.Values{"q": {options.Search}, "selection": {options.Selection}, "category": {options.Category}, "tag": {options.Tag}, "sort": {options.Sort}, "cursor": {options.Cursor}}
 	if options.IncludeDescendants {
 		query.Set("includeDescendants", "true")
 	}

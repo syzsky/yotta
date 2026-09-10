@@ -706,6 +706,14 @@ export default {
     'workflow.registry.local_changes':
       '此工作流有本地修改或尚未关联安装记录。请先克隆保留修改，再处理原工作流的更新。',
     'workflow.registry.release_version_conflict': '这个版本号已经发布，请提高版本号后重试。',
+    'workflow.checkout.cancel_unsupported':
+      '此支付渠道暂不支持取消，订单仍然有效。请查询付款结果，不要重复下单。',
+    'workflow.checkout.session_expired': '付款入口已过期，请重试获取原订单的新入口。',
+    'workflow.wallet.insufficient': '余额不足，请充值或选择其他付款方式。',
+    'workflow.wallet.authorization_required': '余额付款授权已失效，请重新开通。',
+    'workflow.wallet.storage_unavailable': '无法保存付款授权，请检查系统凭据存储后重试。',
+    'workflow.checkout.order_changed': '订单状态已变化，请重试查询当前订单；不会重新下单。',
+    'workflow.registry.purchase_required': '请先购买此工作流；已购买时请登录购买账户，再重试安装。',
     'workflow.registry.authentication_required': '请先登录，再发布工作流。',
     'workflow.registry.workflow_rejected': '这个工作流暂时无法发布，请检查内容后重试。',
     'workflow.registry.bundle_too_large': '工作流包含的内容过大，请减少内嵌资源后重试。',

@@ -27,6 +27,7 @@ import (
 )
 
 type Service struct {
+	wallet            *walletSession
 	observation       *authoringcontext.Service
 	community         *communityclient.Client
 	application       *appcore.Application

@@ -63,9 +63,10 @@ type ScreenshotUpload struct {
 }
 
 type Creator struct {
-	Picture     string `json:"picture,omitempty"`
-	UserKey     string `json:"userKey"`
-	DisplayName string `json:"displayName,omitempty"`
+	QualityAuthor bool   `json:"qualityAuthor,omitempty"`
+	Picture       string `json:"picture,omitempty"`
+	UserKey       string `json:"userKey"`
+	DisplayName   string `json:"displayName,omitempty"`
 }
 
 type WorkflowRelease struct {
@@ -248,6 +249,9 @@ func (client *Client) CreateInstallPlan(ctx context.Context, releaseID string, e
 		return InstallPlan{}, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	if err := client.authorizeDelivery(request); err != nil {
+		return InstallPlan{}, err
+	}
 	response, err := client.http.Do(request)
 	if err != nil {
 		return InstallPlan{}, err
@@ -269,6 +273,9 @@ func (client *Client) DownloadWorkflow(ctx context.Context, releaseID, digest st
 func (client *Client) downloadVerified(ctx context.Context, route, digest string) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+route, nil)
 	if err != nil {
+		return nil, err
+	}
+	if err := client.authorizeDelivery(request); err != nil {
 		return nil, err
 	}
 	response, err := client.http.Do(request)

@@ -22,9 +22,24 @@ import (
 )
 
 type RegistryCreatorView struct {
-	Picture     string `json:"picture,omitempty"`
-	UserKey     string `json:"userKey"`
-	DisplayName string `json:"displayName,omitempty"`
+	QualityAuthor bool   `json:"qualityAuthor,omitempty"`
+	Picture       string `json:"picture,omitempty"`
+	UserKey       string `json:"userKey"`
+	DisplayName   string `json:"displayName,omitempty"`
+}
+
+func (s *Service) RegistryCommerce(ctx context.Context, workflowID string) (registryclient.CommerceView, error) {
+	client, ok := s.registry.(interface {
+		Commerce(context.Context, string) (registryclient.CommerceView, error)
+	})
+	if !ok {
+		return registryclient.CommerceView{}, unavailable("registry")
+	}
+	view, err := client.Commerce(ctx, workflowID)
+	if err != nil {
+		return registryclient.CommerceView{}, registryError("commerce", err)
+	}
+	return view, nil
 }
 
 type RegistryWorkflowReleaseView struct {
@@ -309,7 +324,7 @@ func registryReleaseView(release registryclient.WorkflowRelease) RegistryWorkflo
 		SourceHash: release.SourceHash, BundleDigest: release.BundleDigest,
 		Title: release.Title, Summary: release.Summary, ReleaseNotes: release.ReleaseNotes,
 		Examples: examples, Screenshots: screenshots,
-		Creator:      RegistryCreatorView{UserKey: release.Creator.UserKey, DisplayName: release.Creator.DisplayName, Picture: release.Creator.Picture},
+		Creator:      RegistryCreatorView{QualityAuthor: release.Creator.QualityAuthor, UserKey: release.Creator.UserKey, DisplayName: release.Creator.DisplayName, Picture: release.Creator.Picture},
 		Availability: release.Availability, PublishedAt: release.PublishedAt,
 	}
 }
@@ -327,6 +342,14 @@ func registryError(operation string, cause error) error {
 	var problem registryclient.Problem
 	if errors.As(cause, &problem) {
 		switch problem.Code {
+		case "commerce.payment_cancel_unsupported":
+			return projectError("workflow.checkout.cancel_unsupported", apperr.CategoryPolicy, nil, false, cause)
+		case "commerce.payment_session_expired":
+			return projectError("workflow.checkout.session_expired", apperr.CategoryDomain, nil, true, cause)
+		case "commerce.order_invalid_state":
+			return projectError("workflow.checkout.order_changed", apperr.CategoryDomain, nil, true, cause)
+		case "registry.purchase_required":
+			return projectError("workflow.registry.purchase_required", apperr.CategoryPolicy, nil, false, cause)
 		case "registry.submission.daily_limit":
 			return projectError("workflow.registry.submission_daily_limit", apperr.CategoryPolicy, nil, false, cause)
 		case "registry.version_not_increasing":

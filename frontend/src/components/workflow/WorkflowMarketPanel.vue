@@ -61,6 +61,12 @@
             width-mode="fill"
           />
         </UFormField>
+        <UCheckbox
+          v-model="qualityOnly"
+          :label="t('workflow.market.quality_authors_only')"
+          class="mt-3"
+          @update:model-value="search"
+        />
         <div class="mt-3 flex items-center gap-1" :aria-label="t('workflow.market.filter')">
           <button
             v-for="option in filters"
@@ -96,6 +102,7 @@
           v-for="item in visibleItems"
           v-else
           :key="item.releaseId"
+          :data-workflow-id="item.workflowId"
           type="button"
           class="market-result"
           :class="{ 'is-selected': selected?.releaseId === item.releaseId }"
@@ -125,6 +132,15 @@
             <span class="market-result-summary" :title="item.summary">{{ item.summary }}</span>
             <span class="market-result-meta">
               <span class="market-result-author" :title="creator(item)">{{ creator(item) }}</span>
+              <UBadge
+                v-if="item.creator.qualityAuthor"
+                color="info"
+                variant="subtle"
+                icon="i-tabler-award"
+                size="sm"
+                class="shrink-0 whitespace-nowrap"
+                >{{ t('workflow.market.quality_author') }}</UBadge
+              >
               <span
                 v-if="item.listing?.category"
                 class="market-result-category"
@@ -158,13 +174,48 @@
       />
       <article v-else class="market-document">
         <header class="market-detail-header">
-          <span class="market-detail-icon"
+          <span
+            class="market-detail-icon"
+            :class="{ 'grayscale opacity-50': commerce?.available === false }"
             ><WorkflowMarketIcon :name="marketIcon(selected)" class="size-10"
           /></span>
           <div class="min-w-0 flex-1">
-            <h2 class="break-words text-2xl font-semibold leading-tight text-highlighted">
-              {{ selected.title }}
-            </h2>
+            <div class="flex flex-wrap items-start gap-x-3 gap-y-2" data-testid="market-title-row">
+              <h2 class="break-words text-2xl font-semibold leading-tight text-highlighted">
+                {{ selected.title }}
+              </h2>
+              <div v-if="commerce?.available !== false" class="flex shrink-0 items-center gap-2">
+                <UBadge
+                  v-if="commerce && commerce.priceCents === 0"
+                  data-testid="market-free-badge"
+                  color="success"
+                  variant="solid"
+                >
+                  {{ t('workflow.market.free') }}
+                </UBadge>
+                <UBadge
+                  v-else-if="commerce?.priceCents"
+                  data-testid="market-price-badge"
+                  color="warning"
+                  variant="subtle"
+                >
+                  {{
+                    t('workflow.market.purchase_price', {
+                      price: (commerce.priceCents / 100).toFixed(2),
+                    })
+                  }}
+                </UBadge>
+                <UBadge
+                  v-if="commerce && commerce.priceCents > 0 && commerce.entitled"
+                  data-testid="market-owned-badge"
+                  color="success"
+                  variant="subtle"
+                  icon="i-tabler-check"
+                >
+                  {{ t('workflow.market.purchased') }}
+                </UBadge>
+              </div>
+            </div>
             <WorkflowCurationBadges
               class="mt-2"
               :official="selected.official"
@@ -180,8 +231,17 @@
                 :name="creator(selected)"
                 :user-key="selected.creator.userKey"
               />
-              <span class="text-primary">{{ creator(selected) }}</span
-              ><span aria-hidden="true">·</span><span>{{ selected.releaseVersion }}</span>
+              <span class="text-primary">{{ creator(selected) }}</span>
+              <UBadge
+                v-if="selected.creator.qualityAuthor"
+                color="info"
+                variant="subtle"
+                icon="i-tabler-award"
+                size="sm"
+                class="shrink-0 whitespace-nowrap"
+                >{{ t('workflow.market.quality_author') }}</UBadge
+              >
+              <span aria-hidden="true">·</span><span>{{ selected.releaseVersion }}</span>
               <span aria-hidden="true">·</span
               ><span
                 class="inline-flex items-center gap-1"
@@ -198,7 +258,28 @@
           <div class="market-header-actions">
             <div class="flex items-center gap-2">
               <UButton
-                v-if="!installed || hasUpdate(selected)"
+                v-if="commerce?.available === false && !commerce.entitled"
+                data-testid="market-download-unavailable"
+                size="sm"
+                color="neutral"
+                variant="outline"
+                icon="i-tabler-download-off"
+                disabled
+                >{{ t('workflow.market.download_unavailable') }}</UButton
+              >
+              <UButton
+                v-else-if="commerce && commerce.priceCents > 0 && !commerce.entitled"
+                size="sm"
+                :disabled="!commerce.available"
+                @click="purchase"
+                >{{ t('workflow.market.purchase') }}</UButton
+              >
+              <UButton
+                v-if="
+                  (!installed || hasUpdate(selected)) &&
+                  !(commerce?.available === false && !commerce.entitled) &&
+                  !(commerce && commerce.priceCents > 0 && !commerce.entitled)
+                "
                 data-testid="market-install"
                 :icon="installed ? 'i-tabler-refresh' : 'i-tabler-download'"
                 :loading="installing && installingReleaseId === selected.releaseId"
@@ -232,7 +313,19 @@
             {{ installFailure }}
           </p>
         </header>
-        <div class="market-content-tabs" :aria-label="t('workflow.market.details')">
+        <WorkflowCheckout
+          v-if="purchaseOpen"
+          class="min-h-0 flex-1 overflow-y-auto"
+          :key="selected.workflowId"
+          :workflow-id="selected.workflowId"
+          @ready="purchased"
+          @close="purchaseOpen = false"
+        />
+        <div
+          v-show="!purchaseOpen"
+          class="market-content-tabs"
+          :aria-label="t('workflow.market.details')"
+        >
           <button
             type="button"
             :aria-pressed="detailTab === 'reviews'"
@@ -261,7 +354,7 @@
             {{ t('workflow.market.release_notes') }}
           </button>
         </div>
-        <div class="market-content">
+        <div v-show="!purchaseOpen" class="market-content">
           <div class="market-main-content min-w-0">
             <section v-if="detailTab === 'overview'" class="space-y-7">
               <div>
@@ -417,6 +510,7 @@
 </template>
 
 <script setup lang="ts">
+import WorkflowCheckout from './WorkflowCheckout.vue'
 import { isNewerRelease } from '@/app/workflow-library/releaseVersion'
 import WorkflowMarketIcon from './WorkflowMarketIcon.vue'
 import WorkflowCurationBadges from './WorkflowCurationBadges.vue'
@@ -436,6 +530,7 @@ import { categoryRows, type MarketCategory } from '@/lib/marketCategories'
 import type { Summary as ReviewSummary } from '@bindings/github.com/yottaapp/yotta/internal/communityclient/models.js'
 
 const { t, locale } = useI18n()
+const qualityOnly = ref(false)
 const router = useRouter()
 const reviewSummary = ref<ReviewSummary | null>(null)
 const categoryDirectory = ref<MarketCategory[]>([])
@@ -479,6 +574,48 @@ const installingReleaseId = ref('')
 const lastInstallIssue = ref({ releaseId: '', message: '' })
 const items = ref<RegistryWorkflowReleaseView[]>([])
 const selected = ref<RegistryWorkflowReleaseView | null>(null)
+const commerce = ref<{
+  priceCents: number
+  currency: string
+  available: boolean
+  purchaseUrl: string
+  entitled: boolean
+} | null>(null)
+async function refreshCommerce() {
+  const id = selected.value?.workflowId
+  if (!id || !workflowTransport.registryCommerce) return
+  try {
+    const value = await workflowTransport.registryCommerce(id)
+    if (selected.value?.workflowId === id) commerce.value = value
+  } catch (error) {
+    if (selected.value?.workflowId === id) installFailure.value = errorMessage(error)
+  }
+}
+watch(
+  () => selected.value?.workflowId,
+  () => {
+    commerce.value = null
+    void refreshCommerce()
+  },
+)
+const purchaseOpen = ref(false)
+function purchase() {
+  purchaseOpen.value = true
+}
+async function purchased() {
+  const target = selected.value
+  purchaseOpen.value = false
+  await refreshCommerce()
+  await installTarget(target)
+}
+watch(
+  () => selected.value?.workflowId,
+  () => {
+    purchaseOpen.value = false
+  },
+)
+onMounted(() => window.addEventListener('focus', refreshCommerce))
+onUnmounted(() => window.removeEventListener('focus', refreshCommerce))
 const loading = ref(false),
   loadingMore = ref(false),
   installing = ref(false)
@@ -570,6 +707,7 @@ async function load(append: boolean) {
         search: query.value,
         category: category.value,
         includeDescendants: true,
+        selection: qualityOnly.value ? 'quality-author' : '',
         tag: tag.value,
         sort: sort.value,
         cursor: append ? nextCursor.value : '',
@@ -632,8 +770,10 @@ async function openInstalled() {
   }
 }
 async function install() {
-  const target = selected.value
-  if (!target || installing.value || (installed.value && !hasUpdate(target))) return
+  await installTarget(selected.value)
+}
+async function installTarget(target: RegistryWorkflowReleaseView | null) {
+  if (!target || installing.value || (installationFor(target) && !hasUpdate(target))) return
   installing.value = true
   installingReleaseId.value = target.releaseId
   installFailure.value = ''
