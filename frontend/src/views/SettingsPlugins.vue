@@ -11,15 +11,6 @@
         <UButton
           size="sm"
           color="neutral"
-          variant="soft"
-          icon="i-tabler-folder"
-          :aria-expanded="showStorage"
-          @click="showStorage = !showStorage"
-          >{{ t('settingsPlugins.data_locations') }}</UButton
-        >
-        <UButton
-          size="sm"
-          color="neutral"
           variant="ghost"
           icon="i-tabler-refresh"
           :disabled="loading || !!busy"
@@ -37,7 +28,6 @@
         >
       </div>
     </header>
-    <PluginStorage v-if="showStorage" class="rounded-lg border border-default p-4" />
     <UAlert
       v-if="failure"
       color="error"
@@ -357,7 +347,6 @@ import { errorMessage, RPCError } from '@/lib/invoke'
 import { useConfirm } from '@/composables/useConfirm'
 import { useSettingsStore } from '@/stores/settings'
 import PluginDetails from './PluginDetails.vue'
-import PluginStorage from './PluginStorage.vue'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
@@ -368,7 +357,6 @@ const busy = ref('')
 const failure = ref('')
 const restartRequired = ref(false)
 const query = ref('')
-const showStorage = ref(false)
 const filter = ref<'all' | 'enabled' | 'disabled' | 'pending'>('all')
 const selectedIds = ref<string[]>([])
 const selected = computed(() => new Set(selectedIds.value))

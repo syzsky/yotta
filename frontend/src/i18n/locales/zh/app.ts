@@ -65,6 +65,30 @@ export default {
   settings: {
     language_load_failed: '语言资源加载失败，请重新选择语言或重启后重试。',
     general: {
+      folder_webview: '本地联调使用的独立 WebView 浏览数据，普通安装可能没有此目录。',
+
+      folder_tmp: '临时文件。',
+
+      folder_runtime: '应用运行时文件与数据目录占用锁。',
+
+      folder_backups: '升级、迁移和维护前保留的备份。',
+
+      folder_documents: '导出的工作流和其他文件。',
+
+      folder_data: 'AI 对话、计划、片段、安装记录及工作流文件区。',
+
+      app_data: '应用数据',
+      data_help: '文件夹说明',
+      folder_config: '应用设置与快捷键。',
+      folder_packages: '已安装的插件，包含节点、后台服务及面板等内容。',
+      folder_catalog: '工作流与资源索引。',
+      folder_objects: '图片、录制等资源文件。',
+      folder_state: '工作流运行记录与输出。',
+      folder_diagnostics: '日志、崩溃报告与诊断截图。',
+      folder_cache: '编译缓存与常规 WebView 浏览数据。',
+
+      data_title: '数据',
+
       appearance_title: '界面与语言',
       capture_diagnostics_title: '采集与诊断',
     },

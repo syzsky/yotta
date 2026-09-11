@@ -1,6 +1,5 @@
 <template>
   <section class="space-y-3" data-testid="plugin-storage">
-    <p class="text-xs leading-5 text-muted">{{ t('settingsPlugins.storage_hint') }}</p>
     <UAlert v-if="failure" color="error" variant="soft" :description="failure" role="alert" />
     <p v-if="loading" class="text-xs text-muted">{{ t('common.loading') }}</p>
     <dl v-else class="divide-y divide-default">
@@ -43,7 +42,9 @@ const opening = ref('')
 const failure = ref('')
 onMounted(async () => {
   try {
-    locations.value = await pluginBackend.locations(props.pluginId)
+    locations.value = (await pluginBackend.locations(props.pluginId)).filter(
+      (location) => location.kind === 'plugin',
+    )
   } catch (error) {
     failure.value = errorMessage(error)
   } finally {

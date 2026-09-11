@@ -93,12 +93,52 @@
         />
       </SettingsRow>
     </SettingsSection>
+
+    <SettingsSection :title="t('settings.general.data_title')" icon="i-tabler-database">
+      <SettingsRow :label="t('settings.general.app_data')">
+        <template #meta>
+          <UPopover
+            mode="hover"
+            :content="{ align: 'start', side: 'top' }"
+            :ui="{ content: 'w-96 max-w-[calc(100vw-2rem)] max-h-[50vh] overflow-y-auto p-4' }"
+          >
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-help-circle"
+              :aria-label="t('settings.general.data_help')"
+              data-testid="app-data-help"
+            />
+            <template #content>
+              <dl class="space-y-3 text-xs" data-testid="app-data-folders">
+                <div v-for="folder in dataFolders" :key="folder.name" class="space-y-1">
+                  <dt class="font-medium text-highlighted">{{ folder.name }}</dt>
+                  <dd class="leading-5 text-muted">{{ t(folder.hint) }}</dd>
+                </div>
+              </dl>
+            </template>
+          </UPopover>
+        </template>
+        <UButton
+          color="neutral"
+          variant="soft"
+          icon="i-tabler-folder"
+          :loading="openingDataFolder"
+          data-testid="open-app-data-folder"
+          @click="openDataFolder"
+          >{{ t('settingsPlugins.open_folder') }}</UButton
+        >
+      </SettingsRow>
+    </SettingsSection>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { pluginBackend } from '@/lib/plugins'
+import { errorMessage } from '@/lib/invoke'
 import { useToast } from '@/composables/useAppToast'
 import { useSettingsStore } from '@/stores/settings'
 import { setLocale, type Locale } from '@/i18n'
@@ -110,6 +150,33 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const toast = useToast()
+const dataFolders = [
+  { name: 'config', hint: 'settings.general.folder_config' },
+  { name: 'data', hint: 'settings.general.folder_data' },
+  { name: 'catalog', hint: 'settings.general.folder_catalog' },
+  { name: 'objects', hint: 'settings.general.folder_objects' },
+  { name: 'packages', hint: 'settings.general.folder_packages' },
+  { name: 'state', hint: 'settings.general.folder_state' },
+  { name: 'documents', hint: 'settings.general.folder_documents' },
+  { name: 'diagnostics', hint: 'settings.general.folder_diagnostics' },
+  { name: 'backups', hint: 'settings.general.folder_backups' },
+  { name: 'cache', hint: 'settings.general.folder_cache' },
+  { name: 'runtime', hint: 'settings.general.folder_runtime' },
+  { name: 'tmp', hint: 'settings.general.folder_tmp' },
+  { name: 'webview-event-runtime', hint: 'settings.general.folder_webview' },
+]
+const openingDataFolder = ref(false)
+async function openDataFolder() {
+  if (openingDataFolder.value) return
+  openingDataFolder.value = true
+  try {
+    await pluginBackend.openLocation('root')
+  } catch (error) {
+    toast.add({ description: errorMessage(error), color: 'error' })
+  } finally {
+    openingDataFolder.value = false
+  }
+}
 
 const currentLocale = computed(() => (settingsStore.data?.locale ?? 'zh') as Locale)
 const localeItems = computed(() => [

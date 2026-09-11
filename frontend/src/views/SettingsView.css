@@ -166,6 +166,10 @@
     gap: 11px;
   }
 
+  .settings-section__heading--single {
+    align-items: center;
+  }
+
   .settings-section__icon {
     display: inline-flex;
     width: 30px;

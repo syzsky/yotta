@@ -66,6 +66,32 @@ export default {
     language_load_failed:
       'Language resources could not load. Select the language again or restart and retry.',
     general: {
+      folder_webview:
+        'Separate WebView browsing data for local integration testing; regular installations may not have this folder.',
+
+      folder_tmp: 'Temporary files.',
+
+      folder_runtime: 'Runtime files and the app data directory lock.',
+
+      folder_backups: 'Backups retained before upgrades, migrations, and maintenance.',
+
+      folder_documents: 'Exported workflows and other files.',
+
+      folder_data:
+        'AI conversations, schedules, snippets, installation records, and workflow files.',
+
+      app_data: 'App data',
+      data_help: 'Folder guide',
+      folder_config: 'App settings and keyboard shortcuts.',
+      folder_packages: 'Installed plugins, including nodes, background services, and panels.',
+      folder_catalog: 'Workflow and resource indexes.',
+      folder_objects: 'Resource files, including images and recordings.',
+      folder_state: 'Workflow run history and outputs.',
+      folder_diagnostics: 'Logs, crash reports, and diagnostic screenshots.',
+      folder_cache: 'Compiled program cache and regular WebView browsing data.',
+
+      data_title: 'Data',
+
       appearance_title: 'Interface & language',
       capture_diagnostics_title: 'Capture & diagnostics',
     },
