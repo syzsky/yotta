@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 211,
-    "models": 294
+    "methods": 214,
+    "models": 300
   },
   "services": [
     {
@@ -2253,6 +2253,18 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "MyWorkflowReports",
+          "bindingId": "1151956722",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<communityclient$0.ReportPage>"
+        },
+        {
           "name": "MyWorkflowReview",
           "bindingId": "1822458291",
           "parameters": [
@@ -2400,6 +2412,12 @@
             }
           ],
           "returns": "$CancellablePromise<registryclient$0.CommerceView>"
+        },
+        {
+          "name": "RegistryFilterCatalog",
+          "bindingId": "3628486060",
+          "parameters": [],
+          "returns": "$CancellablePromise<registryclient$0.FilterCatalog>"
         },
         {
           "name": "RegistryInstallations",
@@ -2622,6 +2640,18 @@
             }
           ],
           "returns": "$CancellablePromise<$models.StartRunView>"
+        },
+        {
+          "name": "SubmitWorkflowReport",
+          "bindingId": "424540955",
+          "parameters": [
+            {
+              "name": "draft",
+              "optional": false,
+              "type": "communityclient$0.ReportDraft"
+            }
+          ],
+          "returns": "$CancellablePromise<communityclient$0.Report>"
         },
         {
           "name": "UpdateSourceMetadata",
@@ -3871,6 +3901,109 @@
         },
         {
           "kind": "class",
+          "name": "Report",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"reason\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"originalWork\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"state\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"result\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"createdAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ReportDraft",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"reason\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"originalWork\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "ReportPage",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "Report[]"
+            },
+            {
+              "name": "\"total\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Review",
           "fields": [
             {
@@ -4802,8 +4935,121 @@
         },
         {
           "kind": "class",
+          "name": "FilterCatalog",
+          "fields": [
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"dimensions\"",
+              "optional": false,
+              "type": "FilterDimension[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FilterDimension",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"icon\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"active\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"minValues\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"maxValues\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"maxDepth\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"leafOnly\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"values\"",
+              "optional": false,
+              "type": "FilterValue[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "FilterValue",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"parentId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"active\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"position\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Listing",
           "fields": [
+            {
+              "name": "\"filterValues\"",
+              "optional": true,
+              "type": "string[]"
+            },
             {
               "name": "\"icon\"",
               "optional": true,
@@ -4963,6 +5209,11 @@
           "kind": "class",
           "name": "SearchOptions",
           "fields": [
+            {
+              "name": "\"filterValues\"",
+              "optional": true,
+              "type": "string[]"
+            },
             {
               "name": "\"selection\"",
               "optional": true,

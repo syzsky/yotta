@@ -73,11 +73,11 @@ func communityError(cause error) error {
 		switch problem.Code {
 		case "hub.authentication_required":
 			return projectError("workflow.community.authentication_required", apperr.CategoryPolicy, nil, false, cause)
-		case "hub.review.invalid":
+		case "hub.review.invalid", "hub.management.invalid", "hub.management.conflict":
 			return projectError("workflow.community.invalid", apperr.CategoryValidation, nil, false, cause)
 		case "hub.review.own_rating":
 			return projectError("workflow.community.own_rating", apperr.CategoryPolicy, nil, false, cause)
-		case "hub.review.not_found":
+		case "hub.review.not_found", "hub.management.not_found":
 			return projectError("workflow.community.not_found", apperr.CategoryDomain, nil, false, cause)
 		}
 	}

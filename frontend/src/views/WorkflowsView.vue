@@ -590,6 +590,12 @@
               class="w-full"
               :placeholder="t('workflow.market.summary_hint')"
           /></UFormField>
+          <WorkflowDimensionSelect
+            v-model="publishDraft.listing.filterValues"
+            :dimensions="publishFilterDimensions"
+            assignment
+            @update:model-value="publishTouched.add('filterValues')"
+          />
           <UFormField
             :label="t('workflow.market.category')"
             required
@@ -1041,6 +1047,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 import WorkflowHotkeyField from '@/components/hotkeys/WorkflowHotkeyField.vue'
 import WorkflowMarketPanel from '@/components/workflow/WorkflowMarketPanel.vue'
+import WorkflowDimensionSelect from '@/components/workflow/WorkflowDimensionSelect.vue'
 import MarketCategorySelect from '@/components/workflow/MarketCategorySelect.vue'
 import { categoryRows, type MarketCategory } from '@/lib/marketCategories'
 import { useWorkflowLibraryQuery } from '@/app/workflow-library/useWorkflowLibraryQuery'
@@ -1170,6 +1177,7 @@ const publishDraft = reactive({
   previousReleaseId: '',
   existingScreenshots: [] as { url: string; alt: string }[],
   listing: {
+    filterValues: [] as string[],
     icon: 'i-tabler-route',
     category: '',
     tags: [] as string[],
@@ -1198,6 +1206,9 @@ const publishMarkdownValid = computed(
 )
 const publishSection = ref('listing')
 const publishCategoryDirectory = ref<MarketCategory[]>([])
+const publishFilterDimensions = ref<
+  import('@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js').FilterDimension[]
+>([])
 const publishCategoryOptions = computed(() =>
   categoryRows(publishCategoryDirectory.value)
     .filter((item) => item.active)
@@ -1617,6 +1628,7 @@ function openPublish(source: SourceView): void {
 function initializePublish(source: SourceView): void {
   publishBundle.value = null
   publishCategoryDirectory.value = []
+  publishFilterDimensions.value = []
   publishNeedsLogin.value = false
   publishHistoryFailed.value = false
   publishLoading.value = true
@@ -1629,6 +1641,7 @@ function initializePublish(source: SourceView): void {
   publishDraft.summary = source.description?.trim() || source.name
   publishDraft.releaseNotes = ''
   publishDraft.listing = {
+    filterValues: [],
     icon: 'i-tabler-route',
     category: '',
     tags: [...(source.tags || [])],
@@ -1645,11 +1658,13 @@ function initializePublish(source: SourceView): void {
     shopTransport.history(source.workflowId),
     workflowTransport.previewSourceBundle(source.workflowId),
     shopTransport.categories(),
+    shopTransport.filterCatalog(),
   ])
-    .then(([releases, bundle, categories]) => {
+    .then(([releases, bundle, categories, filterCatalog]) => {
       if (generation !== publishGeneration || !publishOpen.value) return
       publishBundle.value = bundle
       publishCategoryDirectory.value = categories
+      publishFilterDimensions.value = filterCatalog.dimensions
       const previous = releases.reduce<(typeof releases)[number] | undefined>(
         (best, item) =>
           !best || isNewerRelease(item.releaseVersion, best.releaseVersion) ? item : best,
@@ -1663,6 +1678,7 @@ function initializePublish(source: SourceView): void {
       if (!publishTouched.has('title')) publishDraft.title = previous.title
       if (!publishTouched.has('summary')) publishDraft.summary = previous.summary
       const listing = {
+        filterValues: [...(previous.listing?.filterValues || [])],
         icon: previous.listing?.icon || 'i-tabler-route',
         category: previous.listing?.category || '',
         tags: [...(previous.listing?.tags || source.tags || [])],
@@ -1672,6 +1688,8 @@ function initializePublish(source: SourceView): void {
       for (const key of ['icon', 'category', 'description', 'instructions'] as const)
         if (!publishTouched.has(key)) publishDraft.listing[key] = listing[key]
       if (!publishTouched.has('tags')) publishDraft.listing.tags = listing.tags
+      if (!publishTouched.has('filterValues'))
+        publishDraft.listing.filterValues = listing.filterValues
       publishDraft.previousReleaseId = previous.releaseId
       publishDraft.existingScreenshots = previous.screenshots.map((shot) => ({
         url: shot.url,

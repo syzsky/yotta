@@ -35,6 +35,10 @@ import { callRPC, invoke } from '@/lib/invoke'
 import type { Draft as ReviewDraft } from '@bindings/github.com/yottaapp/yotta/internal/communityclient/models.js'
 
 export const communityTransport = {
+  submitReport: (
+    draft: import('@bindings/github.com/yottaapp/yotta/internal/communityclient/models.js').ReportDraft,
+  ) => invoke(WorkflowService.SubmitWorkflowReport, draft),
+  reports: (workflowId: string) => invoke(WorkflowService.MyWorkflowReports, workflowId),
   replies: (id: string, parent: string, cursor: string) =>
     invoke(WorkflowService.WorkflowReviewReplies, id, parent, cursor),
   list: (id: string, cursor = '') => invoke(WorkflowService.WorkflowReviews, id, cursor),
@@ -68,6 +72,7 @@ export const shopTransport = {
   checkoutState: (orderNo: string, action: 'status' | 'sync' | 'cancel') =>
     invoke(WorkflowService.RegistryCheckoutState, orderNo, action),
   categories: () => invoke(WorkflowService.RegistryCategories),
+  filterCatalog: () => invoke(WorkflowService.RegistryFilterCatalog),
   refreshAccount: () => invoke(WorkflowService.RefreshRegistryAccount),
   openAccountCenter: () => invoke(WorkflowService.OpenAccountCenter),
   discover: (query: SearchOptions) => invoke(WorkflowService.DiscoverRegistry, query),

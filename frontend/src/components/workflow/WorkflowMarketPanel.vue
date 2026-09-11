@@ -4,69 +4,95 @@
   <main class="market-browser" data-testid="workflow-market">
     <aside class="market-rail" :aria-label="t('workflow.market.catalog')">
       <div class="market-search">
-        <form role="search" @submit.prevent="search">
-          <UInput
-            v-model="query"
-            icon="i-tabler-search"
-            :loading="loading"
-            size="sm"
-            :placeholder="t('workflow.market.search_placeholder')"
-            :aria-label="t('workflow.market.search')"
-            class="w-full"
-          >
-            <template #trailing
-              ><UButton
-                v-if="query"
-                icon="i-tabler-x"
-                size="xs"
-                color="neutral"
-                variant="link"
-                :aria-label="t('workflow.market.clear_search')"
-                @click="clearSearch"
-            /></template>
-          </UInput>
-        </form>
-        <div class="mt-2 grid grid-cols-2 gap-2">
-          <UFormField :label="t('workflow.market.category')" size="sm"
-            ><MarketCategorySelect
-              v-model="categorySelection"
-              :categories="categoryDirectory"
-              :all-label="t('workflow.market.all_categories')"
+        <div class="flex items-center gap-1">
+          <form class="min-w-0 flex-1" role="search" @submit.prevent="search">
+            <UInput
+              v-model="query"
+              icon="i-tabler-search"
+              :loading="loading"
+              size="sm"
+              :placeholder="t('workflow.market.search_placeholder')"
+              :aria-label="t('workflow.market.search')"
               class="w-full"
-              data-testid="market-category"
+            >
+              <template #trailing
+                ><UButton
+                  v-if="query"
+                  icon="i-tabler-x"
+                  size="xs"
+                  color="neutral"
+                  variant="link"
+                  :aria-label="t('workflow.market.clear_search')"
+                  @click="clearSearch"
+              /></template>
+            </UInput>
+          </form>
+          <UPopover :content="{ align: 'end', side: 'bottom' }">
+            <UButton
+              icon="i-tabler-filter"
               size="sm"
-          /></UFormField>
-          <UFormField :label="t('workflow.market.sort')" size="sm"
-            ><AdaptiveSelect
-              v-model="sort"
-              :items="sortItems"
-              data-testid="market-sort"
-              size="sm"
-              width-mode="fill"
-              @update:model-value="search"
-          /></UFormField>
+              :color="hasDiscoveryFilters ? 'primary' : 'neutral'"
+              :variant="hasDiscoveryFilters ? 'soft' : 'ghost'"
+              :aria-label="t('workflow.market.filter')"
+              :title="t('workflow.market.filter')"
+              data-testid="market-filter-toggle"
+            />
+            <template #content>
+              <div
+                class="w-80 max-w-[calc(100vw-2rem)] max-h-[min(32rem,70vh)] overflow-y-auto p-3"
+                data-testid="market-filter-popover"
+              >
+                <div class="grid grid-cols-2 gap-3">
+                  <UFormField :label="t('workflow.market.category')" size="sm"
+                    ><MarketCategorySelect
+                      v-model="categorySelection"
+                      :categories="categoryDirectory"
+                      :all-label="t('workflow.market.all_categories')"
+                      class="w-full"
+                      data-testid="market-category"
+                      size="sm"
+                  /></UFormField>
+                  <UFormField :label="t('workflow.market.sort')" size="sm"
+                    ><AdaptiveSelect
+                      v-model="sort"
+                      :items="sortItems"
+                      data-testid="market-sort"
+                      size="sm"
+                      width-mode="fill"
+                      @update:model-value="search"
+                  /></UFormField>
+                </div>
+                <UFormField
+                  v-if="facets.tags.length"
+                  :label="t('workflow.market.tags')"
+                  size="sm"
+                  class="mt-2"
+                >
+                  <AdaptiveSelect
+                    v-model="tagSelection"
+                    :items="tagItems"
+                    data-testid="market-tag"
+                    :aria-label="t('workflow.market.tags')"
+                    size="sm"
+                    width-mode="fill"
+                  />
+                </UFormField>
+                <UCheckbox
+                  v-model="qualityOnly"
+                  :label="t('workflow.market.quality_authors_only')"
+                  class="mt-3"
+                  @update:model-value="search"
+                />
+                <WorkflowDimensionSelect
+                  v-model="filterValues"
+                  :dimensions="filterDimensions"
+                  class="mt-3"
+                  @update:model-value="search()"
+                />
+              </div>
+            </template>
+          </UPopover>
         </div>
-        <UFormField
-          v-if="facets.tags.length"
-          :label="t('workflow.market.tags')"
-          size="sm"
-          class="mt-2"
-        >
-          <AdaptiveSelect
-            v-model="tagSelection"
-            :items="tagItems"
-            data-testid="market-tag"
-            :aria-label="t('workflow.market.tags')"
-            size="sm"
-            width-mode="fill"
-          />
-        </UFormField>
-        <UCheckbox
-          v-model="qualityOnly"
-          :label="t('workflow.market.quality_authors_only')"
-          class="mt-3"
-          @update:model-value="search"
-        />
         <div class="mt-3 flex items-center gap-1" :aria-label="t('workflow.market.filter')">
           <button
             v-for="option in filters"
@@ -313,6 +339,11 @@
             {{ installFailure }}
           </p>
         </header>
+        <WorkflowReport
+          v-if="selected"
+          :workflow-id="selected.workflowId"
+          :release-id="selected.releaseId"
+        />
         <WorkflowCheckout
           v-if="purchaseOpen"
           class="min-h-0 flex-1 overflow-y-auto"
@@ -511,6 +542,9 @@
 
 <script setup lang="ts">
 import WorkflowCheckout from './WorkflowCheckout.vue'
+import WorkflowReport from './WorkflowReport.vue'
+import WorkflowDimensionSelect from './WorkflowDimensionSelect.vue'
+import type { FilterDimension } from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
 import { isNewerRelease } from '@/app/workflow-library/releaseVersion'
 import WorkflowMarketIcon from './WorkflowMarketIcon.vue'
 import WorkflowCurationBadges from './WorkflowCurationBadges.vue'
@@ -531,6 +565,17 @@ import type { Summary as ReviewSummary } from '@bindings/github.com/yottaapp/yot
 
 const { t, locale } = useI18n()
 const qualityOnly = ref(false)
+const filterDimensions = ref<FilterDimension[]>([])
+const filterValues = ref<string[]>([])
+const hasDiscoveryFilters = computed(() =>
+  Boolean(
+    category.value ||
+    tag.value ||
+    qualityOnly.value ||
+    filterValues.value.length ||
+    sort.value !== 'updated',
+  ),
+)
 const router = useRouter()
 const reviewSummary = ref<ReviewSummary | null>(null)
 const categoryDirectory = ref<MarketCategory[]>([])
@@ -702,9 +747,10 @@ async function load(append: boolean) {
       nextCursor.value = ''
       return
     }
-    const [page, categories] = await Promise.all([
+    const [page, categories, filterCatalog] = await Promise.all([
       shopTransport.discover({
         search: query.value,
+        filterValues: filterValues.value,
         category: category.value,
         includeDescendants: true,
         selection: qualityOnly.value ? 'quality-author' : '',
@@ -715,9 +761,11 @@ async function load(append: boolean) {
         workflowIds: filter.value === 'all' ? undefined : local.map((item) => item.workflowId),
       }),
       shopTransport.categories(),
+      shopTransport.filterCatalog(),
     ])
     if (ticket !== queryGeneration) return
     categoryDirectory.value = categories
+    filterDimensions.value = filterCatalog.dimensions
     installations.value = local
     facets.value = { categories: page.facets?.categories || [], tags: page.facets?.tags || [] }
     nextCursor.value = page.nextCursor || ''

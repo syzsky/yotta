@@ -9,6 +9,7 @@ import (
 )
 
 type Listing struct {
+	FilterValues []string `json:"filterValues,omitempty"`
 	Icon         string   `json:"icon,omitempty"`
 	Category     string   `json:"category,omitempty"`
 	Tags         []string `json:"tags"`
@@ -34,6 +35,7 @@ type Facets struct {
 	Tags       []string `json:"tags"`
 }
 type SearchOptions struct {
+	FilterValues       []string `json:"filterValues,omitempty"`
 	Selection          string   `json:"selection,omitempty"`
 	IncludeDescendants bool     `json:"includeDescendants,omitempty"`
 	WorkflowIDs        []string `json:"workflowIds,omitempty"`
@@ -47,6 +49,9 @@ type SearchOptions struct {
 
 func (client *Client) SearchCatalog(ctx context.Context, options SearchOptions) (SearchPage, error) {
 	query := url.Values{"q": {options.Search}, "selection": {options.Selection}, "category": {options.Category}, "tag": {options.Tag}, "sort": {options.Sort}, "cursor": {options.Cursor}}
+	for _, id := range options.FilterValues {
+		query.Add("filterValue", id)
+	}
 	if options.IncludeDescendants {
 		query.Set("includeDescendants", "true")
 	}
