@@ -1,5 +1,131 @@
 export default {
   node: {
+    navigation: {
+      config: {
+        source: '实时坐标来源',
+        path: '坐标接口路径',
+        xField: '第一轴字段',
+        yField: '第二轴字段',
+        headingField: '镜头朝向字段',
+        validField: '有效标记字段',
+        timeField: '采样时间字段（Unix 毫秒）',
+        forwardKey: '前进按键',
+        axisHeading: '第一轴正方向的朝向（°）',
+        axisSign: '坐标转角方向（1 或 -1）',
+        turnSign: '镜头转向方向（1 或 -1）',
+      },
+      turn: {
+        title: '按角度转向',
+        description: '使用目标设置中的每圈鼠标计数转动镜头。',
+        input: {
+          angle: {
+            title: '角度（°）',
+            description: '正值向右、负值向左。',
+          },
+          duration: {
+            title: '转向时间',
+            description: '完成转向的毫秒数。',
+          },
+        },
+        output: {},
+      },
+      move: {
+        title: '移动到坐标',
+        description: '持续读取世界坐标，修正方向并分段前进；需要可通行的直线路径。',
+        input: {
+          'target-x': {
+            title: '目标 X',
+            description: '与位置源相同的世界坐标单位。',
+          },
+          'target-y': {
+            title: '目标 Y',
+            description: '第二个平面坐标轴，与字段映射一致。',
+          },
+          tolerance: {
+            title: '到达范围',
+            description: '停止范围，单位与坐标一致。',
+          },
+          timeout: {
+            title: '最长时间',
+            description: '操作总时间上限，单位毫秒。',
+          },
+          pulse: {
+            title: '单次前进时间',
+            description: '每次前进后重新读取坐标，20–500 毫秒；接近目标自动缩短。',
+          },
+        },
+        output: {
+          x: {
+            title: '当前位置 X',
+            description: '最后有效样本的第一轴坐标。',
+          },
+          y: {
+            title: '当前位置 Y',
+            description: '最后有效样本的第二轴坐标。',
+          },
+          distance: {
+            title: '剩余距离',
+            description: '最后有效样本与目标的距离。',
+          },
+        },
+      },
+      search: {
+        title: '转向寻找图像',
+        description: '逐步转动镜头，等待画面稳定后识图，找到即停止。',
+        input: {
+          template: {
+            title: '目标图像',
+            description: '需要寻找的图像模板。',
+          },
+          region: {
+            title: '识别区域',
+            description: '截图中用于识别的区域。',
+          },
+          threshold: {
+            title: '相似度',
+            description: '匹配阈值，范围 0–1。',
+          },
+          step: {
+            title: '每步角度（°）',
+            description: '正值向右、负值向左；绝对值 0.1–90。',
+          },
+          'max-angle': {
+            title: '最多旋转（°）',
+            description: '累计转动 0–360 度；0 表示只检查当前画面。',
+          },
+          settle: {
+            title: '转向后等待',
+            description: '每次转向后等待画面稳定的毫秒数。',
+          },
+          timeout: {
+            title: '最长时间',
+            description: '操作总时间上限，单位毫秒。',
+          },
+        },
+        output: {
+          matched: {
+            title: '已找到',
+            description: '是否找到达到相似度要求的目标。',
+          },
+          score: {
+            title: '匹配分数',
+            description: '最后一次识别的相似度。',
+          },
+          center: {
+            title: '目标中心',
+            description: '找到时图像中心的屏幕位置。',
+          },
+          bounds: {
+            title: '目标范围',
+            description: '找到时图像所在的屏幕范围。',
+          },
+          angle: {
+            title: '累计转角（°）',
+            description: '本次已完成的转向角度，带方向符号。',
+          },
+        },
+      },
+    },
     managed_panel: {
       config: { panel: '面板', component: '组件', show: '同时显示面板' },
       use: {

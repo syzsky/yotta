@@ -30,7 +30,7 @@ func TestExtendedPureDefinitionsAreStrictAndGeneratedFromTheCatalog(t *testing.T
 		ParseJSONNodeID, ToJSONNodeID, JSONPathNodeID, SelectNodeID, MakePointNodeID,
 		OffsetPointNodeID, PointDistanceNodeID, RegionAroundPointNodeID,
 	}
-	if len(nodeIDs) != 49 || len(builtins.Definitions()) != 186 {
+	if len(nodeIDs) != 49 || len(builtins.Definitions()) != 189 {
 		t.Fatalf("extended=%d total=%d", len(nodeIDs), len(builtins.Definitions()))
 	}
 	for _, nodeID := range nodeIDs {

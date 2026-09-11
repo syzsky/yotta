@@ -1,5 +1,132 @@
 export default {
   node: {
+    navigation: {
+      config: {
+        source: 'Live position source',
+        path: 'Position endpoint path',
+        xField: 'First axis field',
+        yField: 'Second axis field',
+        headingField: 'Camera heading field',
+        validField: 'Validity field',
+        timeField: 'Sample time field (Unix ms)',
+        forwardKey: 'Forward key',
+        axisHeading: 'Heading of positive first axis (°)',
+        axisSign: 'Coordinate angle direction (1 or -1)',
+        turnSign: 'Camera turn direction (1 or -1)',
+      },
+      turn: {
+        title: 'Turn by angle',
+        description: 'Turn the camera using the target mouse calibration.',
+        input: {
+          angle: {
+            title: 'Angle (°)',
+            description: 'Positive turns right, negative left.',
+          },
+          duration: {
+            title: 'Turn duration',
+            description: 'Milliseconds to complete the turn.',
+          },
+        },
+        output: {},
+      },
+      move: {
+        title: 'Move character to',
+        description:
+          'Read live world coordinates and correct direction while stepping along a clear straight path.',
+        input: {
+          'target-x': {
+            title: 'Target X',
+            description: 'Use the same world units as the source.',
+          },
+          'target-y': {
+            title: 'Target Y',
+            description: 'Second ground-plane axis, matching the field mapping.',
+          },
+          tolerance: {
+            title: 'Arrival radius',
+            description: 'Stop radius in the same units as the coordinates.',
+          },
+          timeout: {
+            title: 'Timeout',
+            description: 'Total operation time limit in milliseconds.',
+          },
+          pulse: {
+            title: 'Forward step duration',
+            description: 'Read a fresh pose after each 20–500 ms step; shorten steps near arrival.',
+          },
+        },
+        output: {
+          x: {
+            title: 'Current X',
+            description: 'First axis from the last valid pose.',
+          },
+          y: {
+            title: 'Current Y',
+            description: 'Second axis from the last valid pose.',
+          },
+          distance: {
+            title: 'Remaining distance',
+            description: 'Distance from the last valid pose to the target.',
+          },
+        },
+      },
+      search: {
+        title: 'Turn to find image',
+        description: 'Rotate in steps and match after settling. Stop when the image is found.',
+        input: {
+          template: {
+            title: 'Target image',
+            description: 'Image template to find.',
+          },
+          region: {
+            title: 'Search region',
+            description: 'Area of the captured frame to search.',
+          },
+          threshold: {
+            title: 'Similarity',
+            description: 'Match threshold from 0 to 1.',
+          },
+          step: {
+            title: 'Step angle (°)',
+            description: 'Positive right, negative left; magnitude 0.1–90.',
+          },
+          'max-angle': {
+            title: 'Maximum rotation (°)',
+            description: 'Total sweep of 0–360 degrees; 0 checks the current frame only.',
+          },
+          settle: {
+            title: 'Settle duration',
+            description: 'Milliseconds to wait after each turn before matching.',
+          },
+          timeout: {
+            title: 'Timeout',
+            description: 'Total operation time limit in milliseconds.',
+          },
+        },
+        output: {
+          matched: {
+            title: 'Matched',
+            description: 'Whether the target met the match threshold.',
+          },
+          score: {
+            title: 'Match score',
+            description: 'Score from the last observation.',
+          },
+          center: {
+            title: 'Target center',
+            description: 'Screen position of the center when found.',
+          },
+          bounds: {
+            title: 'Target bounds',
+            description: 'Screen bounds when found.',
+          },
+          angle: {
+            title: 'Total angle (°)',
+            description: 'Signed angle of completed turns in this search.',
+          },
+        },
+      },
+    },
     managed_panel: {
       config: { panel: 'Panel', component: 'Component', show: 'Show panel when used' },
       use: {

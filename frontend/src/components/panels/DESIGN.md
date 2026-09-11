@@ -33,7 +33,7 @@ Current table evidence at the repository root: `.task/table-arrangement/{launche
 
 Use existing semantic roles. Primary marks selected panels, active tabs, pin state and valid readings. Highlighted text carries names and values; muted text carries labels, units, update times and writer state. Neutral badges describe panel session status. Warning and error roles communicate unavailable selections and failures. Default borders divide sections; logs use the sunken surface. Do not introduce panel-specific color literals.
 
-The latest writer's completion is muted explanatory text, separate from the panel's ongoing live status. Waiting information appears in text; where a waiting dot is shown, it supplements a textual status.
+Keep a short readable session status in the footer. Do not repeat the panel title, writer history or runtime explanations above the components. Waiting information appears in text; where a waiting dot is shown, it supplements a textual status.
 
 ## Typography
 
@@ -43,7 +43,7 @@ Inherit application fonts. Titles and readings use the frontmatter roles; tabula
 
 The manager has a compact title/action header followed by a panel catalog and settings page. At the medium breakpoint, the catalog occupies 220px beside the flexible settings area, with independent vertical scrolling. Below that breakpoint, the catalog stacks above the settings in a shared scrolling area. Catalog padding is 16px; settings spacing follows SettingsView.css. Basic settings and components occupy separate SettingsSection surfaces. Components occupy a compact shared table with fixed column roles: selection, drag grip, order, icon, name, type, initial value, ID and More. Edit fields inline. At narrow widths the table scrolls horizontally within its rounded border (panel minimum width 740px), preserving columns instead of becoming stacked editors. A selection toolbar replaces the column headers in the same 40px space; preview remains a separate settings card, expanded by default.
 
-The floating HUD fills its native resizable window. Header, horizontally scrollable tabs and footer remain outside the vertically scrolling body. Content uses the existing frontmatter spacing, with two columns at the small breakpoint and one below it; groups and logs span both columns. Titles, status and actions wrap naturally instead of shrinking to fit.
+The floating HUD fills its native resizable window, initially 480×520 with a minimum of 240×160. Header, horizontally scrollable tabs and footer remain outside the scrolling body. A title-bar chevron hides or restores the complete tabs/refresh row for the current window session; hiding it preserves the selected panel and live session while returning its height to the content. Appearance settings save window width/height, one to four columns, small/medium/large content size and background opacity. Groups and logs span every selected column. The footer stays at 12px independently of content scaling. A timer with a zero initial timestamp displays 00:00:00.
 
 ## Elevation & Depth
 
@@ -66,7 +66,7 @@ Reuse shared control shapes and the existing rounded log region. Catalog entries
 - **Readings and lifecycle:** values, validity, timers and progress share the renderer. Last update and writer status are distinct from panel status. Preserve the last values/logs when a workflow finishes; the independent panel remains usable.
 - **Live controls:** labeled dropdowns, toggles and inputs preserve focused drafts; text inputs have Apply. For managed panels, enable buttons only while a matching workflow subscription waits (or a subscription waits for any component). With no waiting workflow, disable buttons and explain why, while switches and inputs remain usable. Provider-owned controls follow provider behavior. Pending actions and unavailable panel sessions still disable affected interaction and report failures.
 - **Logs:** bounded scrolling, timestamps and wrapped text; show the latest 200 records with truncation disclosure. Preserve reader position away from the bottom and offer Follow.
-- **Window chrome:** draggable header, pin and hide actions. Hiding the window does not stop running tasks or end the panel. Source errors and truly ended/unavailable provider sessions remain distinct from a workflow writer finishing.
+- **Window chrome:** draggable header, appearance, click-through, pin and hide actions. Background opacity preserves foreground text opacity. Native click-through is transient; Show panel from the main manager restores mouse interaction. Explain this recovery in the click-through popover, not as permanent footer text. Hiding does not end the panel. Source errors remain visible in the content area.
 
 ## Do's and Don'ts
 

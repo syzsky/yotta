@@ -33,6 +33,7 @@ type Window interface {
 	Close()
 	SetAlwaysOnTop(bool)
 	SetSize(width, height int)
+	SetIgnoreMouseEvents(bool)
 	OnClosing(func())
 }
 

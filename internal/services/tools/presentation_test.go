@@ -95,20 +95,42 @@ func (p *fakePresenter) Emit(name string, _ any) { p.emitted = append(p.emitted,
 func (p *fakePresenter) ShowMain() error         { p.showMain++; return nil }
 
 type fakeWindow struct {
-	focusCalls int
-	showCalls  int
-	hideCalls  int
-	closeCalls int
-	onClosing  func()
+	focusCalls  int
+	showCalls   int
+	hideCalls   int
+	closeCalls  int
+	onClosing   func()
+	ignoreMouse bool
 }
 
-func (w *fakeWindow) Focus()              { w.focusCalls++ }
-func (w *fakeWindow) Show()               { w.showCalls++ }
-func (w *fakeWindow) Hide()               { w.hideCalls++ }
-func (w *fakeWindow) Close()              { w.closeCalls++ }
-func (*fakeWindow) SetAlwaysOnTop(bool)   {}
-func (*fakeWindow) SetSize(int, int)      {}
-func (w *fakeWindow) OnClosing(fn func()) { w.onClosing = fn }
+func TestShowingPanelsRestoresMouseInteraction(t *testing.T) {
+	p := &fakePresenter{ready: true}
+	s := NewService(nil, p)
+	if err := s.OpenPanels(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPanelsClickThrough(true); err != nil {
+		t.Fatal(err)
+	}
+	if !p.window.ignoreMouse {
+		t.Fatal("click through was not enabled")
+	}
+	if err := s.OpenPanels(); err != nil {
+		t.Fatal(err)
+	}
+	if p.window.ignoreMouse {
+		t.Fatal("showing the panel left mouse interaction locked")
+	}
+}
+
+func (w *fakeWindow) Focus()                       { w.focusCalls++ }
+func (w *fakeWindow) Show()                        { w.showCalls++ }
+func (w *fakeWindow) Hide()                        { w.hideCalls++ }
+func (w *fakeWindow) Close()                       { w.closeCalls++ }
+func (*fakeWindow) SetAlwaysOnTop(bool)            {}
+func (*fakeWindow) SetSize(int, int)               {}
+func (w *fakeWindow) SetIgnoreMouseEvents(on bool) { w.ignoreMouse = on }
+func (w *fakeWindow) OnClosing(fn func())          { w.onClosing = fn }
 
 func TestOpenMouseHUDUsesPresentationPort(t *testing.T) {
 	presenter := &fakePresenter{ready: true}

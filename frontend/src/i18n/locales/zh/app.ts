@@ -895,6 +895,7 @@ export default {
       unsupported_host: '当前平台不支持此自动化操作',
       contract_violation: '自动化提供器违反契约',
       dual_color_bar_not_found: '在超时前没有找到双色条',
+      navigation_failed: '角色移动或转向未能完成，请检查位置来源、目标设置和转向校准。',
       observation_failed: '自动化目标无法产生所需观测结果',
     },
     network: {

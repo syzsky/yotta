@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 209,
-    "models": 292
+    "methods": 211,
+    "models": 293
   },
   "services": [
     {
@@ -1774,6 +1774,35 @@
               "name": "on",
               "optional": false,
               "type": "boolean"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SetPanelsClickThrough",
+          "bindingId": "1051602836",
+          "parameters": [
+            {
+              "name": "on",
+              "optional": false,
+              "type": "boolean"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SetPanelsSize",
+          "bindingId": "1916081228",
+          "parameters": [
+            {
+              "name": "width",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "height",
+              "optional": false,
+              "type": "number"
             }
           ],
           "returns": "$CancellablePromise<void>"
@@ -6678,6 +6707,37 @@
         },
         {
           "kind": "class",
+          "name": "PanelDisplaySettings",
+          "fields": [
+            {
+              "name": "\"width\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"height\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"columns\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"size\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"backgroundOpacity\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Settings",
           "fields": [
             {
@@ -6783,6 +6843,11 @@
           "kind": "class",
           "name": "UISettings",
           "fields": [
+            {
+              "name": "\"panelDisplay\"",
+              "optional": true,
+              "type": "PanelDisplaySettings | null"
+            },
             {
               "name": "\"logger\"",
               "optional": false,

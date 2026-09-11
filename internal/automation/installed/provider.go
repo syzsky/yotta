@@ -42,6 +42,7 @@ const (
 	OperationScroll           = "scroll"
 	OperationDrag             = "drag"
 	OperationMoveRelative     = "move-relative"
+	OperationTurnView         = "turn-view"
 	OperationPressKeys        = "press-keys"
 	OperationTypeText         = "type-text"
 	OperationHoldKeys         = "hold-keys"
@@ -79,7 +80,7 @@ const (
 )
 
 var inputOperations = []string{
-	OperationClick, OperationDrag, OperationMove, OperationPointerPosition, OperationMoveRelative,
+	OperationClick, OperationDrag, OperationMove, OperationPointerPosition, OperationMoveRelative, OperationTurnView,
 	OperationPressKeys, OperationScroll, OperationTypeText,
 }
 var heldInputOperations = []string{OperationHoldButton, OperationHoldKeys, OperationReleaseHeld}
@@ -310,6 +311,7 @@ type provider struct {
 	playbackOpen          bool
 }
 type session struct {
+	turnResidual float64
 	mu           sync.Mutex
 	operation    string
 	inputSession bool
@@ -539,6 +541,25 @@ func (p *provider) Invoke(ctx context.Context, object any, operation string, pay
 			return nil, failure(CodeInputFailed, err)
 		}
 		return artifact.Marshal(PointerPositionResponse{Point: point})
+	}
+	if operation == OperationTurnView {
+		turn := request.(TurnViewRequest)
+		desktop, ok := DesktopProfile(p.profile)
+		if !ok {
+			return nil, failure(CodeInvalidRequest, errors.New("turning requires a desktop target"))
+		}
+		counts := desktop.MouseCounts360
+		if counts <= 0 {
+			counts = p.runtimeMouseCounts360
+		}
+		if counts <= 0 {
+			return nil, failure(CodeInvalidRequest, errors.New("configure mouse counts per revolution before turning"))
+		}
+		scaled := turn.Degrees*float64(counts)/360 + opened.turnResidual
+		rounded := math.Round(scaled)
+		opened.turnResidual = scaled - rounded
+		operation = OperationMoveRelative
+		request = RelativeMoveRequest{DeltaX: int64(rounded), DurationMilliseconds: turn.DurationMilliseconds}
 	}
 	if err := p.driver.Execute(ctx, operation, request); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -1114,6 +1135,15 @@ func decodeOperationRequest(operation string, raw []byte) (any, error) {
 		}
 		if request.DeltaX < -1_000_000 || request.DeltaX > 1_000_000 || request.DeltaY < -1_000_000 || request.DeltaY > 1_000_000 || !validDuration(request.DurationMilliseconds) {
 			return nil, errors.New("automation relative move request is invalid")
+		}
+		return request, nil
+	case OperationTurnView:
+		var request TurnViewRequest
+		if err := decode(&request); err != nil {
+			return nil, err
+		}
+		if math.IsNaN(request.Degrees) || math.IsInf(request.Degrees, 0) || math.Abs(request.Degrees) > 360 || !validDuration(request.DurationMilliseconds) {
+			return nil, errors.New("turn angle must be between -360 and 360 degrees")
 		}
 		return request, nil
 	case OperationPressKeys:

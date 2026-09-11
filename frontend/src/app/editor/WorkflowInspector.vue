@@ -31,6 +31,12 @@
     </div>
 
     <div v-else class="flex-1 space-y-5 overflow-y-auto p-4">
+      <div class="flex items-start justify-between gap-2" data-testid="workflow-node-identity">
+        <h3 class="min-w-0 text-sm font-semibold text-highlighted">{{ projectionTitle }}</h3>
+        <UBadge color="neutral" variant="soft" size="xs" class="shrink-0">{{
+          categoryLabel
+        }}</UBadge>
+      </div>
       <p
         v-if="projectionDescription"
         class="rounded-lg border border-default bg-elevated/30 px-3 py-2 text-[11px] leading-5 text-muted"
@@ -245,6 +251,18 @@ const emit = defineEmits<{
 const { t, te } = useI18n()
 const advancedOpen = ref(false)
 const primaryGroups: AuthoringGroup[] = ['required', 'common']
+const projectionTitle = computed(() => {
+  const projection = props.projection
+  if (!projection) return ''
+  return projection.titleKey && te(projection.titleKey)
+    ? t(projection.titleKey)
+    : projection.nodeRef.nodeTypeId.split('/').filter(Boolean).at(-1) || ''
+})
+const categoryLabel = computed(() => {
+  const category = props.projection?.category || 'other'
+  const key = `workflow.catalog.category.${category}`
+  return te(key) ? t(key) : category
+})
 const projectionDescription = computed(() => {
   const key = props.projection?.descriptionKey
   return key && te(key) ? t(key) : ''

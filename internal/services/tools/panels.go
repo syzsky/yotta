@@ -12,10 +12,27 @@ func (s *Service) OpenPanels() error {
 		return toolError("tools.window_open_failed", apperr.CategoryInfrastructure, map[string]any{"window": "panels"}, true, err)
 	}
 	if !opened && w != nil {
+		w.SetIgnoreMouseEvents(false)
 		w.Show()
 		w.Focus()
 	}
 	presenter.Emit("panels:visibility", true)
+	presenter.Emit("panels:click-through", false)
+	return nil
+}
+func (s *Service) SetPanelsSize(width, height int) error {
+	if w := s.currentWindow(&s.panels); w != nil {
+		w.SetSize(max(240, min(width, 3840)), max(160, min(height, 2160)))
+	}
+	return nil
+}
+func (s *Service) SetPanelsClickThrough(on bool) error {
+	if w := s.currentWindow(&s.panels); w != nil {
+		w.SetIgnoreMouseEvents(on)
+	}
+	if p := s.windowPresenter(); p != nil {
+		p.Emit("panels:click-through", on)
+	}
 	return nil
 }
 func (s *Service) HidePanels() error {

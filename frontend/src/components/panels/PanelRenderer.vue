@@ -1,9 +1,12 @@
 <template>
-  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+  <div
+    class="grid min-w-0 gap-3"
+    :style="{ gridTemplateColumns: `repeat(${columns ?? 2}, minmax(0, 1fr))` }"
+  >
     <template v-for="component in components" :key="component.id">
       <section
         v-if="component.kind === 'group'"
-        class="min-w-0 space-y-4 border-t border-default pt-5 sm:col-span-2"
+        class="col-span-full min-w-0 space-y-3 border-t border-default pt-3"
       >
         <h2 class="flex items-center gap-2 text-sm font-medium text-highlighted">
           <UIcon
@@ -20,6 +23,7 @@
           :busy="busy"
           :now="now"
           :waiting-buttons="waitingButtons"
+          :columns="columns"
           @action="(c, value) => emit('action', c, value)"
         />
       </section>
@@ -50,7 +54,7 @@
       </div>
       <PanelLog
         v-else-if="component.kind === 'log'"
-        class="sm:col-span-2"
+        class="col-span-full"
         :title="t(component.titleKey)"
         :icon="component.icon"
         :records="snapshot?.records?.[component.id] ?? []"
@@ -97,6 +101,7 @@ import type { PanelComponent, PanelSnapshot } from '@/lib/panels'
 import PanelControl from './PanelControl.vue'
 import PanelLog from './PanelLog.vue'
 const props = defineProps<{
+  columns?: number
   waitingButtons?: string[]
   components: PanelComponent[]
   snapshot: PanelSnapshot | null
@@ -120,6 +125,7 @@ function formatted(c: PanelComponent) {
   const v = value(c)
   if (v === undefined) return '—'
   if (c.kind === 'timer') {
+    if (!Number.isFinite(Number(v)) || Number(v) <= 0) return '00:00:00'
     const seconds = Math.max(0, Math.floor((props.now - Number(v)) / 1000))
     return `${Math.floor(seconds / 3600)
       .toString()

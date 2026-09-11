@@ -189,7 +189,9 @@ func (c *Win32Controller) MoveRelative(ctx context.Context, req RelativeMoveRequ
 		if c.deps.Input == nil {
 			return fmt.Errorf("win32 input dependency is nil")
 		}
-		return c.deps.Input.MouseMoveRel(c.hwnd(), req.Dx, req.Dy, req.DurationMs)
+		return playRelativeMotion(ctx, req, func(dx, dy int) error {
+			return c.deps.Input.MouseMoveRel(c.hwnd(), dx, dy, 0)
+		})
 	})
 }
 

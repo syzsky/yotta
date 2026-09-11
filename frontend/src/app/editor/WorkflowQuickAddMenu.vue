@@ -70,9 +70,14 @@
                 <UIcon :name="item.icon" class="size-4" />
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-xs font-medium text-highlighted">{{
-                  item.title
-                }}</span>
+                <span class="flex items-start gap-2">
+                  <span class="min-w-0 flex-1 text-xs font-medium text-highlighted">{{
+                    item.title
+                  }}</span>
+                  <UBadge color="neutral" variant="soft" size="xs" class="shrink-0">{{
+                    item.categoryLabel
+                  }}</UBadge>
+                </span>
                 <span class="mt-0.5 block truncate text-[10px] text-muted">{{
                   item.description
                 }}</span>

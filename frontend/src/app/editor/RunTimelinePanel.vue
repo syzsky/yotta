@@ -168,6 +168,9 @@
               >
                 {{ t('workflow.timeline.unhandled_route', { route: unhandledRoute(entry) }) }}
               </span>
+              <span v-if="navigationEvidence(entry)" class="mt-1 block text-xs text-toned">
+                {{ navigationEvidence(entry) }}
+              </span>
               <span v-if="templateMatchEvidence(entry)" class="mt-1 block text-[10px] text-muted">
                 {{ templateMatchEvidence(entry) }}
               </span>
@@ -318,5 +321,16 @@ function templateMatchEvidence(entry: RunView['timeline'][number]): string {
     width: counters.best_width ?? 0,
     height: counters.best_height ?? 0,
   })
+}
+
+function navigationEvidence(entry: RunView['timeline'][number]): string {
+  if (!entry.statusCode?.startsWith('automation.navigation.')) return ''
+  const counters = entry.summary.counters
+  const outcome = ['arrived', 'stuck', 'unavailable', 'timeout'].find(
+    (value) => counters[`navigation_${value}`] === 1,
+  )
+  return outcome
+    ? t(`workflow.timeline.navigation_${outcome}`, { distance: counters.remaining_distance ?? 0 })
+    : ''
 }
 </script>

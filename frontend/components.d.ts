@@ -89,6 +89,7 @@ declare module 'vue' {
     USelectMenu: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_7d49552d31dd52ca2acb797b52568f8c/node_modules/@nuxt/ui/dist/runtime/components/SelectMenu.vue')['default']
     USeparator: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_7d49552d31dd52ca2acb797b52568f8c/node_modules/@nuxt/ui/dist/runtime/components/Separator.vue')['default']
     USkeleton: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_7d49552d31dd52ca2acb797b52568f8c/node_modules/@nuxt/ui/dist/runtime/components/Skeleton.vue')['default']
+    USlider: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_7d49552d31dd52ca2acb797b52568f8c/node_modules/@nuxt/ui/dist/runtime/components/Slider.vue')['default']
     USwitch: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_7d49552d31dd52ca2acb797b52568f8c/node_modules/@nuxt/ui/dist/runtime/components/Switch.vue')['default']
     UTextarea: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_7d49552d31dd52ca2acb797b52568f8c/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
     UTooltip: typeof import('./node_modules/.pnpm/@nuxt+ui@4.10.0_7d49552d31dd52ca2acb797b52568f8c/node_modules/@nuxt/ui/dist/runtime/components/Tooltip.vue')['default']

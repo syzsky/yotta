@@ -1060,6 +1060,8 @@ export default {
       unsupported_host: 'This automation operation is unsupported on the host',
       contract_violation: 'The automation provider violated its contract',
       dual_color_bar_not_found: 'The dual color bar was not found before the timeout.',
+      navigation_failed:
+        'Movement or turning could not finish. Check the position source, target settings and turn calibration.',
       observation_failed: 'The automation target could not produce the requested observation.',
     },
     network: {

@@ -124,9 +124,9 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 		}, nil
 	case tools.WindowPanels:
 		return application.WebviewWindowOptions{
-			Title: "扩展面板", Width: 760, Height: 660, MinWidth: 420, MinHeight: 360,
+			Title: "扩展面板", Width: 480, Height: 520, MinWidth: 240, MinHeight: 160,
 			URL: "/#/tools/panels", Frameless: true, AlwaysOnTop: true,
-			BackgroundColour: darkBackground,
+			BackgroundColour: application.NewRGBA(0, 0, 0, 0), BackgroundType: application.BackgroundTypeTransparent,
 		}, nil
 	case tools.WindowCalibratorHUD:
 		query.Set("id", request.RequestID)
@@ -163,12 +163,13 @@ type wailsToolsWindow struct {
 	window *application.WebviewWindow
 }
 
-func (w *wailsToolsWindow) Focus()                    { w.window.Focus() }
-func (w *wailsToolsWindow) Show()                     { w.window.Show() }
-func (w *wailsToolsWindow) Hide()                     { w.window.Hide() }
-func (w *wailsToolsWindow) Close()                    { w.window.Close() }
-func (w *wailsToolsWindow) SetAlwaysOnTop(on bool)    { w.window.SetAlwaysOnTop(on) }
-func (w *wailsToolsWindow) SetSize(width, height int) { w.window.SetSize(width, height) }
+func (w *wailsToolsWindow) Focus()                       { w.window.Focus() }
+func (w *wailsToolsWindow) Show()                        { w.window.Show() }
+func (w *wailsToolsWindow) Hide()                        { w.window.Hide() }
+func (w *wailsToolsWindow) Close()                       { w.window.Close() }
+func (w *wailsToolsWindow) SetAlwaysOnTop(on bool)       { w.window.SetAlwaysOnTop(on) }
+func (w *wailsToolsWindow) SetSize(width, height int)    { w.window.SetSize(width, height) }
+func (w *wailsToolsWindow) SetIgnoreMouseEvents(on bool) { w.window.SetIgnoreMouseEvents(on) }
 func (w *wailsToolsWindow) OnClosing(callback func()) {
 	w.window.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
 		callback()

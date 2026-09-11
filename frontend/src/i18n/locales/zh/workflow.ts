@@ -787,6 +787,10 @@ export default {
       show_optional_inputs: '显示 {n} 个可选输入',
       hide_optional_inputs: '收起可选输入',
       port: {
+        arrived: '已到达',
+        stuck: '无法前进',
+        unavailable: '坐标不可用',
+        'not-found': '未找到',
         id: '标识',
         generation: '引用版本',
         panel: '面板引用',
@@ -1162,9 +1166,17 @@ export default {
       locate_node: '定位节点',
       ai_diagnose: 'AI 诊断',
       unhandled_route: '“{route}”出口未连接，本次运行会在这里结束',
+      navigation_arrived: '已到达目标，剩余距离 {distance}。',
+      navigation_stuck:
+        '移动或转向没有进展，距目标仍有 {distance}。请检查路径、方向设置和转向校准。',
+      navigation_unavailable: '坐标数据不可用，已停止移动。请恢复位置采集后重试。',
+      navigation_timeout: '尚未到达目标，已超时停止，剩余距离 {distance}。',
       template_evidence:
         '最佳匹配 {best}% / 阈值 {threshold}%，候选位置 ({x}, {y})，大小 {width}×{height}',
       status: {
+        'automation.navigation.waiting': '正在移动或寻找目标',
+        'automation.navigation.timeout': '已达到最长运行时间',
+        'automation.navigation.finished': '移动或查找已结束',
         'automation.template.waiting': '正在等待模板匹配',
         'automation.template.matched': '模板已匹配',
         'automation.template.timeout': '等待模板超时',

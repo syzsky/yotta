@@ -131,8 +131,8 @@
                 ><div class="flex shrink-0 items-center gap-2">
                   <AdaptiveSelect
                     v-model="newKind"
-                    width-mode="content"
-                    :min-width="14"
+                    width-mode="fixed"
+                    class="w-32 shrink-0"
                     size="sm"
                     :items="kindItems"
                     :aria-label="t('panels.component_kind')"

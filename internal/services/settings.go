@@ -232,10 +232,11 @@ type CaptureSettings struct {
 }
 
 type UISettings struct {
-	Logger         LoggerSettings `json:"logger"`
-	Window         WindowSettings `json:"window"`
-	Autostart      bool           `json:"autostart"`      // 登录后通过最高权限计划任务启动
-	MinimizeToTray bool           `json:"minimizeToTray"` // 关闭按钮 → 隐藏到托盘
+	PanelDisplay   *PanelDisplaySettings `json:"panelDisplay,omitempty"`
+	Logger         LoggerSettings        `json:"logger"`
+	Window         WindowSettings        `json:"window"`
+	Autostart      bool                  `json:"autostart"`      // 登录后通过最高权限计划任务启动
+	MinimizeToTray bool                  `json:"minimizeToTray"` // 关闭按钮 → 隐藏到托盘
 	// ActionStopHotkey 全局打断动作热键（默认 "Ctrl+Shift+F9"）。
 	// 改动需重启生效（main.go 启动期注册一次，不监听 settings 变化）。
 	ActionStopHotkey string `json:"actionStopHotkey"`
@@ -281,6 +282,14 @@ type UISettings struct {
 	// WorkflowHotkeys 是本机安装级 Workflow 全局热键，不进入可移植 Workflow Source。
 	WorkflowHotkeys map[string]string    `json:"workflowHotkeys,omitempty"`
 	CanvasAssist    CanvasAssistSettings `json:"canvasAssist"`
+}
+
+type PanelDisplaySettings struct {
+	Width             int    `json:"width"`
+	Height            int    `json:"height"`
+	Columns           int    `json:"columns"`
+	Size              string `json:"size"`
+	BackgroundOpacity int    `json:"backgroundOpacity"`
 }
 
 type CanvasAssistSettings struct {
@@ -439,6 +448,14 @@ func (s *Settings) Validate() error {
 		// 空值按 medium 解释，兼容显式删除该偏好的旧 patch。
 	default:
 		return fmt.Errorf("ui.launcherSize 必须是 xsmall/small/medium/large/xlarge，got %q", s.UI.LauncherSize)
+	}
+	if p := s.UI.PanelDisplay; p != nil {
+		if p.Width < 240 || p.Width > 3840 || p.Height < 160 || p.Height > 2160 || p.Columns < 1 || p.Columns > 4 || p.BackgroundOpacity < 0 || p.BackgroundOpacity > 100 {
+			return errors.New("ui.panelDisplay contains an out-of-range value")
+		}
+		if p.Size != "small" && p.Size != "medium" && p.Size != "large" {
+			return errors.New("ui.panelDisplay.size must be small, medium or large")
+		}
 	}
 	if !validLauncherSlotModifiers(s.UI.LauncherSlotHotkeyModifiers) {
 		return fmt.Errorf("ui.launcherSlotHotkeyModifiers 必须是 Ctrl/Shift/Alt 的非空组合，got %q", s.UI.LauncherSlotHotkeyModifiers)

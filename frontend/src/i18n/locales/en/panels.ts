@@ -1,5 +1,19 @@
 export default {
   panels: {
+    collapse_tabs: 'Collapse panel tabs',
+    expand_tabs: 'Expand panel tabs',
+    appearance: 'Panel appearance',
+    width: 'Width',
+    height: 'Height',
+    columns: 'Columns',
+    content_size: 'Content size',
+    size_small: 'Small',
+    size_medium: 'Medium',
+    size_large: 'Large',
+    background_opacity: 'Background opacity {value}%',
+    click_through: 'Click through',
+    click_through_hint:
+      'Clicks will reach the window underneath. To restore interaction, open Panel Manager in the main window and choose “Show panel”.',
     bundle_title: 'Included panels',
     bundle_hint:
       'Includes saved components, icons and initial values. Configured on install; live readings and logs are excluded.',

@@ -402,6 +402,13 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	navigationDefinitions, err := defineNavigationNodes(automationTemplateTypes{
+		imageRef: imageType.TypeRef(), numberRef: numberType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
+		regionRef: regionType.TypeRef(), durationRef: durationMillisecondsType.TypeRef(),
+	}, blobRead)
+	if err != nil {
+		return Builtins{}, err
+	}
 	systemDefinitions, err := defineSystemNodes(observabilityMessageType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
@@ -446,6 +453,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, automationWindowDefinitions...)
 	definitions = append(definitions, automationTemplateDefinitions...)
 	definitions = append(definitions, automationObservationDefinitions...)
+	definitions = append(definitions, navigationDefinitions...)
 	definitions = append(definitions, activateWindowDefinition)
 	definitions = append(definitions, stopTargetAppDefinition)
 	definitions = append(definitions, captureWindowDefinition)

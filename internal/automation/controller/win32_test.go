@@ -213,8 +213,8 @@ func (f *fakeWin32Input) MouseUp(hwnd uintptr, button string) error {
 
 func (f *fakeWin32Input) MouseMoveRel(hwnd uintptr, dx, dy, durationMs int) error {
 	f.moveRelHWND = hwnd
-	f.moveRelDx = dx
-	f.moveRelDy = dy
+	f.moveRelDx += dx
+	f.moveRelDy += dy
 	f.moveRelDuration = durationMs
 	return nil
 }
@@ -439,7 +439,7 @@ func TestWin32ControllerMoveRelativeRecordsTrace(t *testing.T) {
 	if err := ctrl.MoveRelative(context.Background(), RelativeMoveRequest{Dx: 10, Dy: -20, DurationMs: 150}); err != nil {
 		t.Fatalf("MoveRelative() error = %v", err)
 	}
-	if in.moveRelHWND != 42 || in.moveRelDx != 10 || in.moveRelDy != -20 || in.moveRelDuration != 150 {
+	if in.moveRelHWND != 42 || in.moveRelDx != 10 || in.moveRelDy != -20 || in.moveRelDuration != 0 {
 		t.Fatalf("delegate move relative = hwnd %d dx %d dy %d duration %d", in.moveRelHWND, in.moveRelDx, in.moveRelDy, in.moveRelDuration)
 	}
 	records := rec.Records()

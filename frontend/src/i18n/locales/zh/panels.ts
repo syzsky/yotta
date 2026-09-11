@@ -1,5 +1,19 @@
 export default {
   panels: {
+    collapse_tabs: '收起面板标签栏',
+    expand_tabs: '展开面板标签栏',
+    appearance: '面板外观',
+    width: '宽度',
+    height: '高度',
+    columns: '列数',
+    content_size: '内容尺寸',
+    size_small: '小',
+    size_medium: '中',
+    size_large: '大',
+    background_opacity: '背景不透明度 {value}%',
+    click_through: '鼠标穿透',
+    click_through_hint:
+      '开启后，点击会传递给下方窗口。回到主窗口的面板管理，点击“显示面板”即可恢复操作。',
     bundle_title: '附带面板',
     bundle_hint: '附带保存的组件、图标和初始值。安装时自动配置，不包含当前读数和日志。',
     bundle_plugin: '由配套插件提供',

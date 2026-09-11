@@ -825,6 +825,10 @@ export default {
       show_optional_inputs: 'Show {n} optional inputs',
       hide_optional_inputs: 'Hide optional inputs',
       port: {
+        arrived: 'Arrived',
+        stuck: 'Unable to advance',
+        unavailable: 'Position unavailable',
+        'not-found': 'Not found',
         id: 'ID',
         generation: 'Reference version',
         panel: 'Panel reference',
@@ -1212,9 +1216,18 @@ export default {
       locate_node: 'Locate node',
       ai_diagnose: 'AI diagnose',
       unhandled_route: 'The “{route}” output is not connected; this Run ends here',
+      navigation_arrived: 'Target reached. Remaining distance: {distance}.',
+      navigation_stuck:
+        'Movement or turning stopped making progress. Distance remaining: {distance}. Check the path, heading settings and turn calibration.',
+      navigation_unavailable:
+        'Position data is unavailable. Movement stopped. Restore position capture and retry.',
+      navigation_timeout: 'Movement timed out before arrival. Distance remaining: {distance}.',
       template_evidence:
         'Best match {best}% / threshold {threshold}%, candidate ({x}, {y}), size {width}×{height}',
       status: {
+        'automation.navigation.waiting': 'Moving or looking for the target',
+        'automation.navigation.timeout': 'Navigation time limit reached',
+        'automation.navigation.finished': 'Movement or search finished',
         'automation.template.waiting': 'Waiting for a template match',
         'automation.template.matched': 'Template matched',
         'automation.template.timeout': 'Template wait timed out',

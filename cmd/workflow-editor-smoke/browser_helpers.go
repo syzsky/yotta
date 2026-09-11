@@ -120,8 +120,11 @@ func clickRequired(ctx context.Context, client *browsercdp.WebSocketClient, test
 				: null;
 			if (trigger) {
 				trigger.click();
-				await new Promise(resolve => setTimeout(resolve, 100));
-				button = document.querySelector(selector);
+				const deadline = performance.now() + 3000;
+				while (!button && performance.now() < deadline) {
+					await new Promise(resolve => setTimeout(resolve, 25));
+					button = document.querySelector(selector);
+				}
 			}
 		}
 		if (!button) throw new Error(%s + ' button not found');
