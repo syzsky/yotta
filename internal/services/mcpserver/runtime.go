@@ -22,9 +22,18 @@ type RuntimeConfig struct {
 }
 
 type runtimeInstance struct {
-	config   RuntimeConfig
-	listener net.Listener
-	server   *http.Server
+	config         RuntimeConfig
+	listener       net.Listener
+	server         *http.Server
+	cancelRequests context.CancelFunc
+}
+
+func (i *runtimeInstance) close(ctx context.Context) error {
+	// Shutdown alone waits forever for MCP's GET event streams: those handlers
+	// end only when their request context is cancelled or the client disconnects.
+	// End requests owned by this endpoint before waiting for handlers to finish.
+	i.cancelRequests()
+	return i.server.Shutdown(ctx)
 }
 
 // Runtime owns the optional Streamable HTTP transport for the desktop process.
@@ -70,9 +79,14 @@ func (r *Runtime) Prepare(config RuntimeConfig) (commit func() error, abort func
 		transport := server.NewStreamableHTTPServer(protocol)
 		mux := http.NewServeMux()
 		mux.Handle("/mcp", transport)
+		requestContext, cancelRequests := context.WithCancel(context.Background())
 		next = &runtimeInstance{
 			config: config, listener: listener,
-			server: &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second},
+			cancelRequests: cancelRequests,
+			server: &http.Server{
+				Handler: mux, ReadHeaderTimeout: 5 * time.Second,
+				BaseContext: func(net.Listener) context.Context { return requestContext },
+			},
 		}
 	}
 
@@ -80,6 +94,7 @@ func (r *Runtime) Prepare(config RuntimeConfig) (commit func() error, abort func
 	abort = func() {
 		once.Do(func() {
 			if next != nil {
+				next.cancelRequests()
 				_ = next.listener.Close()
 			}
 		})
@@ -105,7 +120,7 @@ func (r *Runtime) Prepare(config RuntimeConfig) (commit func() error, abort func
 		if previous != nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			return previous.server.Shutdown(ctx)
+			return previous.close(ctx)
 		}
 		return nil
 	}
@@ -134,5 +149,5 @@ func (r *Runtime) Close(ctx context.Context) error {
 	if current == nil {
 		return nil
 	}
-	return current.server.Shutdown(ctx)
+	return current.close(ctx)
 }

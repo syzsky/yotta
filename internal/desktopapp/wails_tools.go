@@ -1,6 +1,7 @@
 package desktopapp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -77,7 +78,7 @@ func (p *wailsToolsPresenter) OpenWindow(request tools.WindowRequest) (tools.Win
 	if err != nil {
 		return nil, err
 	}
-	return &wailsToolsWindow{window: app.Window.NewWithOptions(wailsOptions)}, nil
+	return &wailsToolsWindow{window: app.Window.NewWithOptions(wailsOptions), appContext: app.Context()}, nil
 }
 
 func (p *wailsToolsPresenter) ShowMain() error {
@@ -160,13 +161,25 @@ func (p *wailsToolsPresenter) Emit(name string, data any) {
 }
 
 type wailsToolsWindow struct {
-	window *application.WebviewWindow
+	window     *application.WebviewWindow
+	appContext context.Context
 }
 
-func (w *wailsToolsWindow) Focus()                       { w.window.Focus() }
-func (w *wailsToolsWindow) Show()                        { w.window.Show() }
-func (w *wailsToolsWindow) Hide()                        { w.window.Hide() }
-func (w *wailsToolsWindow) Close()                       { w.window.Close() }
+func (w *wailsToolsWindow) Focus() { w.window.Focus() }
+func (w *wailsToolsWindow) Show()  { w.window.Show() }
+func (w *wailsToolsWindow) Hide()  { w.window.Hide() }
+func (w *wailsToolsWindow) Close() {
+	requestToolsWindowClose(w.appContext, application.InvokeAsync, w.window.Close)
+}
+
+func requestToolsWindowClose(ctx context.Context, dispatch func(func()), closeWindow func()) {
+	// Wails runs shutdown hooks on its UI thread, then closes all windows itself.
+	// A tools worker must never synchronously wait for that same UI thread.
+	if ctx == nil || ctx.Err() != nil {
+		return
+	}
+	dispatch(closeWindow)
+}
 func (w *wailsToolsWindow) SetAlwaysOnTop(on bool)       { w.window.SetAlwaysOnTop(on) }
 func (w *wailsToolsWindow) SetSize(width, height int)    { w.window.SetSize(width, height) }
 func (w *wailsToolsWindow) SetIgnoreMouseEvents(on bool) { w.window.SetIgnoreMouseEvents(on) }
