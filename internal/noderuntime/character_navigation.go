@@ -11,17 +11,57 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/automation/navigation"
-	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
-	"github.com/yottaapp/yotta/internal/targetruntime"
 )
 
 type navigationDriver struct {
-	i                     nodeadapter.Invocation
-	source, turn, forward resource.Handle
-	request               []byte
+	i                  nodeadapter.Invocation
+	turn, forward      resource.Handle
+	held               resource.Handle
+	frame, unit, epoch string
+	axisHeading        float64
+	axisSign           int
+	havePosition       bool
+	lastPosition       navigation.WorldPosition
+	freshAfter         int64
+	initialWait        time.Duration
+}
+
+func (d *navigationDriver) HoldForward(ctx context.Context) error {
+	if d.held.Validate() == nil {
+		return nil
+	}
+	handle, err := openConfiguredTarget(ctx, d.i, installed.KindHeldInput, installed.HeldInputOperations())
+	if err != nil {
+		return err
+	}
+	d.held = handle
+	return navInvoke(ctx, d.i, handle, installed.OperationHoldKeys, installed.HoldKeysRequest{Keys: []string{navString(d.i, "forwardKey", "W")}})
+}
+
+func (d *navigationDriver) StopForward(ctx context.Context) error {
+	if d.held.Validate() != nil {
+		return nil
+	}
+	err := d.i.Targets.Drop(ctx, d.held)
+	if err == nil {
+		d.held = resource.Handle{}
+	}
+	return err
+}
+
+func (d *navigationDriver) Wait(ctx context.Context, duration time.Duration) error {
+	if d.i.WaitWithPause == nil {
+		return d.i.Wait(ctx, duration)
+	}
+	paused := false
+	err := d.i.WaitWithPause(ctx, duration, func(cleanupCtx context.Context) error { paused = true; return d.StopForward(cleanupCtx) })
+	if paused {
+		d.freshAfter = time.Now().UnixMilli()
+	}
+	return err
 }
 
 func navString(i nodeadapter.Invocation, key, fallback string) string {
@@ -58,41 +98,69 @@ func (d *navigationDriver) Turn(ctx context.Context, angle float64) error {
 	if err := navInvoke(ctx, d.i, d.turn, installed.OperationTurnView, installed.TurnViewRequest{Degrees: angle, DurationMilliseconds: 150}); err != nil {
 		return err
 	}
-	return d.i.Wait(ctx, 150*time.Millisecond)
+	d.freshAfter = time.Now().UnixMilli() + 1
+	return d.Wait(ctx, 50*time.Millisecond)
 }
 func (d *navigationDriver) Forward(ctx context.Context, duration time.Duration) error {
 	if err := navInvoke(ctx, d.i, d.forward, installed.OperationPressKeys, installed.PressKeysRequest{Keys: []string{navString(d.i, "forwardKey", "W")}, DurationMilliseconds: duration.Milliseconds()}); err != nil {
 		return err
 	}
-	return d.i.Wait(ctx, 150*time.Millisecond)
+	d.freshAfter = time.Now().UnixMilli() + 1
+	return d.Wait(ctx, 50*time.Millisecond)
 }
 func (d *navigationDriver) Read(ctx context.Context, after time.Time) (navigation.Pose, error) {
-	readCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
+	if err := d.Wait(ctx, 0); err != nil {
+		return navigation.Pose{}, err
+	}
+	state := d.i.State["position"]
+	if state == nil {
+		return navigation.Pose{}, errors.New("position state is not bound")
+	}
+	now := d.i.MonotonicNow
+	if now == nil {
+		now = time.Now
+	}
+	waitBudget := time.Second
+	if !d.havePosition && d.initialWait > 0 {
+		waitBudget = d.initialWait
+	}
+	deadline := now().Add(waitBudget)
 	for {
-		raw, err := d.i.Targets.Invoke(readCtx, d.source, httpegress.OperationGet, d.request)
-		if err != nil {
-			if ctx.Err() != nil {
-				return navigation.Pose{}, ctx.Err()
-			}
-			return navigation.Pose{}, errors.Join(navigation.ErrStale, err)
-		}
-		response, err := httpegress.OpenGetResponse(raw, 0)
-		if err != nil || response.StatusCode != 200 {
-			return navigation.Pose{}, errors.Join(navigation.ErrStale, err)
-		}
-		pose, err := decodeNavigationPose([]byte(response.Body), d.i, time.Now())
+		snapshot, err := state.Read()
 		if err != nil {
 			return navigation.Pose{}, err
 		}
-		if pose.Time.After(after) {
-			return pose, nil
+		var p navigation.WorldPosition
+		if err := json.Unmarshal(snapshot.Value.InlineJSON(), &p); err != nil {
+			return navigation.Pose{}, navigation.ErrStale
 		}
-		if err := d.i.Wait(readCtx, 50*time.Millisecond); err != nil {
-			if ctx.Err() != nil {
-				return navigation.Pose{}, ctx.Err()
+		valid := p.Fresh(time.Now(), 500*time.Millisecond)
+		if d.havePosition && !valid {
+			// A delayed observation stops physical input immediately. Allow a
+			// bounded fresh sample to arrive before declaring the source lost.
+			if err := d.StopForward(ctx); err != nil {
+				return navigation.Pose{}, err
+			}
+		}
+		revision := time.Unix(0, snapshot.Revision)
+		if valid && revision.After(after) && p.ReceivedAt >= d.freshAfter {
+			if d.havePosition && (p.Frame != d.frame || p.Unit != d.unit || p.Epoch != d.epoch || p.AxisHeading != d.axisHeading || p.AxisSign != d.axisSign) {
+				return navigation.Pose{}, navigation.ErrStale
+			}
+			if !d.havePosition || p.NewerThan(d.lastPosition) {
+				d.frame, d.unit, d.epoch, d.axisHeading, d.axisSign, d.havePosition = p.Frame, p.Unit, p.Epoch, p.AxisHeading, p.AxisSign, true
+				d.lastPosition = p
+				return navigation.Pose{X: p.X, Y: p.Y, Heading: p.Heading, Time: revision, AxisHeading: p.AxisHeading, AxisSign: float64(p.AxisSign)}, nil
+			}
+		}
+		if !now().Before(deadline) {
+			if !d.havePosition {
+				return navigation.Pose{}, context.DeadlineExceeded
 			}
 			return navigation.Pose{}, navigation.ErrStale
+		}
+		if err := d.Wait(ctx, 20*time.Millisecond); err != nil {
+			return navigation.Pose{}, err
 		}
 	}
 }
@@ -149,40 +217,34 @@ func characterNavigation(b nodes.Builtins, id string) nodeadapter.Adapter {
 		if err != nil || timeout < 1 || timeout > 3600000 {
 			return nodeadapter.AdapterResult{}, errors.New("timeout must be between 1 and 3600000 ms")
 		}
-		opCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
-		defer cancel()
+
 		if err := i.EmitStatus(ctx, nodes.NavigationWaitingStatus, map[string]int64{"timeout_ms": timeout}); err != nil {
 			return nodeadapter.AdapterResult{}, err
 		}
 		if id == nodes.TurnFindTemplateNodeID {
-			return turnFindTemplate(opCtx, ctx, b, i, turn)
+			return turnFindTemplate(ctx, ctx, b, i, turn)
 		}
-		d := &navigationDriver{i: i, turn: turn}
-		d.source, err = i.Targets.Open(opCtx, targetruntime.OpenRequest{Slot: navString(i, "source", ""), Kind: httpegress.KindHTTPSession, Operations: []string{httpegress.OperationGet}, Config: []byte(`{}`)})
-		if err != nil {
-			return nodeadapter.AdapterResult{}, err
-		}
-		defer func() { runErr = errors.Join(runErr, i.Targets.Drop(context.WithoutCancel(ctx), d.source)) }()
-		d.forward, err = openConfiguredTarget(opCtx, i, installed.KindInput, []string{installed.OperationPressKeys})
+		d := &navigationDriver{i: i, turn: turn, initialWait: time.Duration(timeout) * time.Millisecond}
+		d.forward, err = openConfiguredTarget(ctx, i, installed.KindInput, []string{installed.OperationPressKeys})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, err
 		}
 		defer func() { runErr = errors.Join(runErr, i.Targets.Drop(context.WithoutCancel(ctx), d.forward)) }()
-		d.request, err = artifact.Marshal(httpegress.GetRequest{Path: navString(i, "path", "/v1/position"), Query: map[string][]string{}})
-		if err != nil {
-			return nodeadapter.AdapterResult{}, err
-		}
 		x, e1 := numberInput(i, "target-x")
 		y, e2 := numberInput(i, "target-y")
 		tolerance, e3 := numberInput(i, "tolerance")
-		pulse, e4 := integerInput(i, "pulse")
+		pulse, e4 := integerInput(i, "interval")
 		if err := errors.Join(e1, e2, e3, e4); err != nil {
 			return nodeadapter.AdapterResult{}, err
 		}
 		if pulse < 20 || pulse > 500 {
-			return nodeadapter.AdapterResult{}, errors.New("forward pulse must be between 20 and 500 ms")
+			return nodeadapter.AdapterResult{}, errors.New("position interval must be between 20 and 500 ms")
 		}
-		p, dist, err := navigation.MoveTo(opCtx, d, navigation.Options{X: x, Y: y, Tolerance: tolerance, AxisHeading: navNumber(i, "axisHeading", 0), AxisSign: navNumber(i, "axisSign", 1), TurnSign: navNumber(i, "turnSign", 1), Pulse: time.Duration(pulse) * time.Millisecond, StuckTimeout: 5 * time.Second})
+		slow, err := numberInput(i, "slow-distance")
+		if err != nil {
+			return nodeadapter.AdapterResult{}, err
+		}
+		p, dist, err := navigation.MoveTo(ctx, d, navigation.Options{X: x, Y: y, Tolerance: tolerance, TurnSign: navNumber(i, "turnSign", 1), Pulse: time.Duration(pulse) * time.Millisecond, SlowDistance: slow, StuckTimeout: 5 * time.Second, Now: i.MonotonicNow, Timeout: time.Duration(timeout) * time.Millisecond})
 		exit := "arrived"
 		switch {
 		case ctx.Err() != nil:
@@ -237,11 +299,27 @@ func turnFindTemplate(ctx, parent context.Context, b nodes.Builtins, i nodeadapt
 		return nodeadapter.AdapterResult{}, err
 	}
 	defer func() { runErr = errors.Join(runErr, i.Targets.Drop(context.WithoutCancel(parent), capture)) }()
+	now := i.MonotonicNow
+	if now == nil {
+		now = time.Now
+	}
+	timeout, err := integerInput(i, "timeout")
+	if err != nil {
+		return nodeadapter.AdapterResult{}, err
+	}
+	deadline := now().Add(time.Duration(timeout) * time.Millisecond)
 	angle := 0.0
 	var match visionMatchResult
 	exit := "not-found"
 	counters := map[string]int64{}
 	for {
+		if err = i.Wait(ctx, 0); err != nil {
+			break
+		}
+		if !now().Before(deadline) {
+			err = context.DeadlineExceeded
+			break
+		}
 		match, _, err = captureAndMatch(ctx, i, capture, template, region, threshold, counters)
 		if err != nil {
 			break

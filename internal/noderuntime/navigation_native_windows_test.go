@@ -40,11 +40,12 @@ func TestNavigationWorkflowDesktopSmoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	var req struct {
-		NodeID   string         `json:"nodeId"`
-		Origin   string         `json:"origin"`
-		Config   map[string]any `json:"config"`
-		Inputs   map[string]any `json:"inputs"`
-		Template string         `json:"template"`
+		NodeID         string         `json:"nodeId"`
+		Origin         string         `json:"origin"`
+		Config         map[string]any `json:"config"`
+		Inputs         map[string]any `json:"inputs"`
+		Template       string         `json:"template"`
+		PositionConfig map[string]any `json:"positionConfig"`
 	}
 	if err := json.Unmarshal(raw, &req); err != nil {
 		t.Fatal(err)
@@ -84,7 +85,11 @@ func TestNavigationWorkflowDesktopSmoke(t *testing.T) {
 		providers[blob.ProviderID] = run.InstalledProvider{ArtifactDigest: blobProviderDigest(t), ABI: blob.ProviderABI, Provider: provider}
 		bindings["template"] = map[string]any{"kind": "blob", "blob": ref}
 	}
-	program := compilePrimitiveProgram(t, b, navigationSource(t, b, req.NodeID, req.Config, bindings))
+	source := navigationSource(t, b, req.NodeID, req.Config, bindings)
+	if req.NodeID == nodes.MoveCharacterNodeID {
+		source = navigationPositionFeed(t, b, source, req.PositionConfig)
+	}
+	program := compilePrimitiveProgram(t, b, source)
 	installations, err := installed.Install([]installed.InstallationDraft{{Slot: "game", Label: "Navigation smoke", Profile: installed.NewDesktopProfileDraft(profile)}})
 	if err != nil {
 		t.Fatal(err)

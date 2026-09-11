@@ -17,6 +17,7 @@ export interface PanelComponent {
   children?: PanelComponent[]
 }
 export interface PanelSource {
+  listeningComponents?: string[]
   waitingComponents?: string[]
   waiting?: number
   managed: boolean

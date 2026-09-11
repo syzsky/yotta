@@ -17,7 +17,7 @@ func TestGeneratedProjectionKeepsCompilerInstructionAsExactTaggedUnion(t *testin
 	definitions := schema["$defs"].(map[string]any)
 	instruction := definitions["InstructionSpec"].(map[string]any)
 	variants, ok := instruction["oneOf"].([]any)
-	if !ok || len(variants) != 5 {
+	if !ok || len(variants) != 6 {
 		t.Fatalf("projection instruction schema = %#v", instruction)
 	}
 	for _, rawVariant := range variants {

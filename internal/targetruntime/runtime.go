@@ -18,9 +18,26 @@ import (
 )
 
 type Installation struct {
-	Slot     string
-	TargetID string
-	Provider resource.Provider
+	Slot          string
+	TargetID      string
+	Provider      resource.Provider
+	Configuration Configuration
+}
+
+// Configuration is immutable preparation metadata, never consulted per operation.
+type Configuration struct {
+	Origin     string
+	Executable string
+	Arguments  []string
+}
+
+func (snapshot Snapshot) Configuration(slot string) Configuration {
+	if !snapshot.Valid() {
+		return Configuration{}
+	}
+	c := snapshot.state.bySlot[slot].Configuration
+	c.Arguments = append([]string(nil), c.Arguments...)
+	return c
 }
 
 type Description struct {
@@ -51,6 +68,7 @@ func NewSnapshot(installations []Installation) (Snapshot, error) {
 		if _, exists := bySlot[installation.Slot]; exists {
 			return Snapshot{}, fmt.Errorf("configured target slot %q is duplicated", installation.Slot)
 		}
+		installation.Configuration.Arguments = append([]string(nil), installation.Configuration.Arguments...)
 		bySlot[installation.Slot] = installation
 	}
 	return Snapshot{state: &snapshotState{bySlot: bySlot}}, nil

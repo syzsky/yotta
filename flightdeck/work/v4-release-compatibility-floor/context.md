@@ -39,3 +39,7 @@
 - `contracts/releases/4.0.0/version-domains.json`：39 个 tracked public version domains。
 - `contracts/node/releases/4.0.0/builtin-node-refs.json`：147 个 built-in NodeRefs。
 - `contracts/catalog/releases/4.0.0/builtin-catalog-refs.json`：24 个 TypeRefs、5 个 CapabilityRefs。
+
+## 完成记录
+
+2026-09-11 用户确认 V4 已发布，本 Work 完成。原先等待发布的记录已过时；本次只同步完成状态，不重新发布，也不声称重新核验了远端发布设置。

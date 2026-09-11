@@ -59,6 +59,7 @@ func TuneInstructionDefinitions(definitions map[string]any) {
 		{InstructionCountedLoop, "countedLoop"},
 		{InstructionForEach, "forEach"},
 		{InstructionRetry, "retry"},
+		{InstructionTask, "task"},
 	}
 	oneOf := make([]any, 0, len(variants))
 	for _, variant := range variants {

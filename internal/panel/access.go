@@ -2,7 +2,10 @@ package panel
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
+	"github.com/yottaapp/yotta/internal/signals"
 	contract "github.com/yottaapp/yotta/sdk/plugin/panel"
 	"time"
 )
@@ -16,9 +19,31 @@ func Open(c Catalog, path string) (*Service, error) {
 	s.managed = m
 	return s, nil
 }
-func (s *Service) Save(d Draft) (Draft, error)             { return s.managed.save(d) }
-func (s *Service) Edit(id string) (Draft, error)           { return s.managed.draft(id) }
-func (s *Service) Delete(id string, revision uint64) error { return s.managed.delete(id, revision) }
+func (s *Service) Save(d Draft) (Draft, error) {
+	saved, err := s.managed.save(d)
+	if err != nil {
+		return saved, err
+	}
+	ref, e := s.Resolve(saved.ID)
+	if e == nil {
+		for _, component := range s.events.Subscribers(saved.ID) {
+			if component != "" {
+				if _, e := s.ResolveComponent(ref, component, "event"); e != nil {
+					s.events.Invalidate(saved.ID, component, false)
+				}
+			}
+		}
+	}
+	return saved, nil
+}
+func (s *Service) Edit(id string) (Draft, error) { return s.managed.draft(id) }
+func (s *Service) Delete(id string, revision uint64) error {
+	if err := s.managed.delete(id, revision); err != nil {
+		return err
+	}
+	s.events.Invalidate(id, "", true)
+	return nil
+}
 func (s *Service) SetPresenter(show func(string) error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -145,14 +170,8 @@ func (s *Service) publish(id string, e contract.Event) {
 		delete(s.received, s.receivedOrder[0])
 		s.receivedOrder = s.receivedOrder[1:]
 	}
-	for ch, component := range s.listeners[id] {
-		if component == "" || component == e.ComponentID {
-			select {
-			case ch <- Interaction{ComponentID: e.ComponentID, EventID: e.EventID, Name: e.Name, Value: e.Value}:
-			default:
-			}
-		}
-	}
+	raw, _ := json.Marshal(e.Value)
+	s.events.Publish(id, signals.Message{Name: e.Name, SourceID: e.ComponentID, EventID: e.EventID, Value: raw})
 }
 
 // Each waiting workflow receives the interaction independently. Ending a Run
@@ -171,54 +190,77 @@ func (s *Service) Wait(ctx context.Context, ref Reference, component string) (In
 			return Interaction{}, ErrComponentNotInteractive
 		}
 	}
-	ch := make(chan Interaction, 1)
-	s.mu.Lock()
-	if s.closed {
-		s.mu.Unlock()
-		return Interaction{}, ErrPanelUnavailable
+	sub, err := s.Subscribe(ref, component, 1)
+	if err != nil {
+		return Interaction{}, err
 	}
-	if s.listeners[ref.ID] == nil {
-		s.listeners[ref.ID] = map[chan Interaction]string{}
-	}
-	s.listeners[ref.ID][ch] = component
-	s.mu.Unlock()
-	defer func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		delete(s.listeners[ref.ID], ch)
-		if len(s.listeners[ref.ID]) == 0 {
-			delete(s.listeners, ref.ID)
-		}
-	}()
-	ticker := time.NewTicker(250 * time.Millisecond)
-	defer ticker.Stop()
+	defer sub.Close()
 	for {
 		select {
 		case <-ctx.Done():
 			return Interaction{}, ctx.Err()
-		case <-s.ctx.Done():
-			return Interaction{}, ErrPanelUnavailable
-		case e := <-ch:
-			if _, err := s.checkReference(ref); err != nil {
-				return Interaction{}, err
-			}
-			return e, nil
-		case <-ticker.C:
-			current, err := s.checkReference(ref)
+		case <-sub.Ready():
+			event, ok, err := sub.Poll()
 			if err != nil {
 				return Interaction{}, err
 			}
-			if component != "" {
-				c, ok := current.Definition.Component(component)
-				if !ok {
-					return Interaction{}, ErrComponentMissing
-				}
-				if c.Event == "" {
-					return Interaction{}, ErrComponentNotInteractive
-				}
+			if ok {
+				return event, nil
 			}
 		}
 	}
+}
+
+type Subscription struct {
+	service *Service
+	ref     Reference
+	source  *signals.Subscription
+}
+
+func (s *Service) Subscribe(ref Reference, component string, capacity int) (*Subscription, error) {
+	p, err := s.checkReference(ref)
+	if err != nil {
+		return nil, err
+	}
+	if component != "" {
+		c, ok := p.Definition.Component(component)
+		if !ok {
+			return nil, ErrComponentMissing
+		}
+		if c.Event == "" {
+			return nil, ErrComponentNotInteractive
+		}
+	}
+	sub, err := s.events.Subscribe(ref.ID, component, capacity)
+	if err != nil {
+		return nil, ErrPanelCapacity
+	}
+	return &Subscription{service: s, ref: ref, source: sub}, nil
+}
+func (s *Subscription) Ready() <-chan struct{} { return s.source.Ready() }
+func (s *Subscription) Close()                 { s.source.Close() }
+func (s *Subscription) Poll() (Interaction, bool, error) {
+	m, ok, err := s.source.Poll()
+	if !ok && err == nil {
+		return Interaction{}, false, nil
+	}
+	if _, e := s.service.checkReference(s.ref); e != nil {
+		return Interaction{}, false, e
+	}
+	if errors.Is(err, signals.ErrOverflow) {
+		err = ErrPanelQueueFull
+	}
+	if errors.Is(err, signals.ErrClosed) {
+		err = ErrPanelUnavailable
+	}
+	if err != nil || !ok {
+		return Interaction{}, false, err
+	}
+	var value any
+	if err = json.Unmarshal(m.Value, &value); err != nil {
+		return Interaction{}, false, ErrInvalidValue
+	}
+	return Interaction{ComponentID: m.SourceID, EventID: m.EventID, Name: m.Name, Value: value}, true, nil
 }
 
 func (s *Service) MarkUpdated(id, runID string) {

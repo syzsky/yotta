@@ -51,7 +51,7 @@ func TestRunRepositoryAppendsPagesRetainsAndInventoriesPayloads(t *testing.T) {
 		}
 		if err := repository.AppendEvent(
 			ctx, runID, current.Generation, current.Digest,
-			current.Generation+1, nextDigest, event, occurredAt,
+			current.Generation+1, nextDigest, event, occurredAt, current.SummaryArtifact,
 		); err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +66,7 @@ func TestRunRepositoryAppendsPagesRetainsAndInventoriesPayloads(t *testing.T) {
 		RunEventRecord{
 			Sequence: 1, Kind: "node-attempt", OccurredAt: startedAt.Add(time.Second),
 			Artifact: []byte(`{"sequence":1}`),
-		}, startedAt.Add(time.Second),
+		}, startedAt.Add(time.Second), running.SummaryArtifact,
 	); !errors.Is(err, ErrRunLedgerConflict) {
 		t.Fatalf("stale AppendEvent = %v", err)
 	}
@@ -153,7 +153,7 @@ func TestRunRepositoryGetNeverMixesAnAppendingHeadAndEventSet(t *testing.T) {
 				RunEventRecord{
 					Sequence: uint64(sequence), Kind: "node-status", OccurredAt: at,
 					Artifact: []byte(fmt.Sprintf(`{"sequence":%d}`, sequence)),
-				}, at,
+				}, at, head.SummaryArtifact,
 			)
 			if err != nil {
 				writerErrors <- err

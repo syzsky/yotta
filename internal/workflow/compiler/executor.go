@@ -40,11 +40,15 @@ type Executor struct {
 	now          func() time.Time
 	monotonicNow func() time.Time
 	wait         func(context.Context, time.Duration) error
+	newTimer     func(time.Duration) (<-chan time.Time, func())
 	entropy      io.Reader
 	entropyMu    sync.Mutex
 }
 
 type ExecutorOptions struct {
+	// NewTimer and MonotonicNow must use the same clock. The timer seam also
+	// controls waits selected alongside asynchronous completion and pause.
+	NewTimer     func(time.Duration) (<-chan time.Time, func())
 	Now          func() time.Time
 	MonotonicNow func() time.Time
 	Entropy      io.Reader
@@ -71,20 +75,36 @@ func NewExecutor(catalog nodecatalog.Snapshot, adapters map[string]nodeadapter.I
 	if options.Entropy == nil {
 		options.Entropy = cryptorand.Reader
 	}
-	if options.Wait == nil {
-		options.Wait = waitContext
+	if options.NewTimer == nil {
+		options.NewTimer = newRuntimeTimer
 	}
-	return &Executor{catalog: catalog, adapters: installed, now: options.Now, monotonicNow: options.MonotonicNow, wait: options.Wait, entropy: options.Entropy}
+	if options.Wait == nil {
+		options.Wait = func(ctx context.Context, d time.Duration) error { return waitWithTimer(ctx, d, options.NewTimer) }
+	}
+	return &Executor{catalog: catalog, adapters: installed, now: options.Now, monotonicNow: options.MonotonicNow, wait: options.Wait, entropy: options.Entropy, newTimer: options.NewTimer}
 }
 
+func newRuntimeTimer(duration time.Duration) (<-chan time.Time, func()) {
+	timer := time.NewTimer(duration)
+	return timer.C, func() { timer.Stop() }
+}
+func (e *Executor) timer(duration time.Duration) (<-chan time.Time, func()) {
+	if e.newTimer != nil {
+		return e.newTimer(duration)
+	}
+	return newRuntimeTimer(duration)
+}
 func waitContext(ctx context.Context, duration time.Duration) error {
+	return waitWithTimer(ctx, duration, newRuntimeTimer)
+}
+func waitWithTimer(ctx context.Context, duration time.Duration, newTimer func(time.Duration) (<-chan time.Time, func())) error {
 	if duration < 0 {
 		return errors.New("wait duration is negative")
 	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
+	timer, stop := newTimer(duration)
+	defer stop()
 	select {
-	case <-timer.C:
+	case <-timer:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -197,6 +217,10 @@ func runValueID(runID string, graphPath []string, nodeID, portID string, attempt
 }
 
 func runErrorForExecution(executionErr error, journal []run.JournalEntry) run.RunError {
+	var preserved *executionFailure
+	if errors.As(executionErr, &preserved) {
+		return preserved.failure
+	}
 	if errors.Is(executionErr, run.ErrGrantDenied) {
 		return run.RunError{Code: "policy.grant_denied", Category: run.ErrorCategoryPolicy}
 	}
@@ -221,6 +245,27 @@ func runErrorForExecution(executionErr error, journal []run.JournalEntry) run.Ru
 		}
 	}
 	return run.RunError{Code: "runtime.execution_failed", Category: run.ErrorCategoryInfrastructure}
+}
+
+type executionFailure struct {
+	cause   error
+	failure run.RunError
+}
+
+func (e *executionFailure) Error() string { return e.cause.Error() }
+func (e *executionFailure) Unwrap() error { return e.cause }
+
+// Capture the initiating failure before cancellation facts rotate the journal
+// tail. Cleanup must not replace the node/code that caused the Run to fail.
+func preserveExecutionFailure(err error, journal *run.JournalWriter) error {
+	if err == nil || journal == nil {
+		return err
+	}
+	var preserved *executionFailure
+	if errors.As(err, &preserved) {
+		return err
+	}
+	return &executionFailure{cause: err, failure: runErrorForExecution(err, journal.Current().Journal())}
 }
 
 func (e *Executor) execute(ctx context.Context, program ProgramSnapshot, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter, control *DebugController) (ExecutionResult, error) {

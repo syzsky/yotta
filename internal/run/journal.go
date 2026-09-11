@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -335,67 +333,6 @@ func validateJournalFact(entry journalEntry) error {
 		}
 	default:
 		return errors.New("invalid Run journal kind")
-	}
-	return nil
-}
-
-func validateJournal(entries []journalEntry, startedAt *time.Time, requireClosed, requireSucceeded bool) error {
-	if len(entries) > MaxJournalEntries || len(entries) > 0 && startedAt == nil {
-		return ErrJournalOrder
-	}
-	active := map[string]struct{}{}
-	latest := map[string]int{}
-	terminal := map[string]AttemptOutcome{}
-	actions := map[string]struct{ failed, cancelled bool }{}
-	var previous time.Time
-	for index, entry := range entries {
-		if entry.Sequence != uint64(index+1) || validateJournalFact(entry) != nil || entry.OccurredAt.Before(*startedAt) || index > 0 && entry.OccurredAt.Before(previous) {
-			return ErrJournalOrder
-		}
-		previous = entry.OccurredAt
-		nodeKey := strings.Join(entry.GraphPath, "\x00") + "\x00" + entry.NodeID
-		attemptKey := fmt.Sprintf("%s\x00%d", nodeKey, entry.Attempt)
-		if entry.Kind == JournalNodeAttempt {
-			switch entry.AttemptOutcome {
-			case AttemptStarted:
-				if _, exists := active[attemptKey]; exists || entry.Attempt != latest[nodeKey]+1 {
-					return ErrJournalOrder
-				}
-				active[attemptKey] = struct{}{}
-				latest[nodeKey] = entry.Attempt
-			default:
-				if _, exists := active[attemptKey]; !exists {
-					return ErrJournalOrder
-				}
-				actionState := actions[attemptKey]
-				if entry.AttemptOutcome == AttemptSucceeded && (actionState.failed || actionState.cancelled) ||
-					entry.AttemptOutcome == AttemptCancelled && actionState.failed {
-					return ErrJournalOrder
-				}
-				delete(active, attemptKey)
-				terminal[nodeKey] = entry.AttemptOutcome
-			}
-		} else if entry.Kind == JournalAdapterAction {
-			if _, exists := active[attemptKey]; !exists {
-				return ErrJournalOrder
-			}
-			actionState := actions[attemptKey]
-			actionState.failed = actionState.failed || entry.ActionOutcome == ActionFailed
-			actionState.cancelled = actionState.cancelled || entry.ActionOutcome == ActionCancelled
-			actions[attemptKey] = actionState
-		} else if _, exists := active[attemptKey]; !exists {
-			return ErrJournalOrder
-		}
-	}
-	if requireClosed && len(active) != 0 {
-		return ErrJournalOrder
-	}
-	if requireSucceeded {
-		for _, outcome := range terminal {
-			if outcome != AttemptSucceeded && outcome != AttemptRouted {
-				return ErrJournalOrder
-			}
-		}
 	}
 	return nil
 }

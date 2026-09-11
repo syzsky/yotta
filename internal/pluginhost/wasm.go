@@ -97,6 +97,7 @@ func (host *WasmHost) Adapters(packages []nodepackage.RuntimePackage) (map[strin
 			}
 			pinned := node
 			result[node.Lock.Entrypoint] = nodeadapter.InstalledAdapter{
+				Blocking:       true,
 				Implementation: node.Lock,
 				Run: func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 					return host.invokeWasm(ctx, pinned, invocation)

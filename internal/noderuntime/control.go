@@ -30,31 +30,38 @@ func branch() nodeadapter.Adapter {
 }
 
 func delay() nodeadapter.Adapter {
-	return func(ctx context.Context, invocation nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
+	return func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 		counters := map[string]int64{}
-		defer func() {
-			runErr = errors.Join(runErr, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
+		finish := func(ctx context.Context, cause error) ([]string, error) {
+			err := cause
+			if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				err = delayFailure(err)
+			}
+			err = errors.Join(err, recordAdapterOutcome(ctx, invocation, nodeadapter.AdapterAction{
 				EffectID: nodes.DelayWaitEffectID, Action: "control.delay-completed", SummaryCode: "control.delay", Counters: counters,
-			}, nodes.DelayFailedCode, runErr))
-		}()
+			}, nodes.DelayFailedCode, err))
+			if err != nil {
+				return nil, err
+			}
+			return []string{"done"}, nil
+		}
 		duration, err := integerInput(invocation, "duration-milliseconds")
 		if err != nil || duration < 0 || duration > nodes.MaxDelayMilliseconds {
-			return nodeadapter.AdapterResult{}, delayFailure(errors.Join(errors.New("delay duration is outside its supported range"), err))
+			_, err = finish(ctx, errors.Join(errors.New("delay duration is outside its supported range"), err))
+			return nodeadapter.AdapterResult{}, err
 		}
-		if invocation.Wait == nil || invocation.EmitStatus == nil {
-			return nodeadapter.AdapterResult{}, delayFailure(errors.New("delay host functions are missing"))
+		if invocation.EmitStatus == nil {
+			_, err := finish(ctx, errors.New("delay status host function is missing"))
+			return nodeadapter.AdapterResult{}, err
 		}
 		counters["duration"] = duration
 		if err := invocation.EmitStatus(ctx, nodes.DelayWaitingStatus, counters); err != nil {
-			return nodeadapter.AdapterResult{}, delayFailure(err)
+			_, err = finish(ctx, err)
+			return nodeadapter.AdapterResult{}, err
 		}
-		if err := invocation.Wait(ctx, time.Duration(duration)*time.Millisecond); err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return nodeadapter.AdapterResult{}, err
-			}
-			return nodeadapter.AdapterResult{}, delayFailure(err)
-		}
-		return nodeadapter.AdapterResult{ExecOutputs: []string{"done"}}, nil
+		return nodeadapter.AdapterResult{Wait: &nodeadapter.WaitRequest{
+			Duration: time.Duration(duration) * time.Millisecond, Complete: finish,
+		}}, nil
 	}
 }
 

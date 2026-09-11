@@ -18,6 +18,8 @@ const (
 	EndBranchNodeID  = "https://schemas.yotta.dev/nodes/control/end-branch"
 	RepeatNodeID     = "https://schemas.yotta.dev/nodes/control/repeat"
 	ForEachNodeID    = "https://schemas.yotta.dev/nodes/control/for-each"
+	PeriodicNodeID   = "https://schemas.yotta.dev/nodes/control/periodic"
+	MonitorNodeID    = "https://schemas.yotta.dev/nodes/control/monitor"
 	RetryNodeID      = "https://schemas.yotta.dev/nodes/control/retry"
 
 	DelayWaitEffectID          = "https://schemas.yotta.dev/effects/time/delay/v1"
@@ -46,6 +48,7 @@ func sealDurationMillisecondsType() (datatype.Definition, error) {
 func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]BuiltinDefinition, error) {
 	booleanType := datatype.RefExpression(types.booleanRef)
 	durationType := datatype.RefExpression(durationRef)
+	defaultCount := json.RawMessage("0")
 	defaultTrue := json.RawMessage("true")
 	defaultDelay := json.RawMessage("1000")
 	defaultRepeat := json.RawMessage("10")
@@ -77,7 +80,7 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 			execution: controlExecution(), instruction: nodecontract.Invoke(),
 		},
 		{
-			id: DelayNodeID, entrypoint: "control.delay", conformance: "cancellable-host-wait/v1",
+			id: DelayNodeID, entrypoint: "control.delay", conformance: "scheduler-owned-timer-continuation/v2",
 			key: "node.control.delay", category: "control", icon: "clock-pause",
 			ports: nodecontract.PortSet{
 				DataInputs:  []nodecontract.DataInputPort{{ID: "duration-milliseconds", Type: durationType, Required: true, Default: &defaultDelay}},
@@ -146,6 +149,27 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 			},
 		},
 	}
+
+	for _, monitored := range []bool{false, true} {
+		id, key, entrypoint := PeriodicNodeID, "node.control.periodic", "control.periodic"
+		v := &nodecontract.TaskInstruction{EntryInput: "in", StopInput: "stop", BodyOutput: "tick", CompletedOutput: "completed", IntervalInput: "interval-milliseconds", CountInput: "count", IndexOutput: "index", OrdinalType: types.integerRef, DurationType: durationRef}
+		ports := nodecontract.PortSet{
+			DataInputs:  []nodecontract.DataInputPort{{ID: "interval-milliseconds", Type: durationType, Required: true, Default: &defaultDelay}, {ID: "count", Type: integerType, Required: true, Default: &defaultCount}},
+			DataOutputs: []nodecontract.DataOutputPort{{ID: "index", Type: integerType}},
+			ExecInputs:  signalList("in", "stop"), ExecOutputs: signalList("tick", "completed"), ErrorOutputs: []nodecontract.SignalPort{},
+		}
+		if monitored {
+			id, key, entrypoint = MonitorNodeID, "node.control.monitor", "control.monitor"
+			v.MainOutput, v.InterruptInput, v.HandlerOutput = "main", "interrupt", "handler"
+			ports.ExecInputs = signalList("in", "stop", "interrupt")
+			ports.ExecOutputs = signalList("main", "tick", "handler", "completed")
+		}
+		statuses := []nodecontract.StatusEventSpec{}
+		for _, code := range []string{nodecontract.TaskStartedStatusID, nodecontract.TaskPausingStatusID, nodecontract.TaskPausedStatusID, nodecontract.TaskResumedStatusID, nodecontract.TaskOverrunStatusID} {
+			statuses = append(statuses, nodecontract.StatusEventSpec{Code: code, Category: nodecontract.StatusProgress})
+		}
+		nodes = append(nodes, controlNode{id: id, key: key, entrypoint: entrypoint, category: "control", icon: "clock-play", conformance: "isolated-periodic-task/v1", ports: ports, execution: regionExecution(), statuses: statuses, instruction: nodecontract.InstructionSpec{Kind: nodecontract.InstructionTask, Task: v}})
+	}
 	definitions := make([]BuiltinDefinition, 0, len(nodes))
 	for _, item := range nodes {
 		configID := item.id + "/config"
@@ -166,7 +190,11 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 		if err != nil {
 			return nil, fmt.Errorf("seal built-in %s: %w", item.id, err)
 		}
-		definition, err := defineBuiltin(contract, item.entrypoint, "v1", item.conformance, nil)
+		implementationVersion := "v1"
+		if item.id == DelayNodeID {
+			implementationVersion = "v2"
+		}
+		definition, err := defineBuiltin(contract, item.entrypoint, implementationVersion, item.conformance, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -177,10 +205,8 @@ func defineControlNodes(types primitiveTypes, durationRef datatype.TypeRef) ([]B
 
 func controlAuthoringTags(nodeID, category string) []string {
 	tags := []string{category, "execution"}
-	if nodeID == DelayNodeID || nodeID == RepeatNodeID {
-		// EventTick was an unsafe ambient background sub-runner in 3.0. Keep its
-		// authoring intent discoverable through the explicit, cancellable loop
-		// primitives that replace it in the current contract.
+	if nodeID == DelayNodeID || nodeID == RepeatNodeID || nodeID == PeriodicNodeID || nodeID == MonitorNodeID {
+		// Make timer and monitoring intent discoverable alongside loop controls.
 		tags = append(tags, "eventtick", "tick", "timer", "polling")
 	}
 	return tags

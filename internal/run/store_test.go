@@ -111,7 +111,7 @@ func TestJournalAppendKeepsPersistedHeadConsistentAcrossTimeline(t *testing.T) {
 		t.Fatalf("persisted head = generation %d digest %s, current = generation %d digest %s",
 			persisted.Generation(), persisted.Digest(), current.Generation(), current.Digest())
 	}
-	if got, want := len(persisted.Journal()), samples+1; got != want {
+	if got, want := persisted.JournalCount(), uint64(samples+1); got != want {
 		t.Fatalf("persisted journal entries = %d, want %d", got, want)
 	}
 }

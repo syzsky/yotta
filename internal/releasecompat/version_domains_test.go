@@ -44,6 +44,14 @@ func TestVersionDomainReleasesFreezeAndRequireReleasedReaders(t *testing.T) {
 	if _, err := releases.Check("4.0.1", v2WithReader, false); err != nil {
 		t.Fatalf("retained released reader: %v", err)
 	}
+	v2WithoutReader[0].MigratableVersions = []string{"1"}
+	if _, err := releases.Check("4.0.1", v2WithoutReader, false); err == nil {
+		t.Fatal("migration accepted without an explicit command")
+	}
+	v2WithoutReader[0].MigrationCommand = "go run ./cmd/migrate --write"
+	if _, err := releases.Check("4.0.1", v2WithoutReader, false); err != nil {
+		t.Fatal("offline conversion was not accepted", err)
+	}
 }
 
 func TestVersionDomainReleasesRejectRemovalClassDriftAndOverwrite(t *testing.T) {

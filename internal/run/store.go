@@ -147,6 +147,10 @@ func (s *Store) Update(ctx context.Context, previous artifact.Digest, next Recor
 
 	if current.Status() == StatusRunning && next.Status() == StatusRunning {
 		entry := next.state.document.Journal[len(next.state.document.Journal)-1]
+		summary, err := ledgerSummary(next)
+		if err != nil {
+			return err
+		}
 		event, err := ledgerEvent(entry)
 		if err != nil {
 			return err
@@ -154,7 +158,7 @@ func (s *Store) Update(ctx context.Context, previous artifact.Digest, next Recor
 		err = s.repository.AppendEvent(
 			ctx, next.Admission().RunID,
 			current.Generation(), current.Digest(),
-			next.Generation(), next.Digest(), event, entry.OccurredAt,
+			next.Generation(), next.Digest(), event, summary.UpdatedAt, summary.SummaryArtifact,
 		)
 		return mapRunRepositoryError(err)
 	}
@@ -190,6 +194,10 @@ func (s *Store) appendJournal(ctx context.Context, current, next Record) error {
 		return ErrRunTransition
 	}
 	entry := next.state.document.Journal[len(next.state.document.Journal)-1]
+	summary, err := ledgerSummary(next)
+	if err != nil {
+		return err
+	}
 	event, err := ledgerEvent(entry)
 	if err != nil {
 		return err
@@ -199,7 +207,7 @@ func (s *Store) appendJournal(ctx context.Context, current, next Record) error {
 	err = s.repository.AppendEvent(
 		ctx, next.Admission().RunID,
 		current.Generation(), current.Digest(),
-		next.Generation(), next.Digest(), event, entry.OccurredAt,
+		next.Generation(), next.Digest(), event, summary.UpdatedAt, summary.SummaryArtifact,
 	)
 	return mapRunRepositoryError(err)
 }
@@ -212,7 +220,7 @@ func (s *Store) Load(runID string) (Record, error) {
 }
 
 func (s *Store) load(ctx context.Context, runID string) (Record, error) {
-	stored, err := s.repository.Get(ctx, runID)
+	stored, err := s.repository.GetTail(ctx, runID, JournalSegmentEntries)
 	if err != nil {
 		return Record{}, mapRunRepositoryError(err)
 	}
@@ -224,7 +232,7 @@ func (s *Store) load(ctx context.Context, runID string) (Record, error) {
 }
 
 func (s *Store) List() ([]Record, error) {
-	stored, err := s.repository.List(context.Background())
+	stored, err := s.repository.ListTail(context.Background(), JournalSegmentEntries)
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +245,34 @@ func (s *Store) List() ([]Record, error) {
 		result = append(result, record)
 	}
 	return result, nil
+}
+
+// TimelineSnapshot explicitly loads full history for export. Ordinary Run reads
+// and UI pages remain bounded; the repository read transaction fixes one head.
+func (s *Store) TimelineSnapshot(ctx context.Context, runID string) (TimelinePage, error) {
+	if ctx == nil {
+		return TimelinePage{}, errors.New("run timeline requires a context")
+	}
+	if err := runid.Validate(runID); err != nil {
+		return TimelinePage{}, err
+	}
+	stored, err := s.repository.Get(ctx, runID)
+	if err != nil {
+		return TimelinePage{}, mapRunRepositoryError(err)
+	}
+	summary, err := openLedgerSummary(stored.Summary)
+	if err != nil {
+		return TimelinePage{}, err
+	}
+	entries := make([]JournalEntry, 0, len(stored.Events))
+	for _, event := range stored.Events {
+		entry, err := openLedgerEvent(event)
+		if err != nil {
+			return TimelinePage{}, err
+		}
+		entries = append(entries, journalEntryView(entry))
+	}
+	return TimelinePage{Summary: summary, Entries: entries, Page: 1, Pages: 1, Total: len(entries)}, nil
 }
 
 func (s *Store) TimelinePage(ctx context.Context, runID string, page, pageSize int) (TimelinePage, error) {
@@ -381,8 +417,19 @@ func validSuccessor(current, next Record) bool {
 	currentJournal := current.state.document.Journal
 	nextJournal := next.state.document.Journal
 	if current.Status() == StatusRunning && next.Status() == StatusRunning {
-		if len(nextJournal) != len(currentJournal)+1 ||
-			!reflect.DeepEqual(nextJournal[:len(currentJournal)], currentJournal) {
+		if next.JournalCount() != current.JournalCount()+1 || len(nextJournal) == 0 {
+			return false
+		}
+		if len(currentJournal) == JournalSegmentEntries {
+			base := newJournalCheckpoint()
+			if current.state.document.Checkpoint != nil {
+				base = *current.state.document.Checkpoint
+			}
+			checkpoint, err := base.archive(currentJournal, current.state.document.StartedAt)
+			if err != nil || len(nextJournal) != 1 || !reflect.DeepEqual(next.state.document.Checkpoint, &checkpoint) {
+				return false
+			}
+		} else if len(nextJournal) != len(currentJournal)+1 || !reflect.DeepEqual(nextJournal[:len(currentJournal)], currentJournal) || !reflect.DeepEqual(current.state.document.Checkpoint, next.state.document.Checkpoint) {
 			return false
 		}
 		currentDocument := current.state.document
@@ -390,9 +437,10 @@ func validSuccessor(current, next Record) bool {
 		currentDocument.RecordDigest, nextDocument.RecordDigest = "", ""
 		currentDocument.Generation, nextDocument.Generation = 0, 0
 		currentDocument.Journal, nextDocument.Journal = nil, nil
+		currentDocument.Checkpoint, nextDocument.Checkpoint = nil, nil
 		return reflect.DeepEqual(currentDocument, nextDocument)
 	}
-	if !reflect.DeepEqual(currentJournal, nextJournal) {
+	if !reflect.DeepEqual(currentJournal, nextJournal) || !reflect.DeepEqual(current.state.document.Checkpoint, next.state.document.Checkpoint) {
 		return false
 	}
 	switch current.Status() {

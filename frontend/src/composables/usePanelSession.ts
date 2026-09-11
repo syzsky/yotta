@@ -16,6 +16,9 @@ export function usePanelSession(
   let disposed = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let reading = false
+  let actions: Promise<void> = Promise.resolve()
+  let queued = 0
+  let actionEpoch = 0
 
   function accept(value: PanelSnapshot) {
     const previous = snapshot.value
@@ -48,32 +51,61 @@ export function usePanelSession(
         timer = setTimeout(() => void refresh(), failure.value ? 2000 : 250)
     }
   }
-  async function dispatch(component: PanelComponent, value: unknown) {
+  async function dispatch(component: PanelComponent, value: unknown, allowQueue = false) {
     const state = snapshot.value
-    if (!state || busy.value || !component.event || failure.value || state.status === 'ended')
+    if (!state || disposed || !component.event || failure.value || state.status === 'ended') return
+    if (queued > 0 && (component.kind !== 'button' || !allowQueue)) return
+    if (queued >= 64) {
+      actionFailure.value = errorMessage({ id: 'panels.queue_full' })
       return
-    const current = generation
-    busy.value = component.id
-    actionFailure.value = ''
-    try {
-      const result = await api.dispatch(id.value, {
-        sessionId: state.sessionId,
-        eventId: crypto.randomUUID(),
-        componentId: component.id,
-        name: component.event,
-        revision: state.controlRevisions?.[component.id] ?? 0,
-        value,
-      })
-      if (generation === current && !disposed && snapshot.value?.sessionId === state.sessionId)
-        accept(result.snapshot)
-    } catch (error) {
-      if (generation === current && !disposed) actionFailure.value = errorMessage(error)
-    } finally {
-      if (generation === current) busy.value = ''
     }
+    const current = generation,
+      epoch = actionEpoch,
+      source = id.value,
+      sessionId = state.sessionId
+    const eventId = crypto.randomUUID()
+    queued++
+    const action = actions
+      .then(async () => {
+        if (
+          disposed ||
+          generation !== current ||
+          actionEpoch !== epoch ||
+          snapshot.value?.sessionId !== sessionId
+        )
+          return
+        busy.value = component.id
+        actionFailure.value = ''
+        try {
+          const result = await api.dispatch(source, {
+            sessionId,
+            eventId,
+            componentId: component.id,
+            name: component.event!,
+            revision: snapshot.value.controlRevisions?.[component.id] ?? 0,
+            value,
+          })
+          if (generation === current && !disposed && snapshot.value?.sessionId === sessionId)
+            accept(result.snapshot)
+        } catch (error) {
+          if (generation === current && !disposed) {
+            actionFailure.value = errorMessage(error)
+            actionEpoch++
+          }
+        } finally {
+          if (generation === current) busy.value = ''
+        }
+      })
+      .finally(() => {
+        if (generation === current) queued--
+      })
+    actions = action
+    await action
   }
   watch(id, () => {
     generation++
+    actionEpoch++
+    queued = 0
     snapshot.value = null
     failure.value = ''
     actionFailure.value = ''

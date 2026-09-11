@@ -711,14 +711,14 @@ func regionSignalScopeViolations(ctx context.Context, graph programGraph) ([]reg
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		bodyOutput, controlInputs := regionInstructionPorts(region.Instruction)
-		if bodyOutput == "" {
+		bodyOutputs, controlInputs := regionInstructionPorts(region.Instruction)
+		if len(bodyOutputs) == 0 {
 			continue
 		}
 		reachable := map[string]bool{}
 		queue := []string{}
 		for _, route := range outgoing[region.ID] {
-			if route.Channel == schema.EdgeExec && route.From.PortID == bodyOutput && route.To.NodeID != region.ID {
+			if route.Channel == schema.EdgeExec && bodyOutputs[route.From.PortID] && route.To.NodeID != region.ID {
 				queue = append(queue, route.To.NodeID)
 			}
 		}
@@ -751,7 +751,7 @@ func regionSignalScopeViolations(ctx context.Context, graph programGraph) ([]reg
 			}
 			external[nodeID] = true
 			for _, route := range outgoing[nodeID] {
-				if route.From.NodeID == region.ID && route.From.PortID == bodyOutput {
+				if route.From.NodeID == region.ID && bodyOutputs[route.From.PortID] {
 					continue
 				}
 				if !external[route.To.NodeID] {
@@ -763,7 +763,7 @@ func regionSignalScopeViolations(ctx context.Context, graph programGraph) ([]reg
 			if route.To.NodeID != region.ID || !controlInputs[route.To.PortID] {
 				continue
 			}
-			directBodySignal := route.From.NodeID == region.ID && route.From.PortID == bodyOutput
+			directBodySignal := route.From.NodeID == region.ID && bodyOutputs[route.From.PortID]
 			inside := directBodySignal || reachable[route.From.NodeID] && !external[route.From.NodeID]
 			if !inside {
 				violations = append(violations, regionSignalScopeViolation{
@@ -785,28 +785,48 @@ func signalExecutionRoots(graph programGraph) []string {
 	return roots
 }
 
-func regionInstructionPorts(instruction nodecontract.InstructionSpec) (string, map[string]bool) {
+func regionInstructionPorts(instruction nodecontract.InstructionSpec) (map[string]bool, map[string]bool) {
 	switch instruction.Kind {
+	case nodecontract.InstructionInvoke:
+		if instruction.Invoke != nil && instruction.Invoke.Subscription != nil {
+			v := instruction.Invoke.Subscription
+			return map[string]bool{v.EventOutput: true, v.MainOutput: true}, map[string]bool{v.StopInput: true}
+		}
+		return nil, nil
+
+	case nodecontract.InstructionTask:
+		v := instruction.Task
+		if v == nil {
+			return nil, nil
+		}
+		outputs := map[string]bool{v.BodyOutput: true}
+		inputs := map[string]bool{v.StopInput: true}
+		if v.MainOutput != "" {
+			outputs[v.MainOutput] = true
+			outputs[v.HandlerOutput] = true
+			inputs[v.InterruptInput] = true
+		}
+		return outputs, inputs
 	case nodecontract.InstructionCountedLoop:
 		spec := instruction.CountedLoop
 		if spec == nil {
-			return "", nil
+			return nil, nil
 		}
-		return spec.BodyOutput, map[string]bool{spec.BreakInput: true, spec.ContinueInput: true}
+		return map[string]bool{spec.BodyOutput: true}, map[string]bool{spec.BreakInput: true, spec.ContinueInput: true}
 	case nodecontract.InstructionForEach:
 		spec := instruction.ForEach
 		if spec == nil {
-			return "", nil
+			return nil, nil
 		}
-		return spec.BodyOutput, map[string]bool{spec.BreakInput: true, spec.ContinueInput: true}
+		return map[string]bool{spec.BodyOutput: true}, map[string]bool{spec.BreakInput: true, spec.ContinueInput: true}
 	case nodecontract.InstructionRetry:
 		spec := instruction.Retry
 		if spec == nil {
-			return "", nil
+			return nil, nil
 		}
-		return spec.BodyOutput, map[string]bool{spec.RetryInput: true}
+		return map[string]bool{spec.BodyOutput: true}, map[string]bool{spec.RetryInput: true}
 	default:
-		return "", nil
+		return nil, nil
 	}
 }
 

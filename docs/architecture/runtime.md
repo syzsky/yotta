@@ -21,6 +21,10 @@ presentation 不得绕过它们直接拼 Source Store、Compiler、Executor 或�
 
 ## Node execution
 
+同一 Run 内由 executionGroup 公平推进 Scope。每个 Scope 保存队列、控制帧、输出快照、期限等待和在途操作；图状态仅由调度线程写入。阻塞 adapter 使用有界 worker，完成后回到该线程发布结果。周期与监测是正式 task 指令，不是旁路执行器。任务暂停冻结有效时间，并等待输入释放确认；Windows 输入协调跨 Run 和目标别名共享物理桌面域。
+
+Application 使用有界并行 Run workers，超出上限的启动保持排队。RunRecord 只保留近期 journal 段及验证 checkpoint；Run Ledger 保留全部事件，分页与导出不得将内存尾部误作完整历史。具体连接和恢复语义见[周期任务](../product/periodic-tasks.md)。
+
 - `internal/datatype/` 定义精确类型和表示；`internal/nodecontract/` 定义端口、执行、错误、状态、Target、
   capability 和 implementation ABI。
 - `internal/nodes/` 显式组装内建定义，`internal/nodecatalog/` seal immutable snapshot，

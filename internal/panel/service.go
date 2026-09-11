@@ -15,28 +15,30 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/apperr"
+	"github.com/yottaapp/yotta/internal/signals"
 	contract "github.com/yottaapp/yotta/sdk/plugin/panel"
 )
 
 type Source struct {
-	PublisherNamespace string              `json:"-"`
-	PackageVersion     string              `json:"-"`
-	WaitingComponents  []string            `json:"waitingComponents"`
-	Waiting            int                 `json:"waiting"`
-	UpdatedAt          string              `json:"updatedAt,omitempty"`
-	LastRunID          string              `json:"lastRunId,omitempty"`
-	LastRunStatus      string              `json:"lastRunStatus,omitempty"`
-	Managed            bool                `json:"managed"`
-	ID                 string              `json:"id"`
-	OwnerID            string              `json:"ownerId"`
-	OwnerName          string              `json:"ownerName"`
-	Generation         string              `json:"generation"`
-	Status             string              `json:"status,omitempty"`
-	Definition         contract.Definition `json:"definition"`
-	Origin             string              `json:"-"`
-	CompanionID        string              `json:"-"`
-	SnapshotPath       string              `json:"-"`
-	EventPath          string              `json:"-"`
+	ListeningComponents []string            `json:"listeningComponents"`
+	PublisherNamespace  string              `json:"-"`
+	PackageVersion      string              `json:"-"`
+	WaitingComponents   []string            `json:"waitingComponents"`
+	Waiting             int                 `json:"waiting"`
+	UpdatedAt           string              `json:"updatedAt,omitempty"`
+	LastRunID           string              `json:"lastRunId,omitempty"`
+	LastRunStatus       string              `json:"lastRunStatus,omitempty"`
+	Managed             bool                `json:"managed"`
+	ID                  string              `json:"id"`
+	OwnerID             string              `json:"ownerId"`
+	OwnerName           string              `json:"ownerName"`
+	Generation          string              `json:"generation"`
+	Status              string              `json:"status,omitempty"`
+	Definition          contract.Definition `json:"definition"`
+	Origin              string              `json:"-"`
+	CompanionID         string              `json:"-"`
+	SnapshotPath        string              `json:"-"`
+	EventPath           string              `json:"-"`
 }
 type Catalog interface {
 	PanelSources() []Source
@@ -53,7 +55,7 @@ type Service struct {
 	managed       *managedStore
 	show          func(string) error
 	selected      string
-	listeners     map[string]map[chan Interaction]string
+	events        signals.Hub
 	received      map[string]bool
 	receivedOrder []string
 }
@@ -61,7 +63,7 @@ type Service struct {
 func New(catalog Catalog) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	m, _ := openManaged("")
-	return &Service{managed: m, received: map[string]bool{}, listeners: map[string]map[chan Interaction]string{}, catalog: catalog, ctx: ctx, cancel: cancel, client: &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	return &Service{managed: m, received: map[string]bool{}, catalog: catalog, ctx: ctx, cancel: cancel, client: &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 }
 func problem(id string, cause error) error {
 	if cause == nil {
@@ -83,6 +85,7 @@ func (s *Service) Close() error {
 	s.closed = true
 	s.cancel()
 	s.managed.close()
+	s.events.Close()
 	s.mu.Unlock()
 	s.active.Wait()
 	s.client.CloseIdleConnections()
@@ -99,10 +102,13 @@ func (s *Service) List() []Source {
 	}
 	s.mu.Lock()
 	for i := range out {
-		out[i].Waiting = len(s.listeners[out[i].ID])
+		subscribers := s.events.Subscribers(out[i].ID)
+		out[i].Waiting = len(subscribers)
+		out[i].ListeningComponents = s.events.ContinuousSubscribers(out[i].ID)
+		sort.Strings(out[i].ListeningComponents)
 		unique := map[string]bool{}
 		out[i].WaitingComponents = []string{}
-		for _, component := range s.listeners[out[i].ID] {
+		for _, component := range subscribers {
 			if !unique[component] {
 				unique[component] = true
 				out[i].WaitingComponents = append(out[i].WaitingComponents, component)

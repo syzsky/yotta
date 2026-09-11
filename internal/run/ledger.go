@@ -16,28 +16,29 @@ import (
 
 const (
 	LedgerSummaryFormat  = "yotta.run-summary"
-	LedgerSummaryVersion = "1"
+	LedgerSummaryVersion = "2"
 )
 
 type ledgerSummaryDocument struct {
-	Format               string          `json:"format"`
-	Version              string          `json:"version"`
-	RunID                string          `json:"runId"`
-	WorkflowID           string          `json:"workflowId,omitempty"`
-	SourceHash           artifact.Digest `json:"sourceHash,omitempty"`
-	SourceRevision       int64           `json:"sourceRevision,omitempty"`
-	ProgramHash          artifact.Digest `json:"programHash"`
-	CatalogHash          artifact.Digest `json:"catalogHash"`
-	CapabilityPlanDigest artifact.Digest `json:"capabilityPlanDigest"`
-	GrantDigest          artifact.Digest `json:"grantDigest"`
-	GrantArtifact        json.RawMessage `json:"grant"`
-	PolicyGeneration     string          `json:"policyGeneration"`
-	Principal            string          `json:"principal"`
-	Status               Status          `json:"status"`
-	QueuedAt             time.Time       `json:"queuedAt"`
-	StartedAt            *time.Time      `json:"startedAt,omitempty"`
-	EndedAt              *time.Time      `json:"endedAt,omitempty"`
-	Error                *RunError       `json:"error,omitempty"`
+	Format               string             `json:"format"`
+	Version              string             `json:"version"`
+	RunID                string             `json:"runId"`
+	WorkflowID           string             `json:"workflowId,omitempty"`
+	SourceHash           artifact.Digest    `json:"sourceHash,omitempty"`
+	SourceRevision       int64              `json:"sourceRevision,omitempty"`
+	ProgramHash          artifact.Digest    `json:"programHash"`
+	CatalogHash          artifact.Digest    `json:"catalogHash"`
+	CapabilityPlanDigest artifact.Digest    `json:"capabilityPlanDigest"`
+	GrantDigest          artifact.Digest    `json:"grantDigest"`
+	GrantArtifact        json.RawMessage    `json:"grant"`
+	PolicyGeneration     string             `json:"policyGeneration"`
+	Principal            string             `json:"principal"`
+	Status               Status             `json:"status"`
+	QueuedAt             time.Time          `json:"queuedAt"`
+	StartedAt            *time.Time         `json:"startedAt,omitempty"`
+	EndedAt              *time.Time         `json:"endedAt,omitempty"`
+	Error                *RunError          `json:"error,omitempty"`
+	Checkpoint           *journalCheckpoint `json:"checkpoint,omitempty"`
 }
 
 // Summary is the bounded Run projection needed by timeline and list views.
@@ -59,6 +60,9 @@ type TimelinePage struct {
 }
 
 func ledgerRecord(record Record, valueCatalog datatype.ValueTypeCatalog) (catalog.RunLedgerRecord, error) {
+	if record.state.document.Checkpoint != nil {
+		return catalog.RunLedgerRecord{}, errors.New("segmented Run import requires its archived ledger events")
+	}
 	summary, err := ledgerSummary(record)
 	if err != nil {
 		return catalog.RunLedgerRecord{}, err
@@ -93,6 +97,7 @@ func ledgerSummary(record Record) (catalog.RunSummaryRecord, error) {
 		PolicyGeneration: document.PolicyGeneration, Principal: document.Principal,
 		Status: document.Status, QueuedAt: document.QueuedAt, StartedAt: document.StartedAt,
 		EndedAt: document.EndedAt, Error: document.Error,
+		Checkpoint: document.Checkpoint,
 	})
 	if err != nil {
 		return catalog.RunSummaryRecord{}, err
@@ -101,8 +106,13 @@ func ledgerSummary(record Record) (catalog.RunSummaryRecord, error) {
 	if document.StartedAt != nil {
 		updatedAt = *document.StartedAt
 	}
-	if len(document.Journal) != 0 {
-		updatedAt = document.Journal[len(document.Journal)-1].OccurredAt
+	if document.Checkpoint != nil && document.Checkpoint.LastAt.After(updatedAt) {
+		updatedAt = document.Checkpoint.LastAt
+	}
+	for _, entry := range document.Journal {
+		if entry.OccurredAt.After(updatedAt) {
+			updatedAt = entry.OccurredAt
+		}
 	}
 	if document.EndedAt != nil {
 		updatedAt = *document.EndedAt
@@ -112,7 +122,7 @@ func ledgerSummary(record Record) (catalog.RunSummaryRecord, error) {
 		Digest: document.RecordDigest, Status: string(document.Status),
 		QueuedAt: document.QueuedAt, StartedAt: document.StartedAt,
 		EndedAt: document.EndedAt, SummaryArtifact: artifactBytes,
-		JournalCount: uint64(len(document.Journal)), UpdatedAt: updatedAt,
+		JournalCount: record.JournalCount(), UpdatedAt: updatedAt,
 	}, nil
 }
 
@@ -160,6 +170,9 @@ func openLedgerRecord(record catalog.RunLedgerRecord, valueCatalog datatype.Valu
 	}
 	events := make([]journalEntry, 0, len(record.Events))
 	for _, stored := range record.Events {
+		if summary.Checkpoint != nil && stored.Sequence <= summary.Checkpoint.Sequence {
+			continue
+		}
 		entry, err := openLedgerEvent(stored)
 		if err != nil {
 			return Record{}, err
@@ -182,6 +195,9 @@ func openLedgerRecord(record catalog.RunLedgerRecord, valueCatalog datatype.Valu
 	if sealed.Digest() != record.Summary.Digest {
 		return Record{}, errors.New("run Ledger head digest mismatch")
 	}
+	if sealed.JournalCount() != record.Summary.JournalCount {
+		return Record{}, errors.New("run Ledger journal count mismatch")
+	}
 	return sealed, nil
 }
 
@@ -191,6 +207,12 @@ func openLedgerSummary(record catalog.RunSummaryRecord) (Summary, error) {
 		return Summary{}, err
 	}
 	probe := document.recordDocument(record.Generation, record.Digest, []journalEntry{}, []durableValue{})
+	probe.Checkpoint = nil
+	if document.Checkpoint != nil {
+		if err := document.Checkpoint.validate(document.StartedAt); err != nil {
+			return Summary{}, err
+		}
+	}
 	if _, err := sealRecord(probe, nil); err != nil {
 		return Summary{}, err
 	}
@@ -287,7 +309,7 @@ func (d ledgerSummaryDocument) recordDocument(
 		PolicyGeneration: d.PolicyGeneration, Principal: d.Principal,
 		Status: d.Status, QueuedAt: d.QueuedAt, StartedAt: cloneRunTime(d.StartedAt),
 		EndedAt: cloneRunTime(d.EndedAt), Error: cloneRunError(d.Error),
-		Journal: journal, Values: values,
+		Journal: journal, Values: values, Checkpoint: d.Checkpoint,
 	}
 }
 

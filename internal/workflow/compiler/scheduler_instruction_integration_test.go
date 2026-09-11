@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/capability"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -97,23 +99,43 @@ func TestSchedulerRetriesOnlyExplicitRoutedFailure(t *testing.T) {
 	}`, started.NodeTypeID, started.SemanticDigest, retry.NodeTypeID, retry.SemanticDigest,
 		delay.NodeTypeID, delay.SemanticDigest, end.NodeTypeID, end.SemanticDigest))
 	program := compileSchedulerInstructionProgram(t, builtins, source)
-	waits := 0
-	execution, journal := runSchedulerInstructionProgram(t, builtins, program, compiler.ExecutorOptions{
-		Wait: func(context.Context, time.Duration) error {
-			waits++
-			if waits < 3 {
-				return errors.New("transient wait failure")
+	for _, test := range []struct {
+		name      string
+		failures  int
+		exhausted bool
+	}{
+		{"eventual success", 2, false}, {"exhausted", 3, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			waits := 0
+			execution, journal := runSchedulerInstructionProgram(t, builtins, program, compiler.ExecutorOptions{
+				Wait: func(context.Context, time.Duration) error {
+					waits++
+					if waits <= test.failures {
+						return errors.New("transient wait failure")
+					}
+					return nil
+				},
+			})
+			var attempt int64
+			if err := json.Unmarshal(execution.NodeOutputs["retry"]["attempt"].InlineJSON(), &attempt); err != nil || waits != 3 || attempt != 3 {
+				t.Fatalf("waits=%d attempt=%d error=%v", waits, attempt, err)
 			}
-			return nil
-		},
-	})
-	var attempt int64
-	if err := json.Unmarshal(execution.NodeOutputs["retry"]["attempt"].InlineJSON(), &attempt); err != nil || waits != 3 || attempt != 3 {
-		t.Fatalf("waits=%d attempt=%d error=%v", waits, attempt, err)
+			exhausted := 0
+			for _, fact := range journal.Current().Journal() {
+				if fact.Kind == run.JournalNodeStatus && fact.StatusCode == nodecontract.RetryExhaustedStatusID {
+					exhausted++
+				}
+			}
+			if (exhausted == 1) != test.exhausted || exhausted > 1 {
+				t.Fatalf("exhaustion facts=%d, expected exhausted=%v", exhausted, test.exhausted)
+			}
+			if journal.Current().Status() != run.StatusSucceeded {
+				t.Fatalf("Run status = %s", journal.Current().Status())
+			}
+		})
 	}
-	if journal.Current().Status() != run.StatusSucceeded {
-		t.Fatalf("Run status = %s", journal.Current().Status())
-	}
+
 }
 
 func TestDebugStepPausesInsideCountedLoopInsteadOfRunningTheRegion(t *testing.T) {
@@ -310,7 +332,7 @@ type schedulerInstructionRuntime struct {
 	journal  *run.JournalWriter
 }
 
-func prepareSchedulerInstructionRuntime(t *testing.T, builtins nodes.Builtins, program compiler.ProgramSnapshot, options compiler.ExecutorOptions) schedulerInstructionRuntime {
+func prepareSchedulerInstructionRuntime(t *testing.T, builtins nodes.Builtins, program compiler.ProgramSnapshot, options compiler.ExecutorOptions, configure ...func(map[string]nodeadapter.InstalledAdapter)) schedulerInstructionRuntime {
 	t.Helper()
 	now := time.Date(2026, 7, 17, 2, 0, 0, 0, time.UTC)
 	id, err := runid.New()
@@ -364,7 +386,372 @@ func prepareSchedulerInstructionRuntime(t *testing.T, builtins nodes.Builtins, p
 	if options.Now == nil {
 		options.Now = func() time.Time { return now }
 	}
+	if options.MonotonicNow == nil && options.Wait != nil {
+		options.MonotonicNow = options.Now
+	}
+	for _, customize := range configure {
+		customize(adapters)
+	}
 	return schedulerInstructionRuntime{
 		executor: compiler.NewExecutor(builtins.Catalog, adapters, options), owner: owner, journal: journal,
+	}
+}
+
+// Nested regions must resume the correct parent queue, including when an inner
+// body routes control to an outer frame. The observations are real delay effects.
+func TestSchedulerNestedRegionContinuations(t *testing.T) {
+	for _, test := range []struct {
+		name, target, port string
+		outerCount         int
+		want               []time.Duration
+	}{
+		{"complete", "", "", 2, []time.Duration{1, 1, 1, 2, 1, 1, 1, 2, 3}},
+		{"inner break", "inner", "break", 2, []time.Duration{1, 2, 1, 2, 3}},
+		{"inner continue", "inner", "continue", 2, []time.Duration{1, 1, 1, 2, 1, 1, 1, 2, 3}},
+		{"outer break", "outer", "break", 2, []time.Duration{1, 3}},
+		{"outer continue", "outer", "continue", 2, []time.Duration{1, 1, 3}},
+		{"empty outer", "", "", 0, []time.Duration{3}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			builtins := schedulerBuiltins(t)
+			source := nestedRegionSource(t, builtins, test.outerCount, test.target, test.port)
+			program := compileSchedulerInstructionProgram(t, builtins, source)
+			var observed []time.Duration
+			_, journal := runSchedulerInstructionProgram(t, builtins, program, compiler.ExecutorOptions{
+				Wait: func(_ context.Context, d time.Duration) error {
+					observed = append(observed, d/time.Millisecond)
+					return nil
+				},
+			})
+			if !reflect.DeepEqual(observed, test.want) {
+				t.Fatalf("observations = %v, want %v", observed, test.want)
+			}
+			if journal.Current().Status() != run.StatusSucceeded {
+				t.Fatalf("status = %s", journal.Current().Status())
+			}
+		})
+	}
+}
+
+func TestSchedulerCancellationClosesAllActiveRegionFrames(t *testing.T) {
+	builtins := schedulerBuiltins(t)
+	program := compileSchedulerInstructionProgram(t, builtins, nestedRegionSource(t, builtins, 2, "", ""))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runtime := prepareSchedulerInstructionRuntime(t, builtins, program, compiler.ExecutorOptions{
+		Wait: func(context.Context, time.Duration) error { cancel(); return ctx.Err() },
+	})
+	_, err := runtime.executor.Run(ctx, program, runtime.owner, runtime.journal)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v", err)
+	}
+	closed := map[string]int{}
+	for _, fact := range runtime.journal.Current().Journal() {
+		if fact.Kind == run.JournalNodeAttempt && fact.AttemptOutcome == run.AttemptCancelled {
+			closed[fact.NodeID]++
+		}
+	}
+	for _, id := range []string{"outer", "inner", "body"} {
+		if closed[id] != 1 {
+			t.Fatalf("cancelled attempts = %v, expected exactly one for %s", closed, id)
+		}
+	}
+}
+
+func nestedRegionSource(t *testing.T, builtins nodes.Builtins, count int, target, port string) []byte {
+	t.Helper()
+	node := func(id, kind string, bindings map[string]any) map[string]any {
+		return map[string]any{"id": id, "nodeRef": schedulerNodeRef(t, builtins, kind), "position": map[string]int{"x": 0, "y": 0}, "config": map[string]any{}, "bindings": bindings}
+	}
+	value := func(port string, n int) map[string]any {
+		return map[string]any{port: map[string]any{"kind": "value", "value": n}}
+	}
+	edge := func(from, output, to, input string) map[string]any {
+		return map[string]any{"channel": "exec", "from": map[string]string{"nodeId": from, "portId": output}, "to": map[string]string{"nodeId": to, "portId": input}}
+	}
+	edges := []map[string]any{
+		edge("started", "started", "outer", "in"), edge("outer", "body", "inner", "in"),
+		edge("inner", "body", "body", "in"), edge("inner", "completed", "after-inner", "in"),
+		edge("outer", "completed", "after-outer", "in"),
+	}
+	if target != "" {
+		edges = append(edges, edge("body", "done", target, port))
+	}
+	source := map[string]any{
+		"format": "yotta.workflow", "version": "1", "workflow": map[string]string{"id": "wf-nested", "name": "Nested"}, "revision": 0, "entryGraph": "main",
+		"graphs": []any{map[string]any{"id": "main", "kind": "main", "nodes": []any{
+			node("started", nodes.RunStartedNodeID, map[string]any{}), node("outer", nodes.RepeatNodeID, value("count", count)),
+			node("inner", nodes.RepeatNodeID, value("count", 3)), node("body", nodes.DelayNodeID, value("duration-milliseconds", 1)),
+			node("after-inner", nodes.DelayNodeID, value("duration-milliseconds", 2)), node("after-outer", nodes.DelayNodeID, value("duration-milliseconds", 3)),
+		}, "edges": edges, "inputs": []any{}, "outputs": []any{}}},
+		"variables": []any{}, "resources": []any{}, "targetProfileDefinitions": []any{}, "credentialRequirements": []any{}, "dependencies": []any{},
+	}
+	raw, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func TestPendingTimersAdvanceIndependentBranches(t *testing.T) {
+	builtins := schedulerBuiltins(t)
+	for _, overlap := range []bool{false, true} {
+		t.Run(fmt.Sprintf("overlap=%t", overlap), func(t *testing.T) {
+			program := compileSchedulerInstructionProgram(t, builtins, timerBranchSource(t, builtins, false, overlap))
+			now := time.Date(2026, 7, 17, 2, 0, 0, 0, time.UTC)
+			start := now
+			options := compiler.ExecutorOptions{Now: func() time.Time { return now }, MonotonicNow: func() time.Time { return now }, Wait: func(_ context.Context, d time.Duration) error { now = now.Add(d); return nil }}
+			_, journal := runSchedulerInstructionProgram(t, builtins, program, options)
+			var completed []string
+			for _, fact := range journal.Current().Journal() {
+				if fact.Kind == run.JournalNodeAttempt && fact.AttemptOutcome == run.AttemptSucceeded && fact.NodeID != "started" {
+					completed = append(completed, fmt.Sprintf("%s:%d", fact.NodeID, fact.Attempt))
+				}
+			}
+			want := []string{"after-inner:1", "after-outer:1", "body:1"}
+			elapsed := 100 * time.Millisecond
+			if overlap {
+				want = []string{"after-inner:1", "body:1", "body:2"}
+				elapsed = 110 * time.Millisecond
+			}
+			if !reflect.DeepEqual(completed, want) || now.Sub(start) != elapsed {
+				t.Fatalf("completed=%v elapsed=%v, want %v %v", completed, now.Sub(start), want, elapsed)
+			}
+		})
+	}
+}
+
+func TestRegionBreakCancelsPendingSiblingBeforeCompleting(t *testing.T) {
+	builtins := schedulerBuiltins(t)
+	program := compileSchedulerInstructionProgram(t, builtins, timerBranchSource(t, builtins, true, false))
+	now := time.Date(2026, 7, 17, 2, 0, 0, 0, time.UTC)
+	start := now
+	_, journal := runSchedulerInstructionProgram(t, builtins, program, compiler.ExecutorOptions{
+		Now: func() time.Time { return now }, MonotonicNow: func() time.Time { return now }, Wait: func(_ context.Context, d time.Duration) error { now = now.Add(d); return nil },
+	})
+	cancelled := 0
+	for _, fact := range journal.Current().Journal() {
+		if fact.Kind == run.JournalNodeAttempt && fact.NodeID == "body" && fact.AttemptOutcome == run.AttemptCancelled {
+			cancelled++
+		}
+	}
+	if cancelled != 1 || now.Sub(start) != 15*time.Millisecond || journal.Current().Status() != run.StatusSucceeded {
+		t.Fatalf("cancelled=%d elapsed=%v status=%s", cancelled, now.Sub(start), journal.Current().Status())
+	}
+}
+
+func TestRunCancellationDrainsAllPendingTimers(t *testing.T) {
+	builtins := schedulerBuiltins(t)
+	program := compileSchedulerInstructionProgram(t, builtins, timerBranchSource(t, builtins, false, false))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	now := time.Date(2026, 7, 17, 2, 0, 0, 0, time.UTC)
+	runtime := prepareSchedulerInstructionRuntime(t, builtins, program, compiler.ExecutorOptions{
+		Now: func() time.Time { return now }, MonotonicNow: func() time.Time { return now }, Wait: func(context.Context, time.Duration) error { cancel(); return nil },
+	})
+	_, err := runtime.executor.Run(ctx, program, runtime.owner, runtime.journal)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error=%v", err)
+	}
+	terminal := map[string]run.AttemptOutcome{}
+	for _, fact := range runtime.journal.Current().Journal() {
+		if fact.Kind == run.JournalNodeAttempt {
+			terminal[fact.NodeID] = fact.AttemptOutcome
+		}
+	}
+	if terminal["body"] != run.AttemptCancelled || terminal["after-inner"] != run.AttemptCancelled {
+		t.Fatalf("terminals=%v", terminal)
+	}
+	if _, exists := terminal["after-outer"]; exists {
+		t.Fatal("cancelled wait executed its continuation")
+	}
+}
+
+func timerBranchSource(t *testing.T, builtins nodes.Builtins, region, overlap bool) []byte {
+	t.Helper()
+	var source map[string]any
+	if err := json.Unmarshal(nestedRegionSource(t, builtins, 2, "", ""), &source); err != nil {
+		t.Fatal(err)
+	}
+	graph := source["graphs"].([]any)[0].(map[string]any)
+	var selected []any
+	durations := map[string]int{"body": 100, "after-inner": 10, "after-outer": 5}
+	for _, raw := range graph["nodes"].([]any) {
+		node := raw.(map[string]any)
+		id := node["id"].(string)
+		if id == "inner" || id == "outer" && !region {
+			continue
+		}
+		if duration, ok := durations[id]; ok {
+			node["bindings"] = map[string]any{"duration-milliseconds": map[string]any{"kind": "value", "value": duration}}
+		}
+		selected = append(selected, node)
+	}
+	graph["nodes"] = selected
+	edge := func(from, out, to, in string) map[string]any {
+		return map[string]any{"channel": "exec", "from": map[string]string{"nodeId": from, "portId": out}, "to": map[string]string{"nodeId": to, "portId": in}}
+	}
+	if region {
+		graph["edges"] = []any{edge("started", "started", "outer", "in"), edge("outer", "body", "body", "in"), edge("outer", "body", "after-inner", "in"), edge("after-inner", "done", "outer", "break"), edge("outer", "completed", "after-outer", "in")}
+	} else {
+		next := "after-outer"
+		if overlap {
+			next = "body"
+		}
+		graph["edges"] = []any{edge("started", "started", "body", "in"), edge("started", "started", "after-inner", "in"), edge("after-inner", "done", next, "in")}
+	}
+	raw, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func TestStructuredPeriodicTasks(t *testing.T) {
+	builtins := schedulerBuiltins(t)
+	for _, mode := range []string{"periodic", "interrupt", "stop"} {
+		t.Run(mode, func(t *testing.T) {
+			var source map[string]any
+			if err := json.Unmarshal(timerBranchSource(t, builtins, true, false), &source); err != nil {
+				t.Fatal(err)
+			}
+			graph := source["graphs"].([]any)[0].(map[string]any)
+			id := nodes.PeriodicNodeID
+			count := 3
+			if mode != "periodic" {
+				id = nodes.MonitorNodeID
+				count = 1
+			}
+			ref := schedulerNodeRef(t, builtins, id)
+			for _, raw := range graph["nodes"].([]any) {
+				node := raw.(map[string]any)
+				if node["id"] == "outer" {
+					node["nodeRef"] = ref
+					node["bindings"] = map[string]any{"count": map[string]any{"kind": "value", "value": count}, "interval-milliseconds": map[string]any{"kind": "value", "value": 20}}
+				}
+			}
+			edge := func(from, out, to, in string) map[string]any {
+				return map[string]any{"channel": "exec", "from": map[string]string{"nodeId": from, "portId": out}, "to": map[string]string{"nodeId": to, "portId": in}}
+			}
+			edges := []any{edge("started", "started", "outer", "in"), edge("outer", "tick", "after-inner", "in")}
+			if mode != "periodic" {
+				edges = append(edges, edge("outer", "main", "body", "in"), edge("outer", "handler", "after-outer", "in"), edge("after-inner", "done", "outer", mode))
+			}
+			graph["edges"] = edges
+			raw, err := json.Marshal(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			program := compileSchedulerInstructionProgram(t, builtins, raw)
+			now := time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
+			start := now
+			result, journal := runSchedulerInstructionProgram(t, builtins, program, compiler.ExecutorOptions{Now: func() time.Time { return now }, MonotonicNow: func() time.Time { return now }, Wait: func(_ context.Context, d time.Duration) error { now = now.Add(d); return nil }})
+			want := 50 * time.Millisecond
+			if mode == "interrupt" {
+				want = 105 * time.Millisecond
+			}
+			if mode == "stop" {
+				want = 10 * time.Millisecond
+			}
+			if now.Sub(start) != want {
+				t.Fatalf("elapsed=%v want=%v", now.Sub(start), want)
+			}
+			if journal.Current().Status() != run.StatusSucceeded {
+				t.Fatalf("status=%v", journal.Current().Status())
+			}
+			if mode == "periodic" && string(result.NodeOutputs["outer"]["index"].InlineJSON()) != "2" {
+				t.Fatal("periodic output did not retain final tick")
+			}
+		})
+	}
+}
+
+func TestOverduePeriodicTimerCannotStarveItsReadyBody(t *testing.T) {
+	b := schedulerBuiltins(t)
+	var source map[string]any
+	if err := json.Unmarshal(timerBranchSource(t, b, true, false), &source); err != nil {
+		t.Fatal(err)
+	}
+	graph := source["graphs"].([]any)[0].(map[string]any)
+	for _, raw := range graph["nodes"].([]any) {
+		node := raw.(map[string]any)
+		if node["id"] == "outer" {
+			node["nodeRef"] = schedulerNodeRef(t, b, nodes.PeriodicNodeID)
+			node["bindings"] = map[string]any{"count": map[string]any{"kind": "value", "value": 3}, "interval-milliseconds": map[string]any{"kind": "value", "value": 1}}
+		}
+	}
+	edge := func(from, out, to, in string) map[string]any {
+		return map[string]any{"channel": "exec", "from": map[string]string{"nodeId": from, "portId": out}, "to": map[string]string{"nodeId": to, "portId": in}}
+	}
+	graph["edges"] = []any{edge("started", "started", "outer", "in"), edge("outer", "tick", "after-inner", "in")}
+	raw, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := compileSchedulerInstructionProgram(t, b, raw)
+	now := time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
+	runtime := prepareSchedulerInstructionRuntime(t, b, program, compiler.ExecutorOptions{Now: func() time.Time { return now }, MonotonicNow: func() time.Time { now = now.Add(25 * time.Millisecond); return now }, Wait: func(_ context.Context, d time.Duration) error { now = now.Add(d); return nil }})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result, err := runtime.executor.Run(ctx, program, runtime.owner, runtime.journal)
+	if err != nil {
+		t.Fatal("overdue timer starved ready scopes", err)
+	}
+	if string(result.NodeOutputs["outer"]["index"].InlineJSON()) != "2" {
+		t.Fatal("periodic body did not finish all three iterations")
+	}
+}
+
+func TestAsyncPullInputsResumeExactlyOnce(t *testing.T) {
+	b := schedulerBuiltins(t)
+	var source map[string]any
+	if err := json.Unmarshal(timerBranchSource(t, b, false, false), &source); err != nil {
+		t.Fatal(err)
+	}
+	graph := source["graphs"].([]any)[0].(map[string]any)
+	makeNode := func(id, typ string, config, bindings map[string]any) map[string]any {
+		return map[string]any{"id": id, "nodeRef": schedulerNodeRef(t, b, typ), "position": map[string]int{"x": 0, "y": 0}, "config": config, "bindings": bindings}
+	}
+	literal := func(value int) map[string]any { return map[string]any{"kind": "value", "value": value} }
+	graph["nodes"] = []any{
+		makeNode("started", nodes.RunStartedNodeID, map[string]any{}, map[string]any{}),
+		makeNode("sum", nodes.IntegerAddNodeID, map[string]any{}, map[string]any{"a": literal(4), "b": literal(5)}),
+		makeNode("negative", nodes.IntegerNegateNodeID, map[string]any{}, map[string]any{}),
+		makeNode("write", nodes.StateWriteNodeID, map[string]any{"variable": "value"}, map[string]any{}),
+	}
+	edge := func(channel, from, out, to, in string) map[string]any {
+		return map[string]any{"channel": channel, "from": map[string]string{"nodeId": from, "portId": out}, "to": map[string]string{"nodeId": to, "portId": in}}
+	}
+	graph["edges"] = []any{edge("exec", "started", "started", "write", "in"), edge("data", "sum", "result", "negative", "value"), edge("data", "negative", "result", "write", "value")}
+	source["variables"] = []any{map[string]any{"name": "value", "type": map[string]any{"kind": "ref", "ref": b.IntegerType.TypeRef()}, "default": 0}}
+	raw, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := compileSchedulerInstructionProgram(t, b, raw)
+	runtime := prepareSchedulerInstructionRuntime(t, b, program, compiler.ExecutorOptions{}, func(adapters map[string]nodeadapter.InstalledAdapter) {
+		for _, key := range []string{"math.integer-add", "math.integer-negate"} {
+			entry := adapters[key]
+			entry.Blocking = true
+			adapters[key] = entry
+		}
+	})
+	result, err := runtime.executor.Run(context.Background(), program, runtime.owner, runtime.journal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(result.NodeOutputs["write"]["result"].InlineJSON()); got != "-9" {
+		t.Fatalf("output=%s", got)
+	}
+	starts := map[string]int{}
+	for _, fact := range runtime.journal.Current().Journal() {
+		if fact.Kind == run.JournalNodeAttempt && fact.AttemptOutcome == run.AttemptStarted {
+			starts[fact.NodeID]++
+		}
+	}
+	for _, id := range []string{"sum", "negative", "write"} {
+		if starts[id] != 1 {
+			t.Fatalf("%s started %d times", id, starts[id])
+		}
 	}
 }

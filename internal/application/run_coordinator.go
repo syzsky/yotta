@@ -12,6 +12,9 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
 )
 
+// MaxConcurrentRuns bounds live Run execution; remaining admissions stay FIFO.
+const MaxConcurrentRuns = 16
+
 type runJob struct {
 	packageIDs []string
 	workflowID string
@@ -21,12 +24,12 @@ type runJob struct {
 	release    func()
 }
 
-// The private methods below own the single production worker and every
+// The private methods below own the bounded production workers and every
 // in-process Run lifetime. runMu keeps worker state separate from the
 // Application command and lifecycle locks.
-func (a *Application) enqueue(runID, workflowID string, providers map[string]run.InstalledProvider, targets targetruntime.Snapshot, release func(), control *compiler.DebugController, packageIDs []string) {
+func (a *Application) enqueue(record run.Record, workflowID string, providers map[string]run.InstalledProvider, targets targetruntime.Snapshot, release func(), control *compiler.DebugController, packageIDs []string) {
+	runID := record.Admission().RunID
 	a.runMu.Lock()
-	defer a.runMu.Unlock()
 	a.jobs[runID] = &runJob{
 		packageIDs: append([]string(nil), packageIDs...),
 		workflowID: workflowID,
@@ -34,6 +37,15 @@ func (a *Application) enqueue(runID, workflowID string, providers map[string]run
 	}
 	if control != nil {
 		a.debug[runID] = control
+	}
+	a.runMu.Unlock()
+	// Publish admission before a worker can publish RUNNING or completion.
+	// The registered job can already be cancelled by an event consumer.
+	a.emit(record, nil)
+	a.runMu.Lock()
+	defer a.runMu.Unlock()
+	if a.jobs[runID] == nil {
+		return
 	}
 	a.queue = append(a.queue, runID)
 	select {
@@ -239,6 +251,9 @@ func (a *Application) workerLoop() {
 		job := a.jobs[runID]
 		delete(a.jobs, runID)
 		a.runMu.Unlock()
+		if job != nil && job.cancel != nil {
+			job.cancel()
+		}
 		if job != nil && job.release != nil {
 			job.release()
 		}
@@ -264,6 +279,12 @@ func (a *Application) nextJob() (string, context.Context, bool) {
 			}
 			jobCtx, cancel := context.WithCancel(a.ctx)
 			job.cancel = cancel
+			if len(a.queue) > 0 {
+				select {
+				case a.wake <- struct{}{}:
+				default:
+				}
+			}
 			a.runMu.Unlock()
 			return runID, jobCtx, true
 		}

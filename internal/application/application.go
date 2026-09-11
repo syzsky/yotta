@@ -200,27 +200,28 @@ const (
 )
 
 type Application struct {
-	pluginMu          sync.RWMutex
-	validatePlugins   func([]byte) ([]string, error)
-	nodePackages      []schema.NodePackageDependency
-	catalog           nodecatalog.Snapshot
-	authoring         nodeauthoring.Snapshot
-	authoringEngine   *authoring.Engine
-	compiler          *compiler.Compiler
-	blobVerifier      compiler.BlobVerifier
-	runImagePlanner   *runprepare.Planner
-	sources           *workflowstore.SourceStore
-	programs          *workflowstore.ProgramStore
-	runs              *run.Store
-	admitter          *admission.Admitter
-	providers         map[string]run.InstalledProvider // immutable; replacement assigns a new snapshot
-	targetSnapshot    func() (targetruntime.Snapshot, func(), error)
-	executor          *compiler.Executor
-	resourceOptions   resource.Options
-	ownerCloseTimeout time.Duration
-	onRunEvent        func(RunEvent)
-	onDebugEvent      func(DebugEvent)
-	now               func() time.Time
+	pluginMu           sync.RWMutex
+	validatePlugins    func([]byte) ([]string, error)
+	prepareRunServices func(context.Context, []string, targetruntime.Snapshot) ([]string, error)
+	nodePackages       []schema.NodePackageDependency
+	catalog            nodecatalog.Snapshot
+	authoring          nodeauthoring.Snapshot
+	authoringEngine    *authoring.Engine
+	compiler           *compiler.Compiler
+	blobVerifier       compiler.BlobVerifier
+	runImagePlanner    *runprepare.Planner
+	sources            *workflowstore.SourceStore
+	programs           *workflowstore.ProgramStore
+	runs               *run.Store
+	admitter           *admission.Admitter
+	providers          map[string]run.InstalledProvider // immutable; replacement assigns a new snapshot
+	targetSnapshot     func() (targetruntime.Snapshot, func(), error)
+	executor           *compiler.Executor
+	resourceOptions    resource.Options
+	ownerCloseTimeout  time.Duration
+	onRunEvent         func(RunEvent)
+	onDebugEvent       func(DebugEvent)
+	now                func() time.Time
 
 	commandMu sync.RWMutex
 	state     lifecycleState
@@ -314,8 +315,10 @@ func (a *Application) Start(ctx context.Context) error {
 		return fmt.Errorf("migrate Workflow node contracts: %w", err)
 	}
 	a.ctx, a.cancel = context.WithCancel(context.Background())
-	a.worker.Add(1)
-	go a.workerLoop()
+	a.worker.Add(MaxConcurrentRuns)
+	for range MaxConcurrentRuns {
+		go a.workerLoop()
+	}
 	a.state = stateRunning
 	a.commandMu.Unlock()
 	for _, record := range append(interrupted, cancelled...) {
@@ -529,11 +532,20 @@ func (a *Application) startRunArtifact(
 		return result, errors.New("compiler returned no Program without diagnostics")
 	}
 	result.ProgramHash = program.Hash()
+
 	admitted, err := a.admitRun(ctx, program, principal, selection, leased)
 	result.Record = admitted.record
 	releaseProviders := admitted.release
 	if err != nil {
 		return result, err
+	}
+	if a.prepareRunServices != nil {
+		ids, prepareErr := a.prepareRunServices(ctx, program.ConfiguredTargetSlots(a.catalog), admitted.targets)
+		if prepareErr != nil {
+			result.Record, err = a.failRunPreparation(ctx, admitted.record, prepareErr)
+			return result, errors.Join(prepareErr, err)
+		}
+		packageIDs = append(packageIDs, ids...)
 	}
 	runID := admitted.record.Admission().RunID
 	var control *compiler.DebugController
@@ -550,15 +562,18 @@ func (a *Application) startRunArtifact(
 			return result, err
 		}
 	}
-	a.enqueue(runID, sourceWorkflowID, admitted.providers, admitted.targets, releaseProviders, control, packageIDs)
 	leasePublished = true
-	a.emit(admitted.record, nil)
+	a.enqueue(admitted.record, sourceWorkflowID, admitted.providers, admitted.targets, releaseProviders, control, packageIDs)
 	return result, nil
 }
 
 func (a *Application) GetRun(runID string) (run.Record, error) { return a.runs.Load(runID) }
 
 func (a *Application) ListRuns() ([]run.Record, error) { return a.runs.List() }
+
+func (a *Application) GetRunTimelineSnapshot(ctx context.Context, runID string) (run.TimelinePage, error) {
+	return a.runs.TimelineSnapshot(ctx, runID)
+}
 
 func (a *Application) GetRunTimelinePage(ctx context.Context, runID string, page, pageSize int) (run.TimelinePage, error) {
 	return a.runs.TimelinePage(ctx, runID, page, pageSize)

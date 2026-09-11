@@ -165,6 +165,7 @@
             :key="source.id + (snapshot?.sessionId ?? '')"
             :components="source.definition.components"
             :waiting-buttons="source.managed ? (source.waitingComponents ?? []) : undefined"
+            :listening-buttons="source.listeningComponents ?? []"
             :snapshot="snapshot"
             :disabled="!snapshot || !!failure || snapshot.status === 'ended'"
             :busy="busy"

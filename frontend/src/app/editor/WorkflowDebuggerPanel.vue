@@ -148,6 +148,53 @@
       </div>
       <p v-else class="text-xs text-muted">{{ t('workflow.debug.waiting') }}</p>
 
+      <details
+        v-if="(snapshot.tasks?.length ?? 0) > 1"
+        open
+        class="mt-3 border-t border-default pt-3"
+        data-testid="debug-task-tree"
+      >
+        <summary class="cursor-pointer text-xs font-medium text-highlighted">
+          {{ t('workflow.debug.tasks') }}
+        </summary>
+        <ul class="mt-2 space-y-1">
+          <li
+            v-for="task in snapshot.tasks"
+            :key="task.id"
+            :style="{ paddingInlineStart: `${Math.min(task.depth, 6) * 12}px` }"
+          >
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              class="w-full justify-between gap-3"
+              :disabled="!task.nodeId"
+              @click="focusNode(task.graphPath ?? [], task.nodeId ?? '')"
+            >
+              <span class="min-w-0 truncate text-left"
+                ><span class="text-muted">{{ t(`workflow.debug.task_role_${task.role}`) }}</span
+                ><span v-if="task.nodeId" class="ml-2 text-highlighted">{{
+                  nodeTitle(task.nodeId)
+                }}</span></span
+              >
+              <UBadge
+                :color="
+                  task.status === 'paused' || task.status === 'pausing'
+                    ? 'warning'
+                    : task.status === 'running'
+                      ? 'primary'
+                      : 'neutral'
+                "
+                variant="soft"
+                size="xs"
+                class="shrink-0"
+                >{{ t(`workflow.debug.task_status_${task.status}`) }}</UBadge
+              >
+            </UButton>
+          </li>
+        </ul>
+      </details>
+
       <div class="mt-3 border-t border-default pt-3">
         <div v-if="detailSections.length" class="flex min-h-0 flex-col gap-2">
           <nav

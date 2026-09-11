@@ -198,6 +198,12 @@ export default {
     },
   },
   type: {
+    navigation: {
+      worldPosition: {
+        title: '实时位置',
+        description: '含坐标、朝向、坐标系与采样时间的位置观测。',
+      },
+    },
     panel: {
       panel: {
         break_title: '拆解面板引用',
@@ -474,6 +480,9 @@ export default {
     'panels.capacity': '运行面板数量已达上限。请结束不再使用的面板后重试。',
     'panels.unavailable': '运行面板服务不可用。请重新运行工作流；若仍失败，重启 Yotta。',
     'panels.node_failed': '面板操作未完成。请检查所选面板、组件及输入值。',
+    'signals.failed': '信号发送或接收失败。请检查信号名称和监听分支。',
+    'signals.queue_full': '信号处理队列已满。请减少发送频率或缩短处理分支。',
+    'signals.wait_timeout': '等待信号超时。可延长等待时间或连接失败分支。',
     'panels.wait_timeout': '等待面板交互超时。可延长等待时限，或连接失败分支处理。',
     'panels.queue_full': '面板交互队列已满，请等待流程处理后再操作。',
 

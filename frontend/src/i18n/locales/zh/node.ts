@@ -1,7 +1,40 @@
 export default {
   node: {
     navigation: {
+      position: {
+        title: '构造实时位置',
+        description: '将坐标和朝向转换为标准位置，可接入识图、插件或其他数据来源。',
+        input: {
+          x: { title: '坐标 X', description: '第一平面坐标轴。' },
+          y: { title: '坐标 Y', description: '第二平面坐标轴。' },
+          heading: { title: '当前朝向（°）', description: '与坐标系轴向对应的镜头朝向。' },
+          valid: { title: '坐标有效', description: '本次观测是否可用。' },
+          'sample-at': { title: '采样时间', description: 'Unix 毫秒；0 表示使用接收时间。' },
+          sequence: { title: '采样序号', description: '来源的递增采样序号。' },
+        },
+        output: {
+          position: { title: '实时位置', description: '写入位置变量，供移动节点持续读取。' },
+        },
+      },
+      parsePosition: {
+        title: '解析实时位置',
+        description: '按字段映射解析 JSON 坐标；无效或过期数据会标记为不可用。',
+        input: {
+          source: {
+            title: '坐标 JSON',
+            description: '包含坐标、朝向、有效标记及采样时间的 JSON。',
+          },
+        },
+        output: {
+          position: { title: '实时位置', description: '写入位置变量，供移动节点持续读取。' },
+        },
+      },
+      breakPosition: { title: '拆分实时位置', description: '读取位置的坐标、朝向和采样信息。' },
       config: {
+        positionVariable: '实时位置变量',
+        frame: '坐标系名称',
+        unit: '坐标单位',
+        epoch: '采集会话标识',
         source: '实时坐标来源',
         path: '坐标接口路径',
         xField: '第一轴字段',
@@ -31,7 +64,7 @@ export default {
       },
       move: {
         title: '移动到坐标',
-        description: '持续读取世界坐标，修正方向并分段前进；需要可通行的直线路径。',
+        description: '持续读取位置变量，远处保持前进，接近目标后减速；需要可通行的直线路径。',
         input: {
           'target-x': {
             title: '目标 X',
@@ -49,9 +82,13 @@ export default {
             title: '最长时间',
             description: '操作总时间上限，单位毫秒。',
           },
-          pulse: {
-            title: '单次前进时间',
-            description: '每次前进后重新读取坐标，20–500 毫秒；接近目标自动缩短。',
+          interval: {
+            title: '位置检测间隔',
+            description: '保持前进时每隔多久检查位置，20–500 毫秒。',
+          },
+          'slow-distance': {
+            title: '减速距离',
+            description: '进入此距离后改为短步前进，单位与坐标一致。',
           },
         },
         output: {
@@ -126,7 +163,50 @@ export default {
         },
       },
     },
+    signal: {
+      timeout: '等待超时（毫秒，0 为一直等待）',
+      send: {
+        title: '发送信号',
+        description: '向当前运行的所有同名订阅者发送一次信号；没有监听者时不保留。',
+        input: {
+          name: { title: '信号名称', description: '只在当前运行内匹配同名信号。' },
+          value: { title: '信号数据', description: '信号携带的JSON数据。' },
+        },
+      },
+      wait: {
+        title: '等待信号',
+        description: '从此节点开始等待一次信号，收到后继续。',
+        input: { name: { title: '信号名称', description: '只在当前运行内匹配同名信号。' } },
+        output: {
+          value: { title: '信号数据', description: '信号携带的JSON数据。' },
+          'event-id': { title: '事件 ID', description: '本次信号的唯一标识。' },
+        },
+      },
+      listen: {
+        title: '监听信号',
+        description: '持续监听当前运行的同名信号，按顺序处理；主任务结束或停止监听后释放。',
+        input: { name: { title: '信号名称', description: '只在当前运行内匹配同名信号。' } },
+        output: {
+          value: { title: '信号数据', description: '信号携带的JSON数据。' },
+          'event-id': { title: '事件 ID', description: '本次信号的唯一标识。' },
+        },
+      },
+    },
     managed_panel: {
+      listen: {
+        title: '监听面板信号',
+        description:
+          '持续接收所选面板的交互，按顺序执行事件分支；主任务结束或停止监听后释放。多个运行分别接收。',
+        input: {
+          'panel-ref': { title: '面板引用', description: '选择共享面板。' },
+          'component-ref': { title: '按钮或控件', description: '留空监听整个面板。' },
+        },
+        output: {
+          value: { title: '信号数据', description: '本次交互携带的数据。' },
+          component: { title: '按钮 ID', description: '识别触发交互的按钮或控件。' },
+          'event-id': { title: '事件 ID', description: '本次点击的唯一标识。' },
+        },
+      },
       config: { panel: '面板', component: '组件', show: '同时显示面板' },
       use: {
         title: '使用面板',
@@ -1482,6 +1562,16 @@ export default {
       endBranch: {
         title: '结束分支',
         description: '显式结束当前控制流分支，不再发出信号。',
+      },
+      periodic: {
+        title: '周期任务',
+        description:
+          '按间隔运行检测。次数为 0 时持续运行，直到停止。上次检测未结束时跳过本次触发。',
+      },
+      monitor: {
+        title: '监测任务',
+        description:
+          '运行主任务并定时检测。触发打断后暂停主任务，处理结束后从原进度继续；主任务结束时停止监测。',
       },
       repeat: {
         title: '重复',

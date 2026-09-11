@@ -87,6 +87,7 @@ type Builtins struct {
 	HeldInputType                datatype.Definition
 	RandomDistributionType       datatype.Definition
 	DurationMillisecondsType     datatype.Definition
+	WorldPositionType            datatype.Definition
 	FileMetadataType             datatype.Definition
 	ObservabilityMessageType     datatype.Definition
 	ConcatContract               nodecontract.Contract
@@ -194,6 +195,18 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	durationMillisecondsType, err := sealDurationMillisecondsType()
+	if err != nil {
+		return Builtins{}, err
+	}
+	worldPositionType, err := sealWorldPositionType(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()})
+	if err != nil {
+		return Builtins{}, err
+	}
+	worldPositionDefinition, err := defineWorldPositionNode(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()}, worldPositionType.TypeRef(), false)
+	if err != nil {
+		return Builtins{}, err
+	}
+	parsePositionDefinition, err := defineWorldPositionNode(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()}, worldPositionType.TypeRef(), true)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -405,7 +418,7 @@ func Build() (Builtins, error) {
 	navigationDefinitions, err := defineNavigationNodes(automationTemplateTypes{
 		imageRef: imageType.TypeRef(), numberRef: numberType.TypeRef(), booleanRef: booleanType.TypeRef(), pointRef: pointType.TypeRef(),
 		regionRef: regionType.TypeRef(), durationRef: durationMillisecondsType.TypeRef(),
-	}, blobRead)
+	}, blobRead, worldPositionType.TypeRef())
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -425,7 +438,12 @@ func Build() (Builtins, error) {
 	if err != nil {
 		return Builtins{}, err
 	}
+	signalDefinitions, err := defineSignalNodes(map[string]datatype.TypeRef{"string": stringType.TypeRef(), "json": jsonType.TypeRef()})
+	if err != nil {
+		return Builtins{}, err
+	}
 	types := []datatype.Definition{
+		worldPositionType,
 		stringType, binaryType, imageType, inputClipType, macroType, numberType, integerType, booleanType, jsonType, pointUnitType, pointType, regionType,
 		visionTypes.templateMatch, visionTypes.qrCode, visionTypes.colorRange, visionTypes.colorBlob,
 		pointerButtonType, pointerMotionType, keyCodeType, heldInputType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
@@ -436,6 +454,7 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
+	definitions = append(definitions, worldPositionDefinition, parsePositionDefinition)
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
 	definitions = append(definitions, extendedDefinitions...)
@@ -465,6 +484,7 @@ func Build() (Builtins, error) {
 	definitions = append(definitions, systemDefinitions...)
 	definitions = append(definitions, panelDefinitions...)
 	definitions = append(definitions, managedPanelDefinitions...)
+	definitions = append(definitions, signalDefinitions...)
 	definitions = append(definitions, structureDefinitions...)
 	bindings := make([]nodecatalog.Binding, 0, len(definitions))
 	contracts := make([]nodecontract.Contract, 0, len(definitions))
@@ -487,7 +507,8 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	return Builtins{
-		Catalog: catalog, StringType: stringType, BinaryType: binaryType, ImageType: imageType, InputClipType: inputClipType, MacroType: macroType, NumberType: numberType,
+		WorldPositionType: worldPositionType,
+		Catalog:           catalog, StringType: stringType, BinaryType: binaryType, ImageType: imageType, InputClipType: inputClipType, MacroType: macroType, NumberType: numberType,
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,
 		TemplateMatchType: visionTypes.templateMatch, QRCodeType: visionTypes.qrCode, ColorRangeType: visionTypes.colorRange, ColorBlobType: visionTypes.colorBlob,

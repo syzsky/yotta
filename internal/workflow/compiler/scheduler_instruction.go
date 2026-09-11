@@ -24,25 +24,22 @@ func (s *regionSignal) Error() string {
 }
 
 func (s *scheduler) dispatch(ctx context.Context, nodeID string, trigger *nodeadapter.SignalTrigger, evaluation map[string]bool) error {
-	if s.invocations >= MaxScheduledInvocations {
-		return errors.New("scheduler invocation budget exceeded")
-	}
-	s.invocations++
 	node, ok := s.nodes[nodeID]
 	if !ok {
 		return fmt.Errorf("scheduled node %q is missing from Program", nodeID)
 	}
 	switch node.Instruction.Kind {
 	case nodecontract.InstructionInvoke:
+		if handled, err := s.listenerSignal(ctx, nodeID, trigger); handled {
+			return err
+		}
 		return s.invoke(ctx, nodeID, trigger, evaluation)
 	case nodecontract.InstructionRunRoot:
 		return s.executeRunRoot(ctx, node, trigger)
-	case nodecontract.InstructionCountedLoop:
-		return s.executeCountedLoop(ctx, node, trigger)
-	case nodecontract.InstructionForEach:
-		return s.executeForEach(ctx, node, trigger)
-	case nodecontract.InstructionRetry:
-		return s.executeRetry(ctx, node, trigger)
+	case nodecontract.InstructionTask:
+		return s.enterTask(ctx, node, trigger)
+	case nodecontract.InstructionCountedLoop, nodecontract.InstructionForEach, nodecontract.InstructionRetry:
+		return s.enterRegion(ctx, node, trigger)
 	default:
 		return fmt.Errorf("Program node %q has an unsupported instruction", nodeID)
 	}
@@ -66,77 +63,56 @@ func (s *scheduler) executeRunRoot(ctx context.Context, node programNode, trigge
 	return nil
 }
 
-func (s *scheduler) executeCountedLoop(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) (returnErr error) {
-	spec := node.Instruction.CountedLoop
-	if spec == nil || trigger == nil {
-		return errors.New("counted-loop instruction requires a signal and payload")
-	}
-	switch trigger.InputPort {
-	case spec.BreakInput, spec.ContinueInput:
-		return &regionSignal{nodeID: node.ID, input: trigger.InputPort, failure: cloneRoutedFailure(trigger.Failure)}
-	case spec.EntryInput:
-	default:
-		return fmt.Errorf("counted-loop instruction received unknown input %q", trigger.InputPort)
-	}
-	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
-	if err != nil {
-		return err
-	}
-	if err := s.debugCheckpoint(ctx, node, s.attempts[node.ID]+1, inputs); err != nil {
-		return err
-	}
-	attempt, summary, err := s.beginInstruction(ctx, node)
-	if err != nil {
-		return err
-	}
-	closed := false
-	defer func() {
-		if returnErr != nil && !closed {
-			returnErr = errors.Join(returnErr, s.closeInterruptedInstruction(ctx, node, attempt, summary, returnErr))
-		}
-	}()
-	count, err := decodeInstructionInteger(inputs[spec.CountInput])
-	if err != nil || count < 0 || count > int64(spec.MaxIterations) {
-		return errors.Join(errors.New("counted-loop count exceeds its frozen budget"), err)
-	}
-	for index := int64(0); index < count; index++ {
-		if err := s.setInstructionIntegerOutput(node, spec.IndexOutput, index, attempt); err != nil {
-			return err
-		}
-		err := s.runActivation(ctx, s.instructionRoutes(node.ID, spec.BodyOutput, nil))
-		if err == nil {
-			continue
-		}
-		var signal *regionSignal
-		if !errors.As(err, &signal) || signal.nodeID != node.ID {
-			return err
-		}
-		if signal.input == spec.BreakInput {
-			break
-		}
-		if signal.input != spec.ContinueInput {
-			return err
-		}
-	}
-	if err := s.finishInstruction(ctx, node, attempt, summary); err != nil {
-		return err
-	}
-	closed = true
-	s.enqueueInstructionOutput(node.ID, spec.CompletedOutput, nil)
-	return nil
+// controlFrame is the continuation of one active region. Parent queues and
+// iteration state live in the executor, never in a recursive Go invocation.
+type controlFrame struct {
+	node        programNode
+	attempt     int
+	summary     run.RedactedSummary
+	parent      []scheduledInvocation
+	parentWaits waitQueue
+	index       int64
+	limit       int64
+	items       []json.RawMessage
+	lastFailure *nodeadapter.RoutedFailure
 }
 
-func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) (returnErr error) {
-	spec := node.Instruction.ForEach
-	if spec == nil || trigger == nil {
-		return errors.New("for-each instruction requires a signal and payload")
+func (s *scheduler) enterRegion(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) error {
+	if trigger == nil {
+		return errors.New("region instruction requires a signal")
 	}
-	switch trigger.InputPort {
-	case spec.BreakInput, spec.ContinueInput:
+	var entry, stop, next string
+	switch node.Instruction.Kind {
+	case nodecontract.InstructionCountedLoop:
+		spec := node.Instruction.CountedLoop
+		if spec == nil {
+			return errors.New("counted-loop instruction has no payload")
+		}
+		entry, stop, next = spec.EntryInput, spec.BreakInput, spec.ContinueInput
+	case nodecontract.InstructionForEach:
+		spec := node.Instruction.ForEach
+		if spec == nil {
+			return errors.New("for-each instruction has no payload")
+		}
+		entry, stop, next = spec.EntryInput, spec.BreakInput, spec.ContinueInput
+	case nodecontract.InstructionRetry:
+		spec := node.Instruction.Retry
+		if spec == nil {
+			return errors.New("retry instruction has no payload")
+		}
+		entry, next = spec.EntryInput, spec.RetryInput
+		if trigger.InputPort == next && trigger.Failure == nil {
+			return errors.New("retry input requires a routed failure")
+		}
+	}
+	if trigger.InputPort != "" && (trigger.InputPort == stop || trigger.InputPort == next) {
 		return &regionSignal{nodeID: node.ID, input: trigger.InputPort, failure: cloneRoutedFailure(trigger.Failure)}
-	case spec.EntryInput:
-	default:
-		return fmt.Errorf("for-each instruction received unknown input %q", trigger.InputPort)
+	}
+	if trigger.InputPort != entry {
+		return fmt.Errorf("region instruction received unknown input %q", trigger.InputPort)
+	}
+	if len(s.frames) >= maxControlFrames {
+		return errors.New("control frame budget exceeded")
 	}
 	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
 	if err != nil {
@@ -149,124 +125,157 @@ func (s *scheduler) executeForEach(ctx context.Context, node programNode, trigge
 	if err != nil {
 		return err
 	}
-	closed := false
-	defer func() {
-		if returnErr != nil && !closed {
-			returnErr = errors.Join(returnErr, s.closeInterruptedInstruction(ctx, node, attempt, summary, returnErr))
+	frame := &controlFrame{node: node, attempt: attempt, summary: summary, parent: s.queue, parentWaits: s.waits}
+	s.frames = append(s.frames, frame)
+	s.queue = nil
+	s.waits = nil
+	switch node.Instruction.Kind {
+	case nodecontract.InstructionCountedLoop:
+		spec := node.Instruction.CountedLoop
+		frame.limit, err = decodeInstructionInteger(inputs[spec.CountInput])
+		if err != nil || frame.limit < 0 || frame.limit > int64(spec.MaxIterations) {
+			return errors.Join(errors.New("counted-loop count exceeds its frozen budget"), err)
 		}
-	}()
-	var items []json.RawMessage
-	if err := json.Unmarshal(inputs[spec.ItemsInput].InlineJSON(), &items); err != nil || len(items) > spec.MaxItems {
-		return errors.Join(errors.New("for-each items exceed the frozen budget"), err)
+	case nodecontract.InstructionForEach:
+		spec := node.Instruction.ForEach
+		if err := json.Unmarshal(inputs[spec.ItemsInput].InlineJSON(), &frame.items); err != nil || len(frame.items) > spec.MaxItems {
+			return errors.Join(errors.New("for-each items exceed the frozen budget"), err)
+		}
+		frame.limit = int64(len(frame.items))
+	case nodecontract.InstructionRetry:
+		spec := node.Instruction.Retry
+		frame.limit, err = decodeInstructionInteger(inputs[spec.AttemptsInput])
+		if err != nil || frame.limit < 1 || frame.limit > int64(spec.MaxAttempts) {
+			return errors.Join(errors.New("retry attempts exceed the frozen budget"), err)
+		}
 	}
-	itemType := node.OutputTypes[spec.ItemOutput]
-	for index, item := range items {
-		if err := s.setInstructionIntegerOutput(node, spec.IndexOutput, int64(index), attempt); err != nil {
+	return s.startRegionIteration(ctx, frame)
+}
+
+func (s *scheduler) startRegionIteration(ctx context.Context, frame *controlFrame) error {
+	node := frame.node
+	switch node.Instruction.Kind {
+	case nodecontract.InstructionCountedLoop:
+		spec := node.Instruction.CountedLoop
+		if frame.index >= frame.limit {
+			return s.completeRegion(ctx, frame, spec.CompletedOutput, nil)
+		}
+		if err := s.setInstructionIntegerOutput(node, spec.IndexOutput, frame.index, frame.attempt); err != nil {
 			return err
 		}
-		sealed, err := datatype.SealInlineJSON(s.executor.catalog, itemType, item)
+		s.queue = s.instructionRoutes(node.ID, spec.BodyOutput, nil)
+	case nodecontract.InstructionForEach:
+		spec := node.Instruction.ForEach
+		if frame.index >= frame.limit {
+			return s.completeRegion(ctx, frame, spec.CompletedOutput, nil)
+		}
+		if err := s.setInstructionIntegerOutput(node, spec.IndexOutput, frame.index, frame.attempt); err != nil {
+			return err
+		}
+		value, err := datatype.SealInlineJSON(s.executor.catalog, node.OutputTypes[spec.ItemOutput], frame.items[frame.index])
 		if err != nil {
 			return fmt.Errorf("seal for-each item: %w", err)
 		}
-		if err := s.setInstructionOutput(node, spec.ItemOutput, sealed, attempt); err != nil {
+		if err := s.setInstructionOutput(node, spec.ItemOutput, value, frame.attempt); err != nil {
 			return err
 		}
-		err = s.runActivation(ctx, s.instructionRoutes(node.ID, spec.BodyOutput, nil))
-		if err == nil {
-			continue
+		s.queue = s.instructionRoutes(node.ID, spec.BodyOutput, nil)
+	case nodecontract.InstructionRetry:
+		spec := node.Instruction.Retry
+		if frame.index >= frame.limit {
+			facts := map[string]string{}
+			if frame.lastFailure != nil {
+				facts["last_problem_id"] = frame.lastFailure.Code
+			}
+			if err := s.recordInstructionStatus(ctx, node, frame.attempt, nodecontract.RetryExhaustedStatusID,
+				map[string]int64{"attempts": frame.limit, "max_attempts": frame.limit}, facts); err != nil {
+				return err
+			}
+			return s.completeRegion(ctx, frame, spec.ExhaustedOutput, frame.lastFailure)
 		}
-		var signal *regionSignal
-		if !errors.As(err, &signal) || signal.nodeID != node.ID {
+		if err := s.recordInstructionStatus(ctx, node, frame.attempt, nodecontract.RetryAttemptStatusID,
+			map[string]int64{"attempt": frame.index + 1, "max_attempts": frame.limit}, nil); err != nil {
 			return err
 		}
-		if signal.input == spec.BreakInput {
-			break
-		}
-		if signal.input != spec.ContinueInput {
+		if err := s.setInstructionIntegerOutput(node, spec.AttemptOutput, frame.index+1, frame.attempt); err != nil {
 			return err
 		}
+		s.queue = s.instructionRoutes(node.ID, spec.BodyOutput, nil)
 	}
-	if err := s.finishInstruction(ctx, node, attempt, summary); err != nil {
-		return err
-	}
-	closed = true
-	s.enqueueInstructionOutput(node.ID, spec.CompletedOutput, nil)
 	return nil
 }
 
-func (s *scheduler) executeRetry(ctx context.Context, node programNode, trigger *nodeadapter.SignalTrigger) (returnErr error) {
-	spec := node.Instruction.Retry
-	if spec == nil || trigger == nil {
-		return errors.New("retry instruction requires a signal and payload")
-	}
-	if trigger.InputPort == spec.RetryInput {
-		if trigger.Failure == nil {
-			return errors.New("retry input requires a routed failure")
-		}
-		return &regionSignal{nodeID: node.ID, input: spec.RetryInput, failure: cloneRoutedFailure(trigger.Failure)}
-	}
-	if trigger.InputPort != spec.EntryInput {
-		return fmt.Errorf("retry instruction received unknown input %q", trigger.InputPort)
-	}
-	inputs, err := s.resolveInputs(ctx, node, nil, map[string]bool{})
-	if err != nil {
-		return err
-	}
-	if err := s.debugCheckpoint(ctx, node, s.attempts[node.ID]+1, inputs); err != nil {
-		return err
-	}
-	attempt, summary, err := s.beginInstruction(ctx, node)
-	if err != nil {
-		return err
-	}
-	closed := false
-	defer func() {
-		if returnErr != nil && !closed {
-			returnErr = errors.Join(returnErr, s.closeInterruptedInstruction(ctx, node, attempt, summary, returnErr))
-		}
-	}()
-	limit, err := decodeInstructionInteger(inputs[spec.AttemptsInput])
-	if err != nil || limit < 1 || limit > int64(spec.MaxAttempts) {
-		return errors.Join(errors.New("retry attempts exceed the frozen budget"), err)
-	}
-	var lastFailure *nodeadapter.RoutedFailure
-	for current := int64(1); current <= limit; current++ {
-		if err := s.recordInstructionStatus(ctx, node, attempt, nodecontract.RetryAttemptStatusID,
-			map[string]int64{"attempt": current, "max_attempts": limit}, nil); err != nil {
+// resumeRegion is called after the body drains or routes a structured control
+// signal. It advances exactly one frame; empty bodies also yield to the driver.
+func (s *scheduler) resumeRegion(ctx context.Context, signal *regionSignal) error {
+	frame := s.frames[len(s.frames)-1]
+	if signal != nil {
+		if err := s.closeWaits(ctx); err != nil {
 			return err
 		}
-		if err := s.setInstructionIntegerOutput(node, spec.AttemptOutput, current, attempt); err != nil {
-			return err
-		}
-		err := s.runActivation(ctx, s.instructionRoutes(node.ID, spec.BodyOutput, nil))
-		if err == nil {
-			if err := s.finishInstruction(ctx, node, attempt, summary); err != nil {
-				return err
-			}
-			closed = true
-			s.enqueueInstructionOutput(node.ID, spec.CompletedOutput, nil)
-			return nil
-		}
-		var signal *regionSignal
-		if !errors.As(err, &signal) || signal.nodeID != node.ID || signal.input != spec.RetryInput || signal.failure == nil {
-			return err
-		}
-		lastFailure = signal.failure
 	}
-	facts := map[string]string{}
-	if lastFailure != nil {
-		facts["last_problem_id"] = lastFailure.Code
+	node := frame.node
+	switch node.Instruction.Kind {
+	case nodecontract.InstructionCountedLoop:
+		if signal != nil && signal.input == node.Instruction.CountedLoop.BreakInput {
+			return s.completeRegion(ctx, frame, node.Instruction.CountedLoop.CompletedOutput, nil)
+		}
+	case nodecontract.InstructionForEach:
+		if signal != nil && signal.input == node.Instruction.ForEach.BreakInput {
+			return s.completeRegion(ctx, frame, node.Instruction.ForEach.CompletedOutput, nil)
+		}
+	case nodecontract.InstructionRetry:
+		if signal == nil {
+			return s.completeRegion(ctx, frame, node.Instruction.Retry.CompletedOutput, nil)
+		}
+		frame.lastFailure = cloneRoutedFailure(signal.failure)
 	}
-	if err := s.recordInstructionStatus(ctx, node, attempt, nodecontract.RetryExhaustedStatusID,
-		map[string]int64{"attempts": limit, "max_attempts": limit}, facts); err != nil {
+	frame.index++
+	return s.startRegionIteration(ctx, frame)
+}
+
+func (s *scheduler) completeRegion(ctx context.Context, frame *controlFrame, output string, failure *nodeadapter.RoutedFailure) error {
+	if err := s.finishInstruction(ctx, frame.node, frame.attempt, frame.summary); err != nil {
 		return err
 	}
-	if err := s.finishInstruction(ctx, node, attempt, summary); err != nil {
-		return err
-	}
-	closed = true
-	s.enqueueInstructionOutput(node.ID, spec.ExhaustedOutput, lastFailure)
+	s.popRegion()
+	s.enqueueInstructionOutput(frame.node.ID, output, failure)
 	return nil
+}
+
+func (s *scheduler) popRegion() {
+	last := len(s.frames) - 1
+	s.queue = s.frames[last].parent
+	s.waits = s.frames[last].parentWaits
+	s.frames[last] = nil
+	s.frames = s.frames[:last]
+}
+
+func (s *scheduler) handleRegionSignal(ctx context.Context, signal *regionSignal) error {
+	for len(s.frames) > 0 {
+		frame := s.frames[len(s.frames)-1]
+		if frame.node.ID == signal.nodeID {
+			return s.resumeRegion(ctx, signal)
+		}
+		if err := s.closeWaits(ctx); err != nil {
+			return err
+		}
+		if err := s.closeInterruptedInstruction(ctx, frame.node, frame.attempt, frame.summary, signal); err != nil {
+			return err
+		}
+		s.popRegion()
+	}
+	return signal
+}
+
+func (s *scheduler) closeRegions(ctx context.Context, cause error) error {
+	var result error
+	for len(s.frames) > 0 {
+		frame := s.frames[len(s.frames)-1]
+		result = errors.Join(result, s.closeWaits(ctx), s.closeInterruptedInstruction(ctx, frame.node, frame.attempt, frame.summary, cause))
+		s.popRegion()
+	}
+	return errors.Join(result, s.closeWaits(ctx))
 }
 
 func (s *scheduler) recordInstructionStatus(ctx context.Context, node programNode, attempt int, code string, counters map[string]int64, facts map[string]string) error {
@@ -283,23 +292,6 @@ func (s *scheduler) recordInstructionStatus(ctx context.Context, node programNod
 	}
 	_, err = s.journal.Append(context.WithoutCancel(ctx), fact)
 	return err
-}
-
-func (s *scheduler) runActivation(ctx context.Context, queue []scheduledInvocation) error {
-	parent := s.queue
-	s.queue = append([]scheduledInvocation(nil), queue...)
-	defer func() { s.queue = parent }()
-	for len(s.queue) != 0 {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		next := s.queue[0]
-		s.queue = s.queue[1:]
-		if err := s.dispatch(ctx, next.nodeID, next.trigger, map[string]bool{}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *scheduler) instructionRoutes(nodeID, output string, failure *nodeadapter.RoutedFailure) []scheduledInvocation {
@@ -391,7 +383,7 @@ func (s *scheduler) setInstructionOutput(node programNode, portID string, value 
 		previousBytes = len(previous.RuntimeArtifact())
 	}
 	nextBytes := len(value.RuntimeArtifact())
-	if s.retainedBytes-previousBytes+nextBytes > MaxRunRetainedValueBytes {
+	if !s.canRetain(nextBytes - previousBytes) {
 		return errors.New("run retained value budget exceeded")
 	}
 	s.retainedBytes = s.retainedBytes - previousBytes + nextBytes

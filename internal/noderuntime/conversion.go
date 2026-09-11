@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/yottaapp/yotta/internal/artifact"
@@ -44,6 +45,8 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 	}
 	installed := make(map[string]nodeadapter.InstalledAdapter, len(builtins.Definitions()))
 	specialized := map[string]nodeadapter.Adapter{
+		nodes.ParseWorldPositionNodeID:   parseWorldPosition(builtins),
+		nodes.MakeWorldPositionNodeID:    makeWorldPosition(builtins),
 		nodes.BlobToStreamNodeID:         blobToStream(builtins),
 		nodes.StreamToBlobNodeID:         streamToBlob(builtins),
 		nodes.RandomIntegerNodeID:        randomInteger(builtins),
@@ -117,6 +120,9 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		nodes.LogNodeID:                  writeLog(dependencies.Log),
 		nodes.ThrowNodeID:                throwFailure(),
 	}
+	for _, kind := range nodes.SignalKinds {
+		specialized[nodes.SignalPrefix+kind] = signalAdapter(builtins, kind)
+	}
 	for _, id := range nodes.ManagedPanelIDs {
 		specialized[id] = managedPanelAdapter(builtins, dependencies.Panels, id)
 	}
@@ -142,7 +148,12 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		if _, duplicate := installed[entrypoint]; duplicate {
 			return nil, fmt.Errorf("duplicate built-in entrypoint %q", entrypoint)
 		}
-		installed[entrypoint] = nodeadapter.InstalledAdapter{Implementation: trusted.Implementation, Run: adapter}
+		blocking := entrypoint == "panels.wait" || entrypoint == "signals.wait"
+		for _, family := range []string{"automation.", "vision.", "network.", "http.", "file.", "blob.", "script.", "ai.", "application."} {
+			blocking = blocking || strings.HasPrefix(entrypoint, family)
+		}
+		pauseAtWait := entrypoint == "panels.wait" || entrypoint == "signals.wait" || entrypoint == "automation.wait-template" || entrypoint == "automation.wait-template-gone" || entrypoint == "automation.click-template" || entrypoint == "automation.move-character-to" || entrypoint == "automation.turn-find-template"
+		installed[entrypoint] = nodeadapter.InstalledAdapter{Implementation: trusted.Implementation, Run: adapter, Blocking: blocking, PauseAtWait: pauseAtWait}
 	}
 	return installed, nil
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/capability"
 	"github.com/yottaapp/yotta/internal/datatype"
-	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 )
 
@@ -32,7 +31,7 @@ func NavigationEffect(id string) string {
 	}
 }
 
-func defineNavigationNodes(t automationTemplateTypes, blobRead capability.Definition) ([]BuiltinDefinition, error) {
+func defineNavigationNodes(t automationTemplateTypes, blobRead capability.Definition, positionRef datatype.TypeRef) ([]BuiltinDefinition, error) {
 	num, dur := datatype.RefExpression(t.numberRef), datatype.RefExpression(t.durationRef)
 	input := func(id string, typ datatype.TypeExpression, value string) nodecontract.DataInputPort {
 		return nodecontract.DataInputPort{ID: id, Type: typ, Required: true, Default: rawDefault(value)}
@@ -47,24 +46,23 @@ func defineNavigationNodes(t automationTemplateTypes, blobRead capability.Defini
 		required := []string{"slot"}
 		targets := automationTargetSpec("input-target", installed.TargetKindDesktopWindow)
 		var caps []capability.Requirement
+		var stateAccesses []nodecontract.StateAccessSpec
+		version := BuiltinNodeVersion
+		implementationVersion := "v1"
 		if id == MoveCharacterNodeID {
 			name, key = "move-character-to", "node.navigation.move"
-			inputs = []nodecontract.DataInputPort{input("target-x", num, "0"), input("target-y", num, "0"), input("tolerance", num, "20"), input("timeout", dur, "30000"), input("pulse", dur, "200")}
+			inputs = []nodecontract.DataInputPort{input("target-x", num, "0"), input("target-y", num, "0"), input("tolerance", num, "20"), input("timeout", dur, "30000"), input("interval", dur, "100"), input("slow-distance", num, "100")}
 			outputs = []nodecontract.DataOutputPort{{ID: "x", Type: num}, {ID: "y", Type: num}, {ID: "distance", Type: num}}
 			exits = signalList("arrived", "timeout", "stuck", "unavailable")
-			props["source"] = map[string]any{"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$", "x-yotta-title-key": "node.navigation.config.source"}
-			required = append(required, "source")
-			for field, value := range map[string]string{"path": "/v1/position", "xField": "x", "yField": "y", "headingField": "cameraHeading", "validField": "valid", "timeField": "sampleTimeMs", "forwardKey": "W"} {
-				props[field] = map[string]any{"type": "string", "minLength": 1, "maxLength": 256, "default": value, "x-yotta-title-key": "node.navigation.config." + field}
-			}
-			for field, value := range map[string]float64{"axisHeading": 0, "axisSign": 1, "turnSign": 1} {
-				prop := map[string]any{"type": "number", "default": value, "x-yotta-title-key": "node.navigation.config." + field}
-				if field != "axisHeading" {
-					prop["enum"] = []int{-1, 1}
-				}
-				props[field] = prop
-			}
-			targets = append(targets, nodecontract.ConfiguredTargetSpec{ID: "position-source", TargetSlot: "position-source", SlotConfigKey: "source", TargetKinds: []string{httpegress.TargetKind}})
+
+			version = "2.0.0"
+			implementationVersion = "v2"
+			props["position-variable"] = map[string]any{"type": "string", "minLength": 1, "maxLength": 128, "x-yotta-control": "state-variable", "x-yotta-title-key": "node.navigation.config.positionVariable"}
+			required = append(required, "position-variable")
+			props["forwardKey"] = map[string]any{"type": "string", "default": "W", "x-yotta-title-key": "node.navigation.config.forwardKey"}
+			props["turnSign"] = map[string]any{"type": "integer", "enum": []int{-1, 1}, "default": 1, "x-yotta-title-key": "node.navigation.config.turnSign"}
+			stateAccesses = []nodecontract.StateAccessSpec{{ID: "position", SlotConfigKey: "position-variable", Type: datatype.RefExpression(positionRef), Mode: nodecontract.StateRead}}
+
 		}
 		if id == TurnFindTemplateNodeID {
 			name, key = "turn-find-template", "node.navigation.search"
@@ -85,9 +83,9 @@ func defineNavigationNodes(t automationTemplateTypes, blobRead capability.Defini
 		}
 		errors := automationTemplateErrors(true)
 		errors = append(errors, nodecontract.ErrorSpec{Code: NavigationFailedCode, Category: "automation"})
-		contract, err := nodecontract.Seal(nodecontract.Draft{Version: "1.0.0", NodeTypeID: id, ConfigSchemaRoot: schemaID, ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: schema}},
+		contract, err := nodecontract.Seal(nodecontract.Draft{Version: version, NodeTypeID: id, ConfigSchemaRoot: schemaID, ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: schema}},
 			Ports:     nodecontract.PortSet{DataInputs: inputs, DataOutputs: outputs, ExecInputs: signalList("in"), ExecOutputs: exits, ErrorOutputs: signalList("failed")},
-			Execution: automationEffectExecution(NavigationEffect(id)), Instruction: nodecontract.Invoke(), ConfiguredTargets: targets, CapabilityRequirements: caps, Errors: errors,
+			Execution: automationEffectExecution(NavigationEffect(id)), Instruction: nodecontract.Invoke(), ConfiguredTargets: targets, StateAccesses: stateAccesses, CapabilityRequirements: caps, Errors: errors,
 			StatusEvents:      []nodecontract.StatusEventSpec{{Code: NavigationWaitingStatus, Category: nodecontract.StatusWaiting}, {Code: NavigationTimeoutStatus, Category: nodecontract.StatusProgress}, {Code: NavigationFinishedStatus, Category: nodecontract.StatusProgress}},
 			ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}},
 			Authoring:         nodecontract.Authoring{TitleKey: key + ".title", DescriptionKey: key + ".description", Category: "automation", Tags: []string{"game", "navigation", "character", "turn"}, Icon: "route", Ports: dataPortHints(key, inputs, outputs, map[string]string{"template": "template-image"})},
@@ -95,7 +93,7 @@ func defineNavigationNodes(t automationTemplateTypes, blobRead capability.Defini
 		if err != nil {
 			return nil, fmt.Errorf("navigation %s: %w", name, err)
 		}
-		def, err := defineBuiltin(contract, "automation."+name, "v1", "configured-target/closed-loop-navigation/v1", nil)
+		def, err := defineBuiltin(contract, "automation."+name, implementationVersion, "configured-target/closed-loop-navigation/v1", nil)
 		if err != nil {
 			return nil, err
 		}

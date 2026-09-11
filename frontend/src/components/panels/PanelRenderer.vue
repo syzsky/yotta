@@ -23,8 +23,9 @@
           :busy="busy"
           :now="now"
           :waiting-buttons="waitingButtons"
+          :listening-buttons="listeningButtons"
           :columns="columns"
-          @action="(c, value) => emit('action', c, value)"
+          @action="(c, value, queue) => emit('action', c, value, queue)"
         />
       </section>
       <PanelControl
@@ -40,15 +41,15 @@
           color="neutral"
           variant="soft"
           :icon="component.icon"
-          :loading="busy === component.id"
+          :loading="busy === component.id && !canQueue(component)"
           :disabled="
             disabled ||
-            !!busy ||
+            (!!busy && !canQueue(component)) ||
             (waitingButtons !== undefined &&
               !waitingButtons.includes(component.id) &&
               !waitingButtons.includes(''))
           "
-          @click="emit('action', component, null)"
+          @click="emit('action', component, null, canQueue(component))"
           >{{ t(component.titleKey) }}</UButton
         >
       </div>
@@ -103,13 +104,14 @@ import PanelLog from './PanelLog.vue'
 const props = defineProps<{
   columns?: number
   waitingButtons?: string[]
+  listeningButtons?: string[]
   components: PanelComponent[]
   snapshot: PanelSnapshot | null
   disabled: boolean
   busy: string
   now: number
 }>()
-const emit = defineEmits<{ action: [component: PanelComponent, value: unknown] }>()
+const emit = defineEmits<{ action: [component: PanelComponent, value: unknown, queue?: boolean] }>()
 const { t, locale } = useI18n()
 watch(
   () => props.components.map((c) => c.icon).filter((icon): icon is string => Boolean(icon)),
@@ -118,6 +120,9 @@ watch(
   },
   { immediate: true },
 )
+function canQueue(c: PanelComponent) {
+  return !!props.listeningButtons?.some((id) => id === '' || id === c.id)
+}
 function value(c: PanelComponent) {
   return c.field ? props.snapshot?.values[c.field] : undefined
 }

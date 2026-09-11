@@ -46,8 +46,8 @@ func TestGeneratedMetaSchemaPinsCurrentVersionAndRequiresExplicitPortArrays(t *t
 
 	definitions := schema["$defs"].(map[string]any)
 	instruction := definitions["InstructionSpec"].(map[string]any)
-	if variants, ok := instruction["oneOf"].([]any); !ok || len(variants) != 5 {
-		t.Fatalf("InstructionSpec schema is not the five-way tagged union: %#v", instruction)
+	if variants, ok := instruction["oneOf"].([]any); !ok || len(variants) != 6 {
+		t.Fatalf("InstructionSpec schema is not the six-way tagged union: %#v", instruction)
 	}
 	typeExpression := definitions["TypeExpression"].(map[string]any)
 	if variants, ok := typeExpression["oneOf"].([]any); !ok || len(variants) != 4 {

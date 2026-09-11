@@ -7,9 +7,15 @@
 
 ## Status
 
-Open
+Finished
 
 ## Current
+
+2026-09-11 用户确认 V4 已发布，本 Work 完成。原先等待发布的记录已过时；本次只同步完成状态，不重新发布，也不声称重新核验了远端发布设置。
+
+## 完成前记录
+
+以下为当时的实现和验收记录，时态及待办不代表当前活动状态。
 
 仓库内兼容性封板已经完成并通过发布级全量门禁。V4 的版本域、built-in NodeRef、TypeRef 与 CapabilityRef
 均已有不可覆盖的 4.0.0 release floor；Workflow、Bundle、Snippet、Schedule、Macro 等迁移路径已补齐持久写回、
@@ -31,11 +37,11 @@ immutable releases 设置目前也尚未启用。
 
 ## Next
 
-1. Review、commit 并 push 自动发布 workflow 与 [发布说明](../../../RELEASING.md)。
-2. 推送 `v4.0.0-rc.1` 验证自动 candidate、SBOM、checksum、attestation 与 prerelease 发布。
-3. 处理签名、immutable releases、ruleset 等 stable 发布前置项后再推送 `v4.0.0`。
+None
 
 ## Progress
+
+- 2026-09-11 用户确认 V4 已发布，本 Work 完成。原先等待发布的记录已过时；本次只同步完成状态，不重新发布，也不声称重新核验了远端发布设置。
 
 - 2026-08-11 建立发布兼容性封板 Work；确认不把文档或 Knowledge 当作事实源，也不在逐节点/逐操作热路径
   恢复已删除的安全验证层。

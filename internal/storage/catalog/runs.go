@@ -113,6 +113,19 @@ func (r *RunRepository) Import(ctx context.Context, record RunLedgerRecord) erro
 }
 
 func (r *RunRepository) Get(ctx context.Context, runID string) (RunLedgerRecord, error) {
+	return r.get(ctx, runID, 0)
+}
+
+// GetTail reads the head, recent events and values in one database snapshot.
+// Older events remain available through paged event queries.
+func (r *RunRepository) GetTail(ctx context.Context, runID string, limit int) (RunLedgerRecord, error) {
+	if limit < 1 || limit > 4096 {
+		return RunLedgerRecord{}, errors.New("invalid Run tail limit")
+	}
+	return r.get(ctx, runID, limit)
+}
+
+func (r *RunRepository) get(ctx context.Context, runID string, tail int) (RunLedgerRecord, error) {
 	if err := r.ready(); err != nil {
 		return RunLedgerRecord{}, err
 	}
@@ -137,7 +150,11 @@ func (r *RunRepository) Get(ctx context.Context, runID string) (RunLedgerRecord,
 	if err != nil {
 		return rollback(err)
 	}
-	events, err := queryRunEvents(ctx, tx, runID, false)
+	after := uint64(0)
+	if tail > 0 && summary.JournalCount > uint64(tail) {
+		after = summary.JournalCount - uint64(tail)
+	}
+	events, err := queryRunEvents(ctx, tx, runID, false, after)
 	if err != nil {
 		return rollback(err)
 	}
@@ -146,7 +163,7 @@ func (r *RunRepository) Get(ctx context.Context, runID string) (RunLedgerRecord,
 		return rollback(err)
 	}
 	record := RunLedgerRecord{Summary: summary, Events: events, Values: values}
-	if err := validateRunLedgerRecord(record); err != nil {
+	if err := validateRunLedgerTail(record, after); err != nil {
 		return rollback(ErrSchemaDrift)
 	}
 	if err := tx.Commit(); err != nil {
@@ -175,6 +192,17 @@ func (r *RunRepository) GetSummary(ctx context.Context, runID string) (RunSummar
 }
 
 func (r *RunRepository) List(ctx context.Context) ([]RunLedgerRecord, error) {
+	return r.list(ctx, 0)
+}
+
+func (r *RunRepository) ListTail(ctx context.Context, limit int) ([]RunLedgerRecord, error) {
+	if limit < 1 || limit > 4096 {
+		return nil, errors.New("invalid Run tail limit")
+	}
+	return r.list(ctx, limit)
+}
+
+func (r *RunRepository) list(ctx context.Context, tail int) ([]RunLedgerRecord, error) {
 	if err := r.ready(); err != nil {
 		return nil, err
 	}
@@ -198,7 +226,7 @@ func (r *RunRepository) List(ctx context.Context) ([]RunLedgerRecord, error) {
 	}
 	result := make([]RunLedgerRecord, 0, len(ids))
 	for _, id := range ids {
-		record, err := r.Get(ctx, id)
+		record, err := r.get(ctx, id, tail)
 		if err != nil {
 			return nil, err
 		}
@@ -245,13 +273,14 @@ func (r *RunRepository) AppendEvent(
 	nextDigest artifact.Digest,
 	event RunEventRecord,
 	updatedAt time.Time,
+	summaryArtifact []byte,
 ) error {
 	if err := r.ready(); err != nil {
 		return err
 	}
 	if strings.TrimSpace(runID) == "" || previousGeneration == 0 ||
 		nextGeneration != previousGeneration+1 || !previousDigest.Valid() ||
-		!nextDigest.Valid() || validateRunEvent(event) != nil || updatedAt.IsZero() {
+		!nextDigest.Valid() || validateRunEvent(event) != nil || updatedAt.IsZero() || len(summaryArtifact) == 0 {
 		return errors.New("run event append is invalid")
 	}
 	tx, err := r.database.db.BeginTx(ctx, nil)
@@ -260,10 +289,10 @@ func (r *RunRepository) AppendEvent(
 	}
 	result, err := tx.ExecContext(ctx, `
 		UPDATE runs SET
-			generation = ?, record_digest = ?, journal_count = journal_count + 1, updated_at = ?
+			generation = ?, record_digest = ?, journal_count = journal_count + 1, updated_at = ?, summary_artifact = ?
 		WHERE run_id = ? AND generation = ? AND record_digest = ?
 			AND status = 'running' AND journal_count = ?
-	`, nextGeneration, nextDigest.String(), formatRunTime(updatedAt), runID,
+	`, nextGeneration, nextDigest.String(), formatRunTime(updatedAt), summaryArtifact, runID,
 		previousGeneration, previousDigest.String(), event.Sequence-1)
 	if err != nil {
 		return errors.Join(err, tx.Rollback())
@@ -556,15 +585,15 @@ type runQueryer interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }
 
-func queryRunEvents(ctx context.Context, queryer runQueryer, runID string, descending bool) ([]RunEventRecord, error) {
+func queryRunEvents(ctx context.Context, queryer runQueryer, runID string, descending bool, after uint64) ([]RunEventRecord, error) {
 	order := "ASC"
 	if descending {
 		order = "DESC"
 	}
 	rows, err := queryer.QueryContext(ctx, `
 		SELECT sequence, kind, occurred_at, artifact
-		FROM run_events WHERE run_id = ?
-	ORDER BY sequence `+order, runID)
+		FROM run_events WHERE run_id = ? AND sequence > ?
+	ORDER BY sequence `+order, runID, after)
 	if err != nil {
 		return nil, err
 	}
@@ -677,14 +706,18 @@ func scanRunEvent(scanner runScanner) (RunEventRecord, error) {
 }
 
 func validateRunLedgerRecord(record RunLedgerRecord) error {
+	return validateRunLedgerTail(record, 0)
+}
+
+func validateRunLedgerTail(record RunLedgerRecord, after uint64) error {
 	if err := validateRunSummary(record.Summary); err != nil {
 		return err
 	}
-	if uint64(len(record.Events)) != record.Summary.JournalCount {
+	if uint64(len(record.Events))+after != record.Summary.JournalCount {
 		return errors.New("run event count does not match its summary")
 	}
 	for index, event := range record.Events {
-		if err := validateRunEvent(event); err != nil || event.Sequence != uint64(index+1) {
+		if err := validateRunEvent(event); err != nil || event.Sequence != after+uint64(index+1) {
 			return errors.New("run events are not a contiguous append log")
 		}
 	}

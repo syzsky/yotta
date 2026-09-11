@@ -580,6 +580,33 @@ func (p ProgramSnapshot) Nodes() []NodeView {
 	return result
 }
 
+// ConfiguredTargetSlots returns resolved target references, including inherited
+// defaults and expanded subgraphs, for one-time Run preparation.
+func (p ProgramSnapshot) ConfiguredTargetSlots(catalog nodecatalog.Snapshot) []string {
+	slots := map[string]bool{}
+	if p.Valid() {
+		for _, graph := range p.state.document.Body.Graphs {
+			for _, node := range graph.Nodes {
+				entry, ok := catalog.Lookup(node.NodeRef.NodeTypeID)
+				if !ok {
+					continue
+				}
+				for _, target := range entry.Contract.Machine().ConfiguredTargets {
+					if slot, ok := node.Config[target.SlotConfigKey].(string); ok && slot != "" {
+						slots[slot] = true
+					}
+				}
+			}
+		}
+	}
+	result := make([]string, 0, len(slots))
+	for slot := range slots {
+		result = append(result, slot)
+	}
+	slices.Sort(result)
+	return result
+}
+
 func (p ProgramSnapshot) State() []StateView {
 	if !p.Valid() {
 		return nil

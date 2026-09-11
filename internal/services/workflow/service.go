@@ -598,11 +598,7 @@ func (s *Service) CancelAllRuns() error {
 }
 
 func (s *Service) GetRunTimeline(runID string) (RunView, error) {
-	record, err := s.application.GetRun(runID)
-	if err != nil {
-		return RunView{}, runError("timeline", err)
-	}
-	return runView(record), nil
+	return s.GetRunTimelinePage(runID, 1, 200)
 }
 
 func (s *Service) GetRunTimelinePage(runID string, page, pageSize int) (RunView, error) {
@@ -617,15 +613,11 @@ func (s *Service) ExportRunTimeline(runID, destination string) (RunTimelineExpor
 	if strings.TrimSpace(destination) == "" {
 		return RunTimelineExportResult{}, projectError("workflow.timeline.destination_required", apperr.CategoryValidation, nil, false, errors.New("run timeline export destination is required"))
 	}
-	record, err := s.application.GetRun(runID)
+	snapshot, err := s.application.GetRunTimelineSnapshot(context.Background(), runID)
 	if err != nil {
 		return RunTimelineExportResult{}, runError("timeline_export", err)
 	}
-	view := runView(record)
-	view.Timeline = timelineView(record.Journal())
-	view.TimelinePage = 1
-	view.TimelinePages = 1
-	view.TimelineTotal = len(view.Timeline)
+	view := runTimelinePageView(snapshot)
 	document := struct {
 		Format  string  `json:"format"`
 		Version string  `json:"version"`
@@ -704,7 +696,7 @@ func runViewPage(record run.Record, page, pageSize int) RunView {
 		RunID: admission.RunID, WorkflowID: admission.WorkflowID, SourceHash: admission.SourceHash, SourceRevision: admission.SourceRevision,
 		Status: string(record.Status()), Generation: record.Generation(), RecordDigest: record.Digest(),
 		ProgramHash: admission.ProgramHash, QueuedAt: admission.QueuedAt.Format("2006-01-02T15:04:05.999999999Z07:00"),
-		Timeline: timelineView(pageEntries), TimelinePage: currentPage, TimelinePages: pages, TimelineTotal: len(entries),
+		Timeline: timelineView(pageEntries), TimelinePage: currentPage, TimelinePages: pages, TimelineTotal: int(record.JournalCount()),
 	}
 	if failure, ok := record.Failure(); ok {
 		var params map[string]any

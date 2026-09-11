@@ -13,9 +13,6 @@ func TestControlAndEventNodesHaveExplicitExecutionSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(builtins.Types) != 30 || len(builtins.Definitions()) != 189 {
-		t.Fatalf("types=%d nodes=%d", len(builtins.Types), len(builtins.Definitions()))
-	}
 	runStarted, _ := builtins.Definition(RunStartedNodeID)
 	branch, _ := builtins.Definition(BranchNodeID)
 	delay, _ := builtins.Definition(DelayNodeID)

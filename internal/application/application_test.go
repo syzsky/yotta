@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -879,4 +880,64 @@ func testDigest(t *testing.T, label string) artifact.Digest {
 		t.Fatal(err)
 	}
 	return digest
+}
+
+func TestIndependentRunCompletesWhileAnotherRunIsWaiting(t *testing.T) {
+	now := time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
+	entered := make(chan struct{})
+	var first atomic.Bool
+	var builtins nodes.Builtins
+	adapter := func(ctx context.Context, i nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
+		if first.CompareAndSwap(false, true) {
+			close(entered)
+			<-ctx.Done()
+			return nodeadapter.AdapterResult{}, ctx.Err()
+		}
+		value, err := datatype.SealInlineJSON(builtins.Catalog, i.OutputTypes["result"], []byte(`"done"`))
+		return nodeadapter.AdapterResult{Outputs: map[string]datatype.ValueEnvelope{"result": value}}, err
+	}
+	application, _, _, b, events, _ := newTestApplication(t, now, adapter)
+	builtins = b
+	if err := application.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := application.Close(ctx); err != nil {
+			t.Error(err)
+		}
+	})
+	one, two := createConcatWorkflow(t, application), createConcatWorkflow(t, application)
+	waiting, err := application.StartRun(context.Background(), appcore.StartRunRequest{WorkflowID: one.Source.WorkflowID(), Principal: "user-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first Run did not start")
+	}
+	independent, err := application.StartRun(context.Background(), appcore.StartRunRequest{WorkflowID: two.Source.WorkflowID(), Principal: "user-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case event := <-events:
+			if event.RunID == independent.Record.Admission().RunID && event.Status == run.StatusSucceeded {
+				stillWaiting, err := application.GetRun(waiting.Record.Admission().RunID)
+				if err != nil || stillWaiting.Status() != run.StatusRunning {
+					t.Fatalf("first Run was stopped or changed: %v", err)
+				}
+				if _, err := application.CancelRun(context.Background(), waiting.Record.Admission().RunID); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+		case <-deadline:
+			t.Fatal("a waiting Run blocked independent execution")
+		}
+	}
 }

@@ -16,9 +16,16 @@ const (
 	InstructionCountedLoop InstructionKind = "counted-loop"
 	InstructionForEach     InstructionKind = "for-each"
 	InstructionRetry       InstructionKind = "retry"
+	InstructionTask        InstructionKind = "task"
 )
 
 const (
+	TaskStartedStatusID = "control.task.started"
+	TaskPausingStatusID = "control.task.pausing"
+	TaskPausedStatusID  = "control.task.paused"
+	TaskResumedStatusID = "control.task.resumed"
+	TaskOverrunStatusID = "control.task.overrun"
+
 	RetryAttemptStatusID   = "control.retry.attempt"
 	RetryExhaustedStatusID = "control.retry.exhausted"
 )
@@ -27,15 +34,43 @@ const (
 // host-lowered control semantics part of the semantic digest instead of
 // relying on node type IDs or adapter-side conventions.
 type InstructionSpec struct {
-	Kind        InstructionKind         `json:"kind" jsonschema:"required,enum=invoke,enum=run-root,enum=counted-loop,enum=for-each,enum=retry"`
+	Kind        InstructionKind         `json:"kind" jsonschema:"required,enum=invoke,enum=run-root,enum=counted-loop,enum=for-each,enum=retry,enum=task"`
 	Invoke      *InvokeInstruction      `json:"invoke,omitempty"`
 	RunRoot     *RunRootInstruction     `json:"runRoot,omitempty"`
 	CountedLoop *CountedLoopInstruction `json:"countedLoop,omitempty"`
 	ForEach     *ForEachInstruction     `json:"forEach,omitempty"`
 	Retry       *RetryInstruction       `json:"retry,omitempty"`
+	Task        *TaskInstruction        `json:"task,omitempty"`
 }
 
-type InvokeInstruction struct{}
+// TaskInstruction owns an isolated periodic body. A monitored main branch and
+// its interrupt handler, when declared, share the task's structured lifetime.
+type TaskInstruction struct {
+	EntryInput      string           `json:"entryInput"`
+	StopInput       string           `json:"stopInput"`
+	BodyOutput      string           `json:"bodyOutput"`
+	CompletedOutput string           `json:"completedOutput"`
+	IntervalInput   string           `json:"intervalInput"`
+	CountInput      string           `json:"countInput"`
+	IndexOutput     string           `json:"indexOutput"`
+	OrdinalType     datatype.TypeRef `json:"ordinalType"`
+	DurationType    datatype.TypeRef `json:"durationType"`
+	MainOutput      string           `json:"mainOutput,omitempty"`
+	InterruptInput  string           `json:"interruptInput,omitempty"`
+	HandlerOutput   string           `json:"handlerOutput,omitempty"`
+}
+
+type InvokeInstruction struct {
+	Subscription *SubscriptionInstruction `json:"subscription,omitempty"`
+}
+
+// SubscriptionInstruction declares scheduler-owned serial event handling.
+type SubscriptionInstruction struct {
+	StopInput       string `json:"stopInput"`
+	EventOutput     string `json:"eventOutput"`
+	MainOutput      string `json:"mainOutput"`
+	CompletedOutput string `json:"completedOutput"`
+}
 
 type RunRootInstruction struct {
 	Output string `json:"output" jsonschema:"required,pattern=^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$"`
@@ -108,13 +143,16 @@ func (source InstructionSpec) AcceptsSignalInput(channel, input string) bool {
 		value := source.Retry
 		return value != nil &&
 			(channel == "exec" && input == value.EntryInput || channel == "error" && input == value.RetryInput)
+	case InstructionTask:
+		v := source.Task
+		return v != nil && channel == "exec" && (input == v.EntryInput || input == v.StopInput || v.InterruptInput != "" && input == v.InterruptInput)
 	default:
 		return false
 	}
 }
 
 func normalizeInstruction(source InstructionSpec, execution ExecutionSpec, ports PortSet) (InstructionSpec, error) {
-	payloads := []bool{source.Invoke != nil, source.RunRoot != nil, source.CountedLoop != nil, source.ForEach != nil, source.Retry != nil}
+	payloads := []bool{source.Invoke != nil, source.RunRoot != nil, source.CountedLoop != nil, source.ForEach != nil, source.Retry != nil, source.Task != nil}
 	count := 0
 	for _, present := range payloads {
 		if present {
@@ -128,11 +166,17 @@ func normalizeInstruction(source InstructionSpec, execution ExecutionSpec, ports
 		InstructionInvoke: source.Invoke != nil, InstructionRunRoot: source.RunRoot != nil,
 		InstructionCountedLoop: source.CountedLoop != nil, InstructionForEach: source.ForEach != nil,
 		InstructionRetry: source.Retry != nil,
+		InstructionTask:  source.Task != nil,
 	}
 	if !matches[source.Kind] {
 		return InstructionSpec{}, errors.New("node instruction kind does not match its payload")
 	}
 	if source.Kind == InstructionInvoke {
+		if v := source.Invoke.Subscription; v != nil {
+			if execution.Class != ExecutionEffect || !hasExecInput(ports, v.StopInput) || !hasExecOutput(ports, v.EventOutput) || !hasExecOutput(ports, v.MainOutput) || !hasExecOutput(ports, v.CompletedOutput) {
+				return InstructionSpec{}, errors.New("subscription instruction references invalid ports")
+			}
+		}
 		if execution.Class == ExecutionRegion {
 			return InstructionSpec{}, errors.New("region execution requires a host-lowered instruction")
 		}
@@ -149,6 +193,19 @@ func normalizeInstruction(source InstructionSpec, execution ExecutionSpec, ports
 		return InstructionSpec{}, errors.New("region instruction requires deterministic effect-free region execution")
 	}
 	switch source.Kind {
+	case InstructionTask:
+		v := source.Task
+		inputs, outputs := []string{v.EntryInput, v.StopInput}, []string{v.BodyOutput, v.CompletedOutput}
+		if v.MainOutput != "" || v.InterruptInput != "" || v.HandlerOutput != "" {
+			inputs = append(inputs, v.InterruptInput)
+			outputs = append(outputs, v.MainOutput, v.HandlerOutput)
+		}
+		if !regionPortsExist(ports, inputs, outputs) ||
+			!inputHasType(ports, v.IntervalInput, datatype.RefExpression(v.DurationType)) ||
+			!inputHasType(ports, v.CountInput, datatype.RefExpression(v.OrdinalType)) ||
+			!outputHasType(ports, v.IndexOutput, datatype.RefExpression(v.OrdinalType)) {
+			return InstructionSpec{}, errors.New("task instruction references invalid ports")
+		}
 	case InstructionCountedLoop:
 		value := source.CountedLoop
 		if value.MaxIterations < 1 || value.MaxIterations > 16_384 ||

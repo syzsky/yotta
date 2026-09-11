@@ -24,6 +24,34 @@ afterEach(() => {
 })
 
 describe('WorkflowDebuggerPanel', () => {
+  it('shows independent task roles and pause state in a collapsible tree', async () => {
+    const root = await mountPanel(
+      snapshot({
+        tasks: [
+          { id: 1, depth: 0, role: 'root', status: 'monitoring' },
+          {
+            id: 2,
+            parentId: 1,
+            depth: 1,
+            role: 'main',
+            status: 'paused',
+            nodeId: 'play-clip',
+            graphPath: ['main'],
+          },
+          { id: 3, parentId: 1, depth: 1, role: 'handler', status: 'running' },
+        ],
+      }),
+    )
+    const tree = root.querySelector<HTMLDetailsElement>('[data-testid="debug-task-tree"]')!
+    expect(tree.open).toBe(true)
+    expect(tree.querySelectorAll('li')).toHaveLength(3)
+    expect(tree.textContent).toContain('workflow.debug.task_role_handler')
+    expect(tree.textContent).toContain('workflow.debug.task_status_paused')
+    expect(tree.textContent).toContain('Playback clip')
+    tree.querySelector('summary')!.click()
+    expect(tree.open).toBe(false)
+  })
+
   it('puts Step and the next node at the top when the Run is paused', async () => {
     const root = await mountPanel(
       snapshot({ status: DebugStatus.DebugPaused, nodeId: 'play-clip' }),

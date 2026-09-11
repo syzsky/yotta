@@ -16,6 +16,7 @@ import (
 
 	"github.com/lxn/win"
 	"github.com/yottaapp/yotta/internal/appcontrol"
+	"github.com/yottaapp/yotta/internal/automation/inputcoord"
 	"github.com/yottaapp/yotta/internal/automation/pointermotion"
 	"github.com/yottaapp/yotta/internal/services/inputclip"
 	"github.com/yottaapp/yotta/internal/services/recording"
@@ -420,13 +421,18 @@ func TestNativeWindowsDriverEndToEnd(t *testing.T) {
 	})
 
 	mark = nativeFixtureMark()
-	if err := driver.PlayEvent(ctx, PlaybackEvent{Kind: PlaybackKeyDown, KeyCode: win.VK_F7}); err != nil {
+	playback, err := driver.(playbackOpener).OpenPlayback(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.PlayEvent(ctx, PlaybackEvent{Kind: PlaybackKeyUp, KeyCode: win.VK_F7}); err != nil {
+	defer playback.ReleaseInput()
+	if err := playback.PlayEvent(ctx, PlaybackEvent{Kind: PlaybackKeyDown, KeyCode: win.VK_F7}); err != nil {
 		t.Fatal(err)
 	}
-	if err := driver.ReleaseInput(); err != nil {
+	if err := playback.PlayEvent(ctx, PlaybackEvent{Kind: PlaybackKeyUp, KeyCode: win.VK_F7}); err != nil {
+		t.Fatal(err)
+	}
+	if err := playback.ReleaseInput(); err != nil {
 		t.Fatal(err)
 	}
 	waitNativeFixtureEvents(t, mark, func(events []nativeFixtureEvent) bool {
@@ -527,7 +533,12 @@ func TestNativePostMessagePlaybackClickUsesTargetCursorAndRestoresIt(t *testing.
 	mark := nativeFixtureMark()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := driver.PlayEvent(ctx, PlaybackEvent{Kind: PlaybackClick, Point: &Point{X: 0.3, Y: 0.3, Unit: "ratio"}, Button: "left", DurationMilliseconds: 10}); err != nil {
+	playback, err := driver.(playbackOpener).OpenPlayback(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer playback.ReleaseInput()
+	if err := playback.PlayEvent(ctx, PlaybackEvent{Kind: PlaybackClick, Point: &Point{X: 0.3, Y: 0.3, Unit: "ratio"}, Button: "left", DurationMilliseconds: 10}); err != nil {
 		t.Fatal(err)
 	}
 	var down nativeFixtureEvent
@@ -573,7 +584,12 @@ func TestNativePostMessagePlaybackTrajectoryKeepsHeldButtonAndReleasesAtLastPoin
 	start := &Point{X: 0.2, Y: 0.25, Unit: "ratio"}
 	end := &Point{X: 0.75, Y: 0.7, Unit: "ratio"}
 	mark := nativeFixtureMark()
-	if err := driver.PlayEvent(ctx, PlaybackEvent{
+	playback, err := driver.(playbackOpener).OpenPlayback(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer playback.ReleaseInput()
+	if err := playback.PlayEvent(ctx, PlaybackEvent{
 		Kind: PlaybackDrag, From: start, Point: end, Button: "left",
 		DurationMilliseconds: 80, Motion: pointermotion.Bezier,
 	}); err != nil {
@@ -606,4 +622,68 @@ func TestNativePostMessagePlaybackTrajectoryKeepsHeldButtonAndReleasesAtLastPoin
 	if actual.X != float64(expectedX) || actual.Y != float64(expectedY) {
 		t.Fatalf("PostMessage trajectory released at (%v,%v), want (%d,%d)", actual.X, actual.Y, expectedX, expectedY)
 	}
+}
+
+func TestNativeHeldInputPauseHandoffAcrossTargetAliases(t *testing.T) {
+	if os.Getenv("YOTTA_WINDOWS_NATIVE_SMOKE") != "1" {
+		t.Skip("requires desktop fixture")
+	}
+	windows := startNativeFixture(t)
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := nativeFixtureProfile(t, executable, windows.className, nativeFixtureTitle, "exact", "unique")
+	first, err := newPlatformDriver(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	second, err := newPlatformDriver(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	owner := inputcoord.NewOwner()
+	mainCtx := inputcoord.WithOwner(ctx, owner)
+	held, err := first.(heldInputOpener).OpenHeldInput()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	mark := nativeFixtureMark()
+	if err := held.Execute(mainCtx, OperationHoldKeys, HoldKeysRequest{Keys: []string{"F7"}}); err != nil {
+		t.Fatal(err)
+	}
+	waitNativeFixtureEvents(t, mark, func(events []nativeFixtureEvent) bool {
+		return hasNativeFixtureEvent(events, win.WM_KEYDOWN, win.VK_F7)
+	})
+	waiting, stop := context.WithTimeout(ctx, 50*time.Millisecond)
+	err = second.Execute(inputcoord.WithOwner(waiting, inputcoord.NewOwner()), OperationPressKeys, PressKeysRequest{Keys: []string{"F8"}, DurationMilliseconds: 10})
+	stop()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("conflicting input was not held: %v", err)
+	}
+	mark = nativeFixtureMark()
+	if err := owner.Pause(ctx); err != nil {
+		t.Fatal(err)
+	}
+	waitNativeFixtureEvents(t, mark, func(events []nativeFixtureEvent) bool { return hasNativeFixtureEvent(events, win.WM_KEYUP, win.VK_F7) })
+	if err := second.Execute(inputcoord.WithOwner(ctx, inputcoord.NewOwner()), OperationPressKeys, PressKeysRequest{Keys: []string{"F8"}, DurationMilliseconds: 10}); err != nil {
+		t.Fatal(err)
+	}
+	mark = nativeFixtureMark()
+	if err := owner.Resume(ctx); err != nil {
+		t.Fatal(err)
+	}
+	waitNativeFixtureEvents(t, mark, func(events []nativeFixtureEvent) bool {
+		return hasNativeFixtureEvent(events, win.WM_KEYDOWN, win.VK_F7)
+	})
+	mark = nativeFixtureMark()
+	if err := held.Close(); err != nil {
+		t.Fatal(err)
+	}
+	waitNativeFixtureEvents(t, mark, func(events []nativeFixtureEvent) bool { return hasNativeFixtureEvent(events, win.WM_KEYUP, win.VK_F7) })
 }

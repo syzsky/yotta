@@ -205,6 +205,12 @@ export default {
     },
   },
   type: {
+    navigation: {
+      worldPosition: {
+        title: 'Live position',
+        description: 'Position observation with coordinates, heading, frame and sample time.',
+      },
+    },
     panel: {
       panel: {
         break_title: 'Inspect panel reference',
@@ -521,6 +527,11 @@ export default {
       'Run panels are unavailable. Run the workflow again; if it still fails, restart Yotta.',
     'panels.node_failed':
       'Panel operation failed. Check the selected panel, component and input value.',
+    'signals.failed': 'Could not send or receive the signal. Check its name and listener.',
+    'signals.queue_full':
+      'The signal queue is full. Reduce the sending rate or shorten the handler.',
+    'signals.wait_timeout':
+      'Waiting for a signal timed out. Increase the timeout or connect the failure branch.',
     'panels.wait_timeout':
       'Panel interaction timed out. Increase the timeout or handle the failed route.',
     'panels.queue_full':

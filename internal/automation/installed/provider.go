@@ -264,8 +264,6 @@ type driver interface {
 	ResolveTarget(context.Context) (target.Target, error)
 	Execute(context.Context, string, any) error
 	Capture(context.Context) ([]byte, error)
-	PlayEvent(context.Context, PlaybackEvent) error
-	ReleaseInput() error
 	Close() error
 }
 type captureFrameDriver interface {
@@ -291,7 +289,7 @@ type playbackOpener interface {
 	OpenPlayback(context.Context) (playbackSessionDriver, error)
 }
 
-type directPlaybackSession struct{ driver driver }
+type directPlaybackSession struct{ driver playbackSessionDriver }
 
 func (session directPlaybackSession) PlayEvent(ctx context.Context, event PlaybackEvent) error {
 	return session.driver.PlayEvent(ctx, event)
@@ -420,13 +418,17 @@ func (p *provider) Open(ctx context.Context, request resource.ProviderOpenReques
 			p.stateMu.Unlock()
 			return nil, err
 		}
-		openedDriver := playbackSessionDriver(directPlaybackSession{driver: p.driver})
+		var openedDriver playbackSessionDriver
 		if opener, ok := p.driver.(playbackOpener); ok {
 			var err error
 			openedDriver, err = opener.OpenPlayback(ctx)
 			if err != nil {
 				return failOpen(classifyPlaybackFailure(err))
 			}
+		} else if events, ok := p.driver.(playbackSessionDriver); ok {
+			openedDriver = directPlaybackSession{driver: events}
+		} else {
+			return failOpen(failure(CodeUnsupportedHost, errors.New("automation adapter has no playback session")))
 		}
 		return &playbackSession{driver: openedDriver}, nil
 	}

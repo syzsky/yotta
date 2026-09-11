@@ -425,6 +425,14 @@ function instructionAcceptsSignal(
         [value.entryInput, value.breakInput, value.continueInput].includes(inputPort),
       )
     }
+    case 'task': {
+      const value = instruction.task
+      return Boolean(
+        value &&
+        channel === 'exec' &&
+        [value.entryInput, value.stopInput, value.interruptInput].includes(inputPort),
+      )
+    }
     case 'retry': {
       const value = instruction.retry
       return Boolean(

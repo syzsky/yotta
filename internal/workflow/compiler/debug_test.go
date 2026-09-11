@@ -23,6 +23,21 @@ func TestDebugSnapshotCollectionsMarshalAsEmptyCollections(t *testing.T) {
 	}
 }
 
+func TestDebugTaskSnapshotsDoNotShareMutablePaths(t *testing.T) {
+	control, err := NewDebugController(DebugControllerOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	control.updateTasks([]DebugTaskView{{ID: 1, Role: "root"}, {ID: 2, ParentID: 1, Depth: 1, Role: "main", Status: "paused", NodeID: "move", GraphPath: []string{"main"}}})
+	first := control.Snapshot()
+	first.Tasks[1].GraphPath[0] = "changed"
+	first.Tasks[1].Status = "running"
+	second := control.Snapshot()
+	if second.Tasks[1].GraphPath[0] != "main" || second.Tasks[1].Status != "paused" {
+		t.Fatal("consumer mutated live task snapshot")
+	}
+}
+
 func TestDebugControllerStepContinuePauseAndCancellation(t *testing.T) {
 	control, err := NewDebugController(DebugControllerOptions{StartPaused: true})
 	if err != nil {

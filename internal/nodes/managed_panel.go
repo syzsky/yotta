@@ -8,7 +8,7 @@ import (
 
 const ManagedPanelPrefix = "https://schemas.yotta.dev/nodes/panels/"
 
-var ManagedPanelKinds = []string{"use", "show", "read-text", "read-number", "read-toggle", "write-text", "write-number", "write-toggle", "log", "wait", "ref-text", "ref-number", "ref-toggle", "ref-event", "ref-log"}
+var ManagedPanelKinds = []string{"use", "show", "read-text", "read-number", "read-toggle", "write-text", "write-number", "write-toggle", "log", "wait", "listen", "ref-text", "ref-number", "ref-toggle", "ref-event", "ref-log"}
 var ManagedPanelIDs = func() []string {
 	out := []string{}
 	for _, k := range ManagedPanelKinds {
@@ -67,7 +67,7 @@ func defineManagedPanelNodes(values, refs map[string]datatype.TypeRef) ([]Builti
 			componentKind = "boolean"
 		case "log", "ref-log":
 			componentKind = "log"
-		case "wait", "ref-event":
+		case "wait", "listen", "ref-event":
 			componentKind = "event"
 		}
 		if componentKind != "" {
@@ -94,10 +94,20 @@ func defineManagedPanelNodes(values, refs map[string]datatype.TypeRef) ([]Builti
 			inputs = append(inputs, nodecontract.DataInputPort{ID: "value", Type: datatype.RefExpression(values[componentKind]), Required: true})
 		case "log":
 			inputs = append(inputs, nodecontract.DataInputPort{ID: "value", Type: datatype.RefExpression(values["string"]), Required: true})
-		case "wait":
+		case "wait", "listen":
 			outputs = append(outputs, nodecontract.DataOutputPort{ID: "value", Type: datatype.RefExpression(values["json"])}, nodecontract.DataOutputPort{ID: "component", Type: datatype.RefExpression(values["string"])})
 		default:
 			outputs = append(outputs, nodecontract.DataOutputPort{ID: "reference", Type: datatype.RefExpression(refs[componentKind])})
+		}
+		declaredErrors := panelErrors()
+		instruction := nodecontract.Invoke()
+		execInputs, execOutputs := signalList("in"), signalList("completed")
+		if kind == "listen" {
+			declaredErrors = append(declaredErrors, nodecontract.ErrorSpec{Code: "panels.queue_full", Category: "panels", Params: []nodecontract.ProblemParamSpec{{Name: "panel", Type: nodecontract.ProblemParamString, Required: true}, {Name: "component", Type: nodecontract.ProblemParamString, Required: true}}})
+			instruction = subscriptionInstruction()
+			execInputs = signalList("in", "stop")
+			execOutputs = signalList("event", "main", "completed")
+			outputs = append(outputs, nodecontract.DataOutputPort{ID: "event-id", Type: datatype.RefExpression(values["string"])})
 		}
 		hints := dataPortHints(prefix, inputs, outputs, nil)
 		for i := range hints {
@@ -105,7 +115,7 @@ func defineManagedPanelNodes(values, refs map[string]datatype.TypeRef) ([]Builti
 				hints[i].Group = "advanced"
 			}
 		}
-		c, err := nodecontract.Seal(nodecontract.Draft{NodeTypeID: id, Version: "1.0.0", ConfigSchemaRoot: schemaID, ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: raw}}, Ports: nodecontract.PortSet{DataInputs: inputs, DataOutputs: outputs, ExecInputs: signalList("in"), ExecOutputs: signalList("completed"), ErrorOutputs: signalList("failed")}, Execution: nodecontract.ExecutionSpec{Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{nodecontract.EffectID(PanelEffect(kind))}, Determinism: nodecontract.Recorded, Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone}, Instruction: nodecontract.Invoke(), Errors: panelErrors(), ConfiguredTargets: []nodecontract.ConfiguredTargetSpec{{ID: "panel", TargetSlot: "panel", SlotConfigKey: "panel", TargetKinds: []string{"panel"}}}, ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}}, Authoring: nodecontract.Authoring{TitleKey: prefix + ".title", DescriptionKey: prefix + ".description", Category: "panel", Icon: "layout-dashboard", Tags: []string{"panel", "面板"}, Ports: hints}})
+		c, err := nodecontract.Seal(nodecontract.Draft{NodeTypeID: id, Version: "1.0.0", ConfigSchemaRoot: schemaID, ConfigSchemaBundle: []datatype.SchemaResource{{ID: schemaID, Schema: raw}}, Ports: nodecontract.PortSet{DataInputs: inputs, DataOutputs: outputs, ExecInputs: execInputs, ExecOutputs: execOutputs, ErrorOutputs: signalList("failed")}, Execution: nodecontract.ExecutionSpec{Class: nodecontract.ExecutionEffect, Effects: []nodecontract.EffectID{nodecontract.EffectID(PanelEffect(kind))}, Determinism: nodecontract.Recorded, Evaluation: nodecontract.EvaluationPush, Cache: nodecontract.CacheNone, Retry: nodecontract.RetryNever, Cancellation: nodecontract.CancellationCooperative, Timeout: nodecontract.TimeoutNone}, Instruction: instruction, Errors: declaredErrors, ConfiguredTargets: []nodecontract.ConfiguredTargetSpec{{ID: "panel", TargetSlot: "panel", SlotConfigKey: "panel", TargetKinds: []string{"panel"}}}, ImplementationABI: []nodecontract.ABIRequirement{{Kind: nodecontract.ABIBuiltin, Version: "v1"}}, Authoring: nodecontract.Authoring{TitleKey: prefix + ".title", DescriptionKey: prefix + ".description", Category: "panel", Icon: "layout-dashboard", Tags: []string{"panel", "面板"}, Ports: hints}})
 		if err != nil {
 			return nil, err
 		}

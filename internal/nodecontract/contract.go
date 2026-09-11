@@ -22,7 +22,7 @@ import (
 
 const (
 	Format            = "yotta.node-contract"
-	Version           = "2"
+	Version           = "3"
 	SchemaPathVersion = "v" + Version
 
 	semanticDigestDomain = "yotta/node-contract-semantic/v1"
@@ -400,7 +400,7 @@ type MachineContract struct {
 
 type document struct {
 	Format    string          `json:"format" jsonschema:"required,enum=yotta.node-contract"`
-	Version   string          `json:"version" jsonschema:"required,enum=2"`
+	Version   string          `json:"version" jsonschema:"required,enum=3"`
 	NodeRef   NodeRef         `json:"nodeRef" jsonschema:"required"`
 	Semantic  MachineContract `json:"semantic" jsonschema:"required"`
 	Authoring Authoring       `json:"authoring" jsonschema:"required"`

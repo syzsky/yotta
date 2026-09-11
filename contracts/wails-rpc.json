@@ -4,7 +4,7 @@
   "summary": {
     "services": 18,
     "methods": 211,
-    "models": 293
+    "models": 294
   },
   "services": [
     {
@@ -4361,6 +4361,11 @@
           "kind": "class",
           "name": "Source",
           "fields": [
+            {
+              "name": "\"listeningComponents\"",
+              "optional": false,
+              "type": "string[]"
+            },
             {
               "name": "\"waitingComponents\"",
               "optional": false,
@@ -10667,6 +10672,11 @@
           "name": "DebugSnapshot",
           "fields": [
             {
+              "name": "\"tasks\"",
+              "optional": true,
+              "type": "DebugTaskView[]"
+            },
+            {
               "name": "\"status\"",
               "optional": false,
               "type": "DebugStatus"
@@ -10792,6 +10802,47 @@
             {
               "name": "DebugCompleted",
               "value": "\"completed\""
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "DebugTaskView",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"parentId\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"depth\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"role\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"graphPath\"",
+              "optional": true,
+              "type": "string[]"
             }
           ]
         },

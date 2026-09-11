@@ -36,3 +36,28 @@ restore, uninstall, and companion start/stop. Node catalogs currently refresh
 on restart; the page distinguishes persisted enabled state from the current
 process's loaded generation. Running workflows retain their package identity
 and prevent lifecycle changes until they finish. Workflows survive uninstall.
+
+## Periodic work and live position
+
+Node contracts use format v3. The host schedules process/Wasm invocations as
+bounded asynchronous operations; one plugin invocation must finish or acknowledge
+cancellation before its paused branch can hand over input. The guest does not own
+a second scheduler and must not run a detached background worker after returning.
+
+Use a Periodic or Monitor task in the workflow to invoke an observation plugin.
+Return `authoring.WorldPosition` with output type `authoring.WorldPositionTypeID`,
+resolved from `authoring.Builtins()`. Connect that output to State Write using a
+variable of the same type. Move Character reads that variable continuously.
+
+`frame` and `unit` identify the coordinate space. `axisHeading` is the reported
+heading for positive X, and `axisSign` is +1 or -1 for the coordinate angle
+orientation. `epoch` identifies the observation session; change it when the
+source restarts or changes coordinate space. `receivedAt` is a trustworthy host
+observation time in Unix milliseconds; delayed data must retain its original
+age. `sampleAt` and `sequence` retain source metadata. Set `valid=false` when no
+current observation exists. A source on an unsynchronized remote clock should
+convert its freshness to host time before publishing.
+
+The movement node does not know the plugin identity, HTTP URL or field names.
+The built-in Make Position and Parse Position nodes provide the same boundary
+for OCR, HTTP JSON and other scalar data sources.

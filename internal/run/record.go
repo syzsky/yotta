@@ -22,7 +22,7 @@ import (
 
 const (
 	RecordFormat       = "yotta.run-record"
-	RecordVersion      = "1"
+	RecordVersion      = "2"
 	MaxRecordBytes     = 16 << 20
 	recordDigestDomain = "yotta/run-record/v1"
 )
@@ -106,28 +106,29 @@ type durableValue struct {
 }
 
 type recordDocument struct {
-	Format               string          `json:"format"`
-	Version              string          `json:"version"`
-	RecordDigest         artifact.Digest `json:"recordDigest"`
-	RunID                string          `json:"runId"`
-	WorkflowID           string          `json:"workflowId,omitempty"`
-	SourceHash           artifact.Digest `json:"sourceHash,omitempty"`
-	SourceRevision       int64           `json:"sourceRevision,omitempty"`
-	Generation           uint64          `json:"generation"`
-	ProgramHash          artifact.Digest `json:"programHash"`
-	CatalogHash          artifact.Digest `json:"catalogHash"`
-	CapabilityPlanDigest artifact.Digest `json:"capabilityPlanDigest"`
-	GrantDigest          artifact.Digest `json:"grantDigest"`
-	GrantArtifact        json.RawMessage `json:"grant"`
-	PolicyGeneration     string          `json:"policyGeneration"`
-	Principal            string          `json:"principal"`
-	Status               Status          `json:"status"`
-	QueuedAt             time.Time       `json:"queuedAt"`
-	StartedAt            *time.Time      `json:"startedAt,omitempty"`
-	EndedAt              *time.Time      `json:"endedAt,omitempty"`
-	Error                *RunError       `json:"error,omitempty"`
-	Journal              []journalEntry  `json:"journal"`
-	Values               []durableValue  `json:"values"`
+	Format               string             `json:"format"`
+	Version              string             `json:"version"`
+	RecordDigest         artifact.Digest    `json:"recordDigest"`
+	RunID                string             `json:"runId"`
+	WorkflowID           string             `json:"workflowId,omitempty"`
+	SourceHash           artifact.Digest    `json:"sourceHash,omitempty"`
+	SourceRevision       int64              `json:"sourceRevision,omitempty"`
+	Generation           uint64             `json:"generation"`
+	ProgramHash          artifact.Digest    `json:"programHash"`
+	CatalogHash          artifact.Digest    `json:"catalogHash"`
+	CapabilityPlanDigest artifact.Digest    `json:"capabilityPlanDigest"`
+	GrantDigest          artifact.Digest    `json:"grantDigest"`
+	GrantArtifact        json.RawMessage    `json:"grant"`
+	PolicyGeneration     string             `json:"policyGeneration"`
+	Principal            string             `json:"principal"`
+	Status               Status             `json:"status"`
+	QueuedAt             time.Time          `json:"queuedAt"`
+	StartedAt            *time.Time         `json:"startedAt,omitempty"`
+	EndedAt              *time.Time         `json:"endedAt,omitempty"`
+	Error                *RunError          `json:"error,omitempty"`
+	Journal              []journalEntry     `json:"journal"`
+	Checkpoint           *journalCheckpoint `json:"checkpoint,omitempty"`
+	Values               []durableValue     `json:"values"`
 }
 
 type recordState struct {
@@ -258,10 +259,11 @@ func validateRecord(document recordDocument, catalog datatype.ValueTypeCatalog) 
 	default:
 		return errors.New("unsupported RunRecord status")
 	}
-	if err := validateJournal(document.Journal, document.StartedAt, document.Status != StatusRunning, document.Status == StatusSucceeded); err != nil {
+	cursor, err := validateJournalSegment(document.Checkpoint, document.Journal, document.StartedAt, document.Status != StatusRunning, document.Status == StatusSucceeded)
+	if err != nil {
 		return err
 	}
-	if document.EndedAt != nil && len(document.Journal) > 0 && document.EndedAt.Before(document.Journal[len(document.Journal)-1].OccurredAt) {
+	if document.EndedAt != nil && document.EndedAt.Before(cursor.LastAt) {
 		return errors.New("run ended before its journal")
 	}
 	seen := make(map[string]struct{}, len(document.Values))
@@ -383,13 +385,25 @@ func (r Record) Cancel(at time.Time) (Record, error) {
 }
 
 func (r Record) AppendJournal(fact JournalFact) (Record, error) {
-	if !r.Valid() || r.state.document.Status != StatusRunning || validateJournalFact(fact.entry) != nil || len(r.state.document.Journal) >= MaxJournalEntries {
+	if !r.Valid() || r.state.document.Status != StatusRunning || validateJournalFact(fact.entry) != nil {
 		return Record{}, ErrJournalOrder
 	}
 	document := r.state.document
+	if len(document.Journal) == JournalSegmentEntries {
+		base := newJournalCheckpoint()
+		if document.Checkpoint != nil {
+			base = *document.Checkpoint
+		}
+		checkpoint, err := base.archive(document.Journal, document.StartedAt)
+		if err != nil {
+			return Record{}, err
+		}
+		document.Checkpoint = &checkpoint
+		document.Journal = []journalEntry{}
+	}
 	document.Generation++
 	entry := fact.entry
-	entry.Sequence = uint64(len(document.Journal) + 1)
+	entry.Sequence = r.JournalCount() + 1
 	entry.GraphPath = append([]string(nil), entry.GraphPath...)
 	entry.Summary = cloneSummary(entry.Summary)
 	document.Journal = append(append([]journalEntry(nil), document.Journal...), entry)
@@ -443,6 +457,17 @@ func (r Record) Generation() uint64 {
 	}
 	return r.state.document.Generation
 }
+
+func (r Record) JournalCount() uint64 {
+	if !r.Valid() {
+		return 0
+	}
+	count := uint64(len(r.state.document.Journal))
+	if r.state.document.Checkpoint != nil {
+		count += r.state.document.Checkpoint.Sequence
+	}
+	return count
+}
 func (r Record) Admission() Admission {
 	if !r.Valid() {
 		return Admission{}
@@ -462,6 +487,9 @@ func (r Record) Timing() Timing {
 	document := r.state.document
 	return Timing{QueuedAt: document.QueuedAt, StartedAt: cloneRunTime(document.StartedAt), EndedAt: cloneRunTime(document.EndedAt)}
 }
+
+// Journal returns the current segment. Use Store.TimelinePage or
+// Store.TimelineSnapshot for archived events. JournalCount counts all segments.
 func (r Record) Journal() []JournalEntry {
 	if !r.Valid() {
 		return nil

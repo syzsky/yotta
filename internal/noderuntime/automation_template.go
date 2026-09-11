@@ -252,7 +252,11 @@ func templateDurations(invocation nodeadapter.Invocation, nodeTypeID string) (ti
 }
 
 func waitForTemplateState(ctx context.Context, invocation nodeadapter.Invocation, captureHandle resource.Handle, template *preparedVisionTemplate, region visionRegion, threshold float64, timeout, poll time.Duration, wantPresent bool, counters map[string]int64) (visionMatchResult, int, error) {
-	return pollTemplateState(ctx, invocation.Wait, timeout, poll, wantPresent, func(observeCtx context.Context) (visionMatchResult, error) {
+	now := invocation.MonotonicNow
+	if now == nil {
+		now = time.Now
+	}
+	return pollTemplateStateWithClock(ctx, invocation.Wait, now, timeout, poll, wantPresent, func(observeCtx context.Context) (visionMatchResult, error) {
 		match, _, err := captureAndMatch(observeCtx, invocation, captureHandle, template, region, threshold, counters)
 		return match, err
 	})

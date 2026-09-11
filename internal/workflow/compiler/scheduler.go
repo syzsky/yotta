@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yottaapp/yotta/internal/automation/inputcoord"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodecontract"
@@ -20,7 +21,8 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
-const MaxScheduledInvocations = 16_384
+const MaxReadyInvocations = 16_384
+const maxControlFrames = 128
 
 type routeKey struct {
 	channel schema.EdgeChannel
@@ -29,11 +31,28 @@ type routeKey struct {
 }
 
 type scheduledInvocation struct {
-	nodeID  string
-	trigger *nodeadapter.SignalTrigger
+	nodeID     string
+	trigger    *nodeadapter.SignalTrigger
+	evaluation map[string]bool
 }
 
 type scheduler struct {
+	group          *executionGroup
+	scopeID        uint64
+	scopeRole      string
+	scopeNode      programNode
+	parent         *scheduler
+	clock          *scopeClock
+	paused         bool
+	pauseCount     int
+	inputOwner     *inputcoord.Owner
+	keepAlive      int
+	tasks          map[string]*taskActivation
+	listeners      map[string]*listenerActivation
+	operation      *pendingOperation
+	jobs           *scopeJobs
+	done           func(context.Context, error) error
+	stopped        bool
 	runID          string
 	workflowID     string
 	runStartedAt   time.Time
@@ -48,13 +67,16 @@ type scheduler struct {
 	dataConsumers  map[string]int
 	volatile       map[string]bool
 	queue          []scheduledInvocation
+	frames         []*controlFrame
+	waits          waitQueue
+	waitCount      int
+	waitSequence   uint64
 	result         ExecutionResult
 	attempts       map[string]int
 	outputSessions map[string]map[string]*run.Session
 	evaluating     map[string]bool
 	owned          []ownedLease
 	retainedBytes  int
-	invocations    int
 	control        *DebugController
 	debugPrevious  *DebugQueueEntry
 }
@@ -102,37 +124,54 @@ func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, tar
 }
 
 func (s *scheduler) run(ctx context.Context) (ExecutionResult, error) {
-	completed := false
-	defer func() {
-		if !completed {
-			_ = s.cleanup()
-		}
-	}()
 	for _, nodeID := range executionRoots(*s.graph) {
 		s.queue = append(s.queue, scheduledInvocation{nodeID: nodeID})
 	}
 	if len(s.nodes) != 0 && len(s.queue) == 0 {
 		return ExecutionResult{}, errors.New("Program has no event or pull-data entry")
 	}
-	for len(s.queue) != 0 {
-		if err := ctx.Err(); err != nil {
-			return ExecutionResult{}, err
+	group := newExecutionGroup(s)
+	return group.run(ctx)
+}
+
+// step returns after one queued instruction (including its pull dependencies)
+// or region transition. Region bodies no longer keep this call on the Go stack.
+func (s *scheduler) step(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	ready := len(s.queue)
+	for _, frame := range s.frames {
+		ready += len(frame.parent)
+	}
+	if ready > MaxReadyInvocations {
+		return errors.New("scheduler ready queue budget exceeded")
+	}
+	if len(s.waits) != 0 && (len(s.queue) == 0 || !s.waits[0].due.After(s.executor.monotonicNow())) {
+		return s.resumeWait(ctx)
+	}
+	if len(s.queue) == 0 {
+		if len(s.frames) == 0 {
+			return nil
 		}
-		next := s.queue[0]
-		s.queue = s.queue[1:]
-		if err := s.dispatch(ctx, next.nodeID, next.trigger, map[string]bool{}); err != nil {
-			return ExecutionResult{}, err
-		}
+		return s.resumeRegion(ctx, nil)
 	}
-	if err := s.owner.Wait(ctx); err != nil {
-		return ExecutionResult{}, err
+	next := s.queue[0]
+	s.queue[0] = scheduledInvocation{}
+	s.queue = s.queue[1:]
+	if next.evaluation == nil {
+		next.evaluation = map[string]bool{}
 	}
-	if err := s.cleanup(); err != nil {
-		return ExecutionResult{}, err
+	err := s.dispatch(ctx, next.nodeID, next.trigger, next.evaluation)
+	if errors.Is(err, errInputsPending) {
+		s.queue = append([]scheduledInvocation{next}, s.queue...)
+		return nil
 	}
-	removeRuntimeOutputs(s.result.NodeOutputs)
-	completed = true
-	return s.result, nil
+	var signal *regionSignal
+	if errors.As(err, &signal) && err == signal {
+		return s.handleRegionSignal(ctx, signal)
+	}
+	return err
 }
 
 func executionRoots(graph programGraph) []string {
@@ -293,13 +332,63 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadap
 			adapterTrigger.From.NodeID = source.SourceNodeID
 		}
 	}
-	outcome, runErr := installed.Run(ctx, nodeadapter.Invocation{
+	invocation := nodeadapter.Invocation{
 		RunID: s.runID, WorkflowID: s.workflowID, RunStartedAt: s.runStartedAt,
 		InvocationID: invocationID, Attempt: attempt, GraphID: graphID, NodeID: sourceNodeID, Config: config, Inputs: inputs,
 		InputTypes: cloneResolvedTypes(node.InputTypes), OutputTypes: cloneResolvedTypes(node.OutputTypes), Sessions: nodeSessions, Targets: s.targets, State: stateBindings,
-		Trigger: adapterTrigger, ObservedAt: observedAt, MonotonicNow: s.executor.monotonicNow, ReadEntropy: s.executor.readEntropy,
-		Wait: s.executor.wait, Spawn: s.owner.Go, RecordAction: actions.Record, EmitStatus: statuses.Emit,
-	})
+		Trigger: adapterTrigger, ObservedAt: observedAt, MonotonicNow: s.activeNow, ReadEntropy: s.executor.readEntropy,
+		Wait: s.executor.wait, Spawn: s.spawnTask, RecordAction: actions.Record, EmitStatus: statuses.Emit,
+	}
+	if s.group != nil {
+		invocation.Signals = &s.group.signals
+	}
+	activation := waitingActivation{node: node, machine: machine, attempt: attempt, summary: summary, sessions: nodeSessions, actions: actions, statuses: statuses}
+	if installed.Blocking && s.group != nil {
+		return s.startOperation(ctx, activation, installed, invocation)
+	}
+	outcome, runErr := installed.Run(ctx, invocation)
+	return s.completeInvocation(ctx, activation, outcome, runErr)
+}
+
+func (s *scheduler) completeInvocation(ctx context.Context, activation waitingActivation, outcome nodeadapter.AdapterResult, runErr error) error {
+	node := activation.node
+	if outcome.Subscription != nil {
+		if runErr == nil && outcome.Wait == nil && len(outcome.Outputs) == 0 && len(outcome.ExecOutputs) == 0 {
+			if err := s.addListener(ctx, activation, outcome.Subscription); err == nil {
+				return nil
+			} else {
+				runErr = err
+			}
+		} else if runErr == nil {
+			runErr = errors.New("subscription continuation cannot publish premature outputs")
+		}
+		if outcome.Subscription.Close != nil {
+			runErr = errors.Join(runErr, outcome.Subscription.Close(ctx, runErr))
+		}
+		outcome = nodeadapter.AdapterResult{}
+	}
+	if outcome.Wait != nil && runErr == nil {
+		if len(outcome.Outputs) != 0 || len(outcome.ExecOutputs) != 0 || len(node.Ports.DataOutputs) != 0 || node.Execution.Evaluation != nodecontract.EvaluationPush {
+			runErr = errors.New("timer continuation requires an execution-only node and no premature outputs")
+		} else if err := s.addWait(activation, outcome.Wait); err != nil {
+			runErr = err
+			// Rejected timers also close their effect before the attempt ends.
+			// Preserve the admission error if a malformed callback reports success.
+			if outcome.Wait.Complete != nil {
+				_, completionErr := outcome.Wait.Complete(ctx, err)
+				runErr = errors.Join(runErr, completionErr)
+			}
+		} else {
+			return nil
+		}
+	}
+	return s.finishInvocation(ctx, activation, outcome, runErr)
+}
+
+func (s *scheduler) finishInvocation(ctx context.Context, activation waitingActivation, outcome nodeadapter.AdapterResult, runErr error) error {
+	node, machine, attempt, summary := activation.node, activation.machine, activation.attempt, activation.summary
+	sourceNodeID := node.SourceNodeID
+	nodeSessions, actions, statuses := activation.sessions, activation.actions, activation.statuses
 	actionErr := actions.Close()
 	statusErr := statuses.Close()
 	if runErr != nil && (errors.Is(runErr, context.Canceled) || errors.Is(runErr, context.DeadlineExceeded) || ctx.Err() != nil) ||
@@ -341,12 +430,12 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadap
 	for _, port := range node.Ports.DataOutputs {
 		nextBytes += len(sealed[port.ID].RuntimeArtifact())
 	}
-	if nextBytes > MaxRunRetainedValueBytes-s.retainedBytes {
+	s.owned = append(s.owned, leases...)
+	if !s.canRetain(nextBytes) {
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, "runtime.value_budget_exceeded", summary)
 		return errors.Join(errors.New("run retained value budget exceeded"), journalErr)
 	}
 	s.retainedBytes += nextBytes
-	s.owned = append(s.owned, leases...)
 	s.result.NodeOutputs[node.ID] = sealed
 	s.result.attempts[node.ID] = make(map[string]int, len(sealed))
 	for _, port := range node.Ports.DataOutputs {
@@ -452,6 +541,10 @@ func (s *scheduler) debugCheckpoint(ctx context.Context, node programNode, attem
 		}
 		remaining--
 	}
+	if s.group != nil {
+		snapshot.Tasks = s.group.taskViews()
+		return s.control.checkpoint(ctx, snapshot, debugPauseHooks{pause: s.group.pauseForDebug, resume: s.group.resumeForDebug})
+	}
 	return s.control.checkpoint(ctx, snapshot)
 }
 
@@ -552,6 +645,11 @@ func (s *scheduler) resolveInputs(ctx context.Context, node programNode, nodeSes
 				}
 			}
 		}
+	}
+	// Resolve every asynchronous producer before borrowing resources. Retrying
+	// a suspended consumer must not create a second lease for earlier inputs.
+	for _, portID := range portIDs {
+		input := node.Inputs[portID]
 		envelope, sourceNode, sourcePort, err := s.executor.resolveInput(s.result, input)
 		if err != nil {
 			return nil, err
@@ -615,8 +713,15 @@ func (s *scheduler) evaluatePull(ctx context.Context, nodeID string, evaluation 
 	}
 	s.evaluating[nodeID] = true
 	defer delete(s.evaluating, nodeID)
+	err := s.dispatch(ctx, nodeID, nil, evaluation)
+	if err != nil {
+		return err
+	}
 	evaluation[nodeID] = true
-	return s.dispatch(ctx, nodeID, nil, evaluation)
+	if s.operation != nil {
+		return errInputsPending
+	}
+	return nil
 }
 
 func (s *scheduler) routeFailure(ctx context.Context, node programNode, machine nodecontract.MachineContract, attempt int, outcome nodeadapter.AdapterResult, failure *nodeadapter.NodeFailure, actions *adapterActionRecorder, actionErr, statusErr error, summary run.RedactedSummary) error {

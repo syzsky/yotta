@@ -5,6 +5,7 @@ package authoring
 import (
 	"github.com/yottaapp/yotta/internal/appcontrol"
 	"github.com/yottaapp/yotta/internal/artifact"
+	"github.com/yottaapp/yotta/internal/automation/navigation"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/httpegress"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
@@ -12,6 +13,12 @@ import (
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/pluginprotocol"
 )
+
+// WorldPosition is the host's standard, transport-independent live observation.
+// Return it on a typed output, then connect a State Write node to publish it.
+type WorldPosition = navigation.WorldPosition
+
+const WorldPositionTypeID = nodes.WorldPositionTypeID
 
 type Catalog = nodecatalog.Snapshot
 type TypeRef = datatype.TypeRef

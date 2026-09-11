@@ -12,11 +12,14 @@ import (
 	"time"
 
 	"github.com/yottaapp/yotta/internal/automation/controller"
+	"github.com/yottaapp/yotta/internal/automation/inputcoord"
 	"github.com/yottaapp/yotta/internal/automation/target"
 	pkgcapture "github.com/yottaapp/yotta/pkg/capture"
 	pkginput "github.com/yottaapp/yotta/pkg/input"
 	"github.com/yottaapp/yotta/pkg/winutil"
 )
+
+var windowsInputCoordinator inputcoord.Coordinator
 
 type windowsDriver struct {
 	profile Profile
@@ -27,13 +30,21 @@ type windowsDriver struct {
 }
 
 type windowsHeldInput struct {
-	parent  *windowsDriver
-	backend pkginput.Backend
-	mu      sync.Mutex
-	closed  bool
+	owner     *inputcoord.Owner
+	lease     *inputcoord.Lease
+	domain    string
+	operation string
+	request   any
+	paused    bool
+	parent    *windowsDriver
+	backend   pkginput.Backend
+	mu        sync.Mutex
+	closed    bool
 }
 
 type windowsPlayback struct {
+	owner  *inputcoord.Owner
+	lease  *inputcoord.Lease
 	parent *windowsDriver
 	window winutil.WindowHandle
 }
@@ -246,15 +257,22 @@ func (d *windowsDriver) controller(window winutil.WindowHandle) (*controller.Win
 	)
 }
 
-func (d *windowsDriver) PlayEvent(ctx context.Context, event PlaybackEvent) error {
-	opened, err := d.OpenPlayback(ctx)
-	if err != nil {
-		return err
-	}
-	return opened.PlayEvent(ctx, event)
-}
-
 func (d *windowsDriver) OpenPlayback(ctx context.Context) (playbackSessionDriver, error) {
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	owner := inputcoord.FromContext(ctx)
+	lease, err := windowsInputCoordinator.Acquire(ctx, d.inputDomain(window), owner)
+	if err != nil {
+		return nil, err
+	}
+	opened := false
+	defer func() {
+		if !opened {
+			lease.Release()
+		}
+	}()
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -264,20 +282,24 @@ func (d *windowsDriver) OpenPlayback(ctx context.Context) (playbackSessionDriver
 	if d.closed || d.backend == nil {
 		return nil, failure(CodeContractViolation, errors.New("automation playback driver is closed"))
 	}
-	window, err := d.resolve(ctx)
-	if err != nil {
-		return nil, err
-	}
 	if d.backend.Name() == "sendinput" {
 		if err := winutil.BringToFront(window.HWND); err != nil {
 			return nil, failure(CodePlaybackFailed, err)
 		}
 	}
-	return &windowsPlayback{parent: d, window: window}, nil
+	opened = true
+	return &windowsPlayback{parent: d, window: window, owner: owner, lease: lease}, nil
 }
 
 func (playback *windowsPlayback) PlayEvent(ctx context.Context, event PlaybackEvent) error {
 	d := playback.parent
+	if playback.lease == nil {
+		lease, err := windowsInputCoordinator.Acquire(ctx, d.inputDomain(playback.window), playback.owner)
+		if err != nil {
+			return err
+		}
+		playback.lease = lease
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -349,7 +371,14 @@ func (playback *windowsPlayback) PlayEvent(ctx context.Context, event PlaybackEv
 	}
 }
 
-func (playback *windowsPlayback) ReleaseInput() error { return playback.parent.ReleaseInput() }
+func (playback *windowsPlayback) ReleaseInput() error {
+	if err := playback.parent.ReleaseInput(); err != nil {
+		return err
+	}
+	playback.lease.Release()
+	playback.lease = nil
+	return nil
+}
 
 func (d *windowsDriver) ReleaseInput() error {
 	<-d.gate
@@ -378,6 +407,22 @@ func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw an
 	if h.closed || h.backend == nil {
 		return failure(CodeContractViolation, errors.New("held input driver is closed"))
 	}
+	window, err := h.parent.resolve(ctx)
+	if err != nil {
+		return err
+	}
+	if h.lease == nil {
+		owner := inputcoord.FromContext(ctx)
+		domain := h.parent.inputDomain(window)
+		lease, err := windowsInputCoordinator.Acquire(ctx, domain, owner)
+		if err != nil {
+			return err
+		}
+		h.owner, h.lease, h.domain = owner, lease, domain
+		owner.Register(h)
+	}
+	h.operation, h.request = operation, raw
+	h.paused = false
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -386,10 +431,6 @@ func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw an
 	defer func() { h.parent.gate <- struct{}{} }()
 	if h.parent.closed {
 		return failure(CodeContractViolation, errors.New("automation target driver is closed"))
-	}
-	window, err := h.parent.resolve(ctx)
-	if err != nil {
-		return err
 	}
 	if h.backend.Name() == "sendinput" {
 		if err := winutil.BringToFront(window.HWND); err != nil {
@@ -428,10 +469,26 @@ func (h *windowsHeldInput) Close() error {
 	h.closed = true
 	err := errors.Join(h.backend.ReleaseAll(), h.backend.Close())
 	h.backend = nil
+	if h.owner != nil {
+		h.owner.Unregister(h)
+	}
+	if err == nil {
+		h.lease.Release()
+		h.lease = nil
+	}
 	return err
 }
 
 func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) (runErr error) {
+	window, err := d.resolve(ctx)
+	if err != nil {
+		return err
+	}
+	lease, err := windowsInputCoordinator.Acquire(ctx, d.inputDomain(window), inputcoord.FromContext(ctx))
+	if err != nil {
+		return err
+	}
+	defer lease.Release()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -440,10 +497,6 @@ func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) 
 	defer func() { d.gate <- struct{}{} }()
 	if d.closed || d.backend == nil {
 		return failure(CodeContractViolation, errors.New("automation input driver is closed"))
-	}
-	window, err := d.resolve(ctx)
-	if err != nil {
-		return err
 	}
 	inputOperation := slices.Contains(inputOperations, operation)
 	if d.backend.Name() == "sendinput" && inputOperation {
@@ -723,4 +776,43 @@ func waitContext(ctx context.Context, milliseconds int64) error {
 	case <-timer.C:
 		return nil
 	}
+}
+
+// Both Windows backends can touch the desktop cursor (including PostMessage
+// playback). Coordinate that shared device across target aliases and Runs.
+func (d *windowsDriver) inputDomain(_ winutil.WindowHandle) string {
+	return "windows/desktop-input"
+}
+
+func (h *windowsHeldInput) InputDomain() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.domain
+}
+func (h *windowsHeldInput) PauseInput(ctx context.Context) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed || h.paused || h.lease == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := h.backend.ReleaseAll(); err != nil {
+		return err
+	}
+	h.lease.Release()
+	h.lease = nil
+	h.paused = true
+	return nil
+}
+func (h *windowsHeldInput) ResumeInput(ctx context.Context) error {
+	h.mu.Lock()
+	if h.closed || !h.paused {
+		h.mu.Unlock()
+		return nil
+	}
+	owner, operation, request := h.owner, h.operation, h.request
+	h.mu.Unlock()
+	return h.Execute(inputcoord.WithOwner(ctx, owner), operation, request)
 }

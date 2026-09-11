@@ -82,6 +82,7 @@ func New(root string, store *nodepackage.Store, app *services.App, workflows *ap
 	m.current.Store(store)
 	if workflows != nil {
 		workflows.SetPluginValidator(m.checkSource)
+		workflows.SetRunServicePreparer(m.prepareRunServices)
 	}
 	return m, nil
 }

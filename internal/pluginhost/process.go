@@ -130,6 +130,7 @@ func (host *ProcessHost) Adapters(packages []nodepackage.RuntimePackage) (map[st
 			}
 			pinned := node
 			result[node.Lock.Entrypoint] = nodeadapter.InstalledAdapter{
+				Blocking:       true,
 				Implementation: node.Lock,
 				Run: func(ctx context.Context, invocation nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
 					return host.invoke(ctx, pinned, invocation)

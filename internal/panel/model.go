@@ -29,6 +29,7 @@ const (
 	ErrInvalidValue            RunError = "invalid_value"
 	ErrInvalidDefinition       RunError = "invalid_definition"
 	ErrPanelCapacity           RunError = "capacity"
+	ErrPanelQueueFull          RunError = "queue_full"
 	ErrPanelUnavailable        RunError = "unavailable"
 )
 

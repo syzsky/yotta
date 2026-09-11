@@ -371,7 +371,7 @@ func admittedExecutionWithProfile(t *testing.T, builtins nodes.Builtins, program
 	return admittedExecutionWithConsent(t, builtins, program, providers, now, profileDraft, nil)
 }
 
-func admittedExecutionWithConsent(t *testing.T, builtins nodes.Builtins, program compiler.ProgramSnapshot, providers map[string]run.InstalledProvider, now time.Time, profileDraft admission.HostProfileDraft, consentLineage []artifact.Digest) (capability.RunGrant, *run.Owner, *run.JournalWriter) {
+func admittedExecutionWithConsent(t *testing.T, builtins nodes.Builtins, program compiler.ProgramSnapshot, providers map[string]run.InstalledProvider, now time.Time, profileDraft admission.HostProfileDraft, consentLineage []artifact.Digest, observeStore ...func(*run.Store)) (capability.RunGrant, *run.Owner, *run.JournalWriter) {
 	t.Helper()
 	profile, err := admission.SealHostProfile(profileDraft)
 	if err != nil {
@@ -380,6 +380,9 @@ func admittedExecutionWithConsent(t *testing.T, builtins nodes.Builtins, program
 	store, err := newNodeRuntimeRunStore(t, builtins.Catalog, run.StoreOptions{MaxRecords: 1})
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, observe := range observeStore {
+		observe(store)
 	}
 	policy := admission.PolicyFunc(func(context.Context, admission.PolicyRequest) (admission.PolicyDecision, error) {
 		return admission.PolicyDecision{Outcome: admission.PolicyApproved, Generation: "policy-1", ConsentLineage: consentLineage}, nil

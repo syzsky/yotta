@@ -91,4 +91,39 @@ describe('panel session lifecycle', () => {
     expect(api.dispatch).toHaveBeenCalledTimes(1)
     scope.stop()
   })
+  it('queues rapid button clicks and sends each with the latest control revision', async () => {
+    vi.useFakeTimers()
+    let release!: () => void
+    let revision = 0
+    const api = {
+      read: vi.fn().mockResolvedValue(state()),
+      dispatch: vi.fn(async (_id: string, event: { revision: number; eventId: string }) => {
+        expect(event.revision).toBe(revision)
+        if (revision === 0)
+          await new Promise<void>((resolve) => {
+            release = resolve
+          })
+        revision++
+        const next = state('one', revision + 1)
+        next.controlRevisions.clear = revision
+        return { eventId: event.eventId, snapshot: next }
+      }),
+    }
+    const scope = effectScope()
+    const session = scope.run(() => usePanelSession(ref('p'), ref(true), api))!
+    await vi.advanceTimersByTimeAsync(1)
+    const button = { id: 'clear', kind: 'button', titleKey: 'clear', event: 'clear' }
+    const clicks = [
+      session.dispatch(button, null, true),
+      session.dispatch(button, null, true),
+      session.dispatch(button, null, true),
+    ]
+    await nextTick()
+    expect(api.dispatch).toHaveBeenCalledTimes(1)
+    release()
+    await Promise.all(clicks)
+    expect(api.dispatch).toHaveBeenCalledTimes(3)
+    expect(new Set(api.dispatch.mock.calls.map(([, event]) => event.eventId)).size).toBe(3)
+    scope.stop()
+  })
 })

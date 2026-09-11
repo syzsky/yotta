@@ -8,9 +8,15 @@
 
 ## Status
 
-Open
+Finished
 
 ## Current
+
+2026-09-11 用户确认 AI 验收通过，本 Work 完成。此前待 owner 验收的要求已满足；历史模型个案保留为诊断背景，不继续作为本 Work 的活动待办，也不声称所有模型请求均必然成功。
+
+## 完成前记录
+
+以下为当时的实现和验收记录，时态及待办不代表当前活动状态。
 
 已用生产数据目录、真实工作流 `3ddbf6b1-6aff-499a-93d5-89f75429c4b3` 和真实 Codex 配置复现根因：模型在目录
 发现期间消耗 12 次迭代，完成新增节点和设置 `F` 后因 `ai.ErrAgentBudgetExceeded` 在连接、编译和预览前终止；
@@ -26,9 +32,7 @@ Problem 通过 canonical formatter 展示 params 和 operationId。真实 Run �
 
 ## Next
 
-构建并启动最新生产 EXE，通过[AI 提案侧栏](../../../frontend/src/app/editor/AIWorkflowReviewPanel.vue)在原工作流发送
-“帮我在最后加一个按键节点 按F键”；确认侧栏生成可审查候选且失败表面展示结构化 Problem 与 operationId 后，
-再关闭本 Work。
+None
 
 ## References
 
@@ -37,6 +41,8 @@ Problem 通过 canonical formatter 展示 params 和 operationId。真实 Run �
 - [上一阶段 AI Run 诊断工作](../ai-run-diagnostics/index.md)
 
 ## Progress
+
+- 2026-09-11 用户确认 AI 验收通过，本 Work 完成。此前待 owner 验收的要求已满足；历史模型个案保留为诊断背景，不继续作为本 Work 的活动待办，也不声称所有模型请求均必然成功。
 
 - 2026-09-09 视觉创作验收发现仍有模型稳定性缺口：gpt-5.6-luna 创建泛型 Log 时可能猜错输入/端口，或产生 UNRESOLVED_TYPE 后用错误的 patch 字段修复，当前工具错误会终止本轮。不要将文本节点看图提案成功等同于任意结构修改稳定。视觉 Work 已补充读取所有相关节点合同的提示，并修复截图多轮累计输入的 25 万上限；后续本 Work 应补齐泛型节点配置与可恢复工具错误的完整旅程。
 - 2026-09-03 根据 owner 建议为 AI Run evidence 增加结构化 `elapsedMilliseconds`：运行中使用当前时刻，终态使用

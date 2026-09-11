@@ -142,7 +142,8 @@ func TestRunStartedBranchDelayAndStateWriteFormOneExplicitSignalFlow(t *testing.
 	}
 	var waited time.Duration
 	execution, err := compiler.NewExecutor(builtins.Catalog, adapters, compiler.ExecutorOptions{
-		Now: func() time.Time { return now },
+		Now:          func() time.Time { return now },
+		MonotonicNow: func() time.Time { return now },
 		Wait: func(ctx context.Context, duration time.Duration) error {
 			waited = duration
 			return ctx.Err()
@@ -189,7 +190,7 @@ func TestDelayRecordsCooperativeCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var recorded nodeadapter.AdapterAction
-	_, runErr := adapter(context.Background(), nodeadapter.Invocation{
+	outcome, runErr := adapter(context.Background(), nodeadapter.Invocation{
 		Inputs:     map[string]datatype.ValueEnvelope{"duration-milliseconds": duration},
 		Wait:       func(context.Context, time.Duration) error { return context.Canceled },
 		EmitStatus: func(context.Context, string, map[string]int64) error { return nil },
@@ -198,6 +199,10 @@ func TestDelayRecordsCooperativeCancellation(t *testing.T) {
 			return nil
 		},
 	})
+	if runErr != nil || outcome.Wait == nil || outcome.Wait.Duration != 25*time.Millisecond || recorded.EffectID != "" {
+		t.Fatalf("delay completed before timer: outcome=%#v error=%v action=%#v", outcome, runErr, recorded)
+	}
+	_, runErr = outcome.Wait.Complete(context.Background(), context.Canceled)
 	if !errors.Is(runErr, context.Canceled) || recorded.EffectID != nodes.DelayWaitEffectID || recorded.Outcome != run.ActionCancelled {
 		t.Fatalf("runErr=%v action=%#v", runErr, recorded)
 	}

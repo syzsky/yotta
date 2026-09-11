@@ -496,6 +496,14 @@ func currentVersionDomains(product productVersion) ([]releasecompat.CurrentVersi
 			Name: row.name, CurrentVersion: row.version, Class: row.class,
 			ReadableVersions: append([]string(nil), row.readableVersions...),
 		})
+		if row.name == runartifact.RecordFormat || row.name == runartifact.LedgerSummaryFormat {
+			result[len(result)-1].MigratableVersions = []string{"1"}
+			result[len(result)-1].MigrationCommand = "go run ./cmd/yotta-runtime-migrate --profile <root> --write"
+		}
+		if row.name == nodecontract.Format {
+			result[len(result)-1].MigratableVersions = []string{"2"}
+			result[len(result)-1].MigrationCommand = "go run ./cmd/yotta-runtime-migrate --node-contract <file> --write"
+		}
 	}
 	return result, nil
 }

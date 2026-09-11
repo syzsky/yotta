@@ -1,7 +1,60 @@
 export default {
   node: {
     navigation: {
+      position: {
+        title: 'Make live position',
+        description:
+          'Combine coordinates and heading into a standard position from any data source.',
+        input: {
+          x: { title: 'Position X', description: 'First ground-plane axis.' },
+          y: { title: 'Position Y', description: 'Second ground-plane axis.' },
+          heading: {
+            title: 'Heading (°)',
+            description: 'View heading in the configured coordinate basis.',
+          },
+          valid: { title: 'Valid position', description: 'Whether this observation is usable.' },
+          'sample-at': {
+            title: 'Sample time',
+            description: 'Unix milliseconds; 0 uses reception time.',
+          },
+          sequence: {
+            title: 'Sample sequence',
+            description: 'Increasing observation sequence from the source.',
+          },
+        },
+        output: {
+          position: {
+            title: 'Live position',
+            description: 'Write to a position variable for continuous navigation.',
+          },
+        },
+      },
+      parsePosition: {
+        title: 'Parse live position',
+        description:
+          'Parse JSON coordinates using field mappings; invalid or stale observations are marked unavailable.',
+        input: {
+          source: {
+            title: 'Position JSON',
+            description: 'JSON containing coordinates, heading, validity and sample time.',
+          },
+        },
+        output: {
+          position: {
+            title: 'Live position',
+            description: 'Write to a position variable for continuous navigation.',
+          },
+        },
+      },
+      breakPosition: {
+        title: 'Break live position',
+        description: 'Read coordinates, heading and observation metadata.',
+      },
       config: {
+        positionVariable: 'Live position variable',
+        frame: 'Coordinate frame',
+        unit: 'Coordinate unit',
+        epoch: 'Observation session',
         source: 'Live position source',
         path: 'Position endpoint path',
         xField: 'First axis field',
@@ -32,7 +85,7 @@ export default {
       move: {
         title: 'Move character to',
         description:
-          'Read live world coordinates and correct direction while stepping along a clear straight path.',
+          'Read a live position variable, hold forward at a distance and slow near the target along a clear straight path.',
         input: {
           'target-x': {
             title: 'Target X',
@@ -50,9 +103,13 @@ export default {
             title: 'Timeout',
             description: 'Total operation time limit in milliseconds.',
           },
-          pulse: {
-            title: 'Forward step duration',
-            description: 'Read a fresh pose after each 20–500 ms step; shorten steps near arrival.',
+          interval: {
+            title: 'Position check interval',
+            description: 'Check position every 20–500 milliseconds while holding forward.',
+          },
+          'slow-distance': {
+            title: 'Slowdown distance',
+            description: 'Switch to short steps within this distance, in coordinate units.',
           },
         },
         output: {
@@ -127,7 +184,70 @@ export default {
         },
       },
     },
+    signal: {
+      timeout: 'Timeout (ms, 0 waits indefinitely)',
+      send: {
+        title: 'Send signal',
+        description:
+          'Send to all matching subscribers in this run. Signals without subscribers are not retained.',
+        input: {
+          name: {
+            title: 'Signal name',
+            description: 'Matches signals with this name in the current run.',
+          },
+          value: { title: 'Payload', description: 'JSON data carried by the signal.' },
+        },
+      },
+      wait: {
+        title: 'Wait for signal',
+        description: 'Wait for one signal from this point, then continue.',
+        input: {
+          name: {
+            title: 'Signal name',
+            description: 'Matches signals with this name in the current run.',
+          },
+        },
+        output: {
+          value: { title: 'Payload', description: 'JSON data carried by the signal.' },
+          'event-id': { title: 'Event ID', description: 'Unique identity of this signal.' },
+        },
+      },
+      listen: {
+        title: 'Listen for signals',
+        description: 'Handle signals in this run in order until main completion or stop.',
+        input: {
+          name: {
+            title: 'Signal name',
+            description: 'Matches signals with this name in the current run.',
+          },
+        },
+        output: {
+          value: { title: 'Payload', description: 'JSON data carried by the signal.' },
+          'event-id': { title: 'Event ID', description: 'Unique identity of this signal.' },
+        },
+      },
+    },
     managed_panel: {
+      listen: {
+        title: 'Listen to panel signals',
+        description:
+          'Receive panel interactions and handle them in order. Release on main completion or stop. Each subscribing run receives its own copy.',
+        input: {
+          'panel-ref': { title: 'Panel reference', description: 'Select the shared panel.' },
+          'component-ref': {
+            title: 'Button or control',
+            description: 'Leave empty to listen to the entire panel.',
+          },
+        },
+        output: {
+          value: { title: 'Payload', description: 'Data sent with this interaction.' },
+          component: {
+            title: 'Component ID',
+            description: 'Identifies the button or control that triggered this interaction.',
+          },
+          'event-id': { title: 'Event ID', description: 'Unique identity of this interaction.' },
+        },
+      },
       config: { panel: 'Panel', component: 'Component', show: 'Show panel when used' },
       use: {
         title: 'Use panel',
@@ -2189,6 +2309,16 @@ export default {
       endBranch: {
         title: 'End branch',
         description: 'Explicitly finish this control-flow branch without emitting another signal.',
+      },
+      periodic: {
+        title: 'Periodic task',
+        description:
+          'Run checks at an interval. A count of 0 runs until stopped. Skip a tick while the previous check is running.',
+      },
+      monitor: {
+        title: 'Monitored task',
+        description:
+          'Run a main task with periodic checks. Interrupt to pause it, handle the event, then resume its progress. Monitoring ends with the main task.',
       },
       repeat: {
         title: 'Repeat',

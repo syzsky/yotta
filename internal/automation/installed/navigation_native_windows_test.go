@@ -65,6 +65,14 @@ func TestNavigationDesktopSmoke(t *testing.T) {
 		} else if action == "forward" {
 			operation = OperationPressKeys
 			request = PressKeysRequest{Keys: []string{"W"}, DurationMilliseconds: 200}
+		} else if action == "click" {
+			x, xErr := strconv.ParseFloat(os.Getenv("YOTTA_NAVIGATION_SMOKE_X"), 64)
+			y, yErr := strconv.ParseFloat(os.Getenv("YOTTA_NAVIGATION_SMOKE_Y"), 64)
+			if xErr != nil || yErr != nil || x < 0 || x > 1 || y < 0 || y > 1 {
+				t.Fatal("smoke click requires an explicit ratio point")
+			}
+			operation = OperationClick
+			request = ClickRequest{Point: Point{X: x, Y: y, Unit: "ratio"}, Button: "left", DurationMilliseconds: 30}
 		} else {
 			t.Fatal("unknown smoke action")
 		}

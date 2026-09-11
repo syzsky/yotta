@@ -192,7 +192,7 @@ func TestRunJournalRejectsAttributionThatCanCarryPathsOrPrompts(t *testing.T) {
 	}
 }
 
-func TestRunJournalRejectsSuccessfulTerminalsAfterFailedOrCancelledActions(t *testing.T) {
+func TestRunJournalKeepsChildCancellationDistinctFromRunSuccess(t *testing.T) {
 	catalog, _ := stringValueCatalog(t)
 	queuedAt := time.Date(2026, 7, 15, 3, 0, 0, 0, time.UTC)
 	summary, err := run.NewRedactedSummary("node.execute", nil, nil)
@@ -237,8 +237,12 @@ func TestRunJournalRejectsSuccessfulTerminalsAfterFailedOrCancelledActions(t *te
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := withTerminal.Succeed(queuedAt.Add(5*time.Second), catalog, nil); err == nil {
-				t.Fatalf("successful Run accepted latest %s attempt", test.attemptOutcome)
+			_, err = withTerminal.Succeed(queuedAt.Add(5*time.Second), catalog, nil)
+			if test.attemptOutcome == run.AttemptCancelled && err != nil {
+				t.Fatalf("completed child cancellation prevents enclosing Run success: %v", err)
+			}
+			if test.attemptOutcome == run.AttemptFailed && err == nil {
+				t.Fatal("successful Run accepted failed child")
 			}
 		})
 	}
@@ -334,4 +338,111 @@ func nodeAttemptFact(t *testing.T, at time.Time, outcome run.AttemptOutcome, cod
 		t.Fatal(err)
 	}
 	return fact
+}
+
+// A long-lived main attempt spans several archived segments while periodic
+// child attempts finish. Reopening must preserve both the active main and all
+// historical events without loading the entire history into the Run record.
+func TestRunJournalSegmentsPreserveLongLivedAttemptsAndFullTimeline(t *testing.T) {
+	types, _ := stringValueCatalog(t)
+	store, err := openRunStore(t, t.TempDir(), types, run.StoreOptions{MaxRecords: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	at := time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
+	queued := queuedRecord(t, at)
+	if _, err := store.Create(ctx, queued); err != nil {
+		t.Fatal(err)
+	}
+	current, err := queued.Start(at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update(ctx, queued.Digest(), current); err != nil {
+		t.Fatal(err)
+	}
+	writer, err := store.OpenJournal(testRunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, _ := run.NewRedactedSummary("node.execute", nil, nil)
+	appendAttempt := func(node string, attempt int, outcome run.AttemptOutcome, stamp time.Time) {
+		t.Helper()
+		fact, err := run.NewNodeAttemptFact(run.NodeAttemptInput{GraphPath: []string{"main"}, NodeID: node, Attempt: attempt, Outcome: outcome, OccurredAt: stamp, Summary: summary})
+		if err != nil {
+			t.Fatal(err)
+		}
+		current, err = writer.Append(ctx, fact)
+		if err != nil {
+			t.Fatalf("append %s/%d/%s: %v", node, attempt, outcome, err)
+		}
+		if len(current.Journal()) > run.JournalSegmentEntries {
+			t.Fatal("unbounded retained history")
+		}
+	}
+	appendAttempt("main", 1, run.AttemptStarted, at)
+	const ticks = 300
+	for attempt := 1; attempt <= ticks; attempt++ {
+		appendAttempt("tick", attempt, run.AttemptStarted, at.Add(time.Duration(attempt)*time.Millisecond))
+		appendAttempt("tick", attempt, run.AttemptSucceeded, at.Add(time.Duration(attempt)*time.Millisecond))
+		if attempt == 128 || attempt == 256 {
+			loaded, err := store.Load(testRunID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if loaded.Digest() != current.Digest() || loaded.JournalCount() != current.JournalCount() {
+				t.Fatal("checkpoint head changed on reopen")
+			}
+			writer, err = store.OpenJournal(testRunID)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// An asynchronous fact may be delivered after newer facts from another
+	// scope; append sequence, rather than wall time, establishes event order.
+	appendAttempt("main", 1, run.AttemptSucceeded, at.Add(time.Millisecond))
+	if _, err := writer.Succeed(ctx, at.Add(time.Second), types, nil); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load(testRunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const count = 2*ticks + 2
+	if loaded.JournalCount() != count || len(loaded.Journal()) >= count {
+		t.Fatal("history not segmented")
+	}
+	records, err := store.List()
+	if err != nil || len(records) != 1 || records[0].Digest() != loaded.Digest() {
+		t.Fatalf("list: %v", err)
+	}
+	seen := map[uint64]bool{}
+	for page := 1; ; page++ {
+		result, err := store.TimelinePage(ctx, testRunID, page, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Total != count {
+			t.Fatalf("timeline total %d", result.Total)
+		}
+		for _, entry := range result.Entries {
+			if seen[entry.Sequence] {
+				t.Fatal("duplicate event")
+			}
+			seen[entry.Sequence] = true
+		}
+		if page == result.Pages {
+			break
+		}
+	}
+	if len(seen) != count || !seen[1] || !seen[count] {
+		t.Fatal("archived events lost")
+	}
+	exported, err := store.TimelineSnapshot(ctx, testRunID)
+	if err != nil || len(exported.Entries) != count || exported.Summary.Digest != loaded.Digest() {
+		t.Fatalf("export lost archived events: %v", err)
+	}
+
 }

@@ -3,6 +3,7 @@ package compiler
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -62,7 +63,18 @@ type DebugStateView struct {
 	ChangedAt time.Time      `json:"changedAt"`
 }
 
+type DebugTaskView struct {
+	ID        uint64   `json:"id"`
+	ParentID  uint64   `json:"parentId,omitempty"`
+	Depth     int      `json:"depth"`
+	Role      string   `json:"role"`
+	Status    string   `json:"status"`
+	NodeID    string   `json:"nodeId,omitempty"`
+	GraphPath []string `json:"graphPath,omitempty"`
+}
+
 type DebugSnapshot struct {
+	Tasks             []DebugTaskView                      `json:"tasks,omitempty"`
 	Status            DebugStatus                          `json:"status"`
 	RunStatus         string                               `json:"runStatus,omitempty"`
 	Generation        uint64                               `json:"generation"`
@@ -179,6 +191,7 @@ func (c *DebugController) Complete(runStatus string) {
 	c.mode = debugModeCompleted
 	c.snapshot.Status = DebugCompleted
 	c.snapshot.RunStatus = runStatus
+	c.snapshot.Tasks = nil
 	snapshot, notify := c.changedLocked()
 	c.cond.Broadcast()
 	c.mu.Unlock()
@@ -208,7 +221,9 @@ func (c *DebugController) resume(mode debugMode) error {
 	return nil
 }
 
-func (c *DebugController) checkpoint(ctx context.Context, snapshot DebugSnapshot) error {
+type debugPauseHooks struct{ pause, resume func(context.Context) error }
+
+func (c *DebugController) checkpoint(ctx context.Context, snapshot DebugSnapshot, hooks ...debugPauseHooks) error {
 	if ctx == nil {
 		return errors.New("debug checkpoint requires context")
 	}
@@ -230,12 +245,30 @@ func (c *DebugController) checkpoint(ctx context.Context, snapshot DebugSnapshot
 	if c.mode == debugModePaused {
 		c.snapshot.Status = DebugPaused
 	}
+	pausing := c.mode == debugModePaused && len(hooks) > 0
+	if pausing {
+		c.snapshot.Status = DebugPausePending
+	}
 	changed, notify := c.changedLocked()
 	c.mu.Unlock()
 	if notify != nil {
 		notify(changed)
 	}
 
+	if pausing {
+		if err := hooks[0].pause(ctx); err != nil {
+			return err
+		}
+		c.mu.Lock()
+		if c.mode == debugModePaused {
+			c.snapshot.Status = DebugPaused
+		}
+		changed, notify = c.changedLocked()
+		c.mu.Unlock()
+		if notify != nil {
+			notify(changed)
+		}
+	}
 	stopWake := context.AfterFunc(ctx, func() {
 		c.mu.Lock()
 		c.cond.Broadcast()
@@ -244,15 +277,19 @@ func (c *DebugController) checkpoint(ctx context.Context, snapshot DebugSnapshot
 	defer stopWake()
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	for c.mode == debugModePaused && ctx.Err() == nil {
 		c.cond.Wait()
 	}
+	completed := c.mode == debugModeCompleted
+	c.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if c.mode == debugModeCompleted {
+	if completed {
 		return errors.New("debug Run completed while awaiting checkpoint")
+	}
+	if pausing {
+		return hooks[0].resume(ctx)
 	}
 	return nil
 }
@@ -287,6 +324,10 @@ func (c *DebugController) changedLocked() (DebugSnapshot, func(DebugSnapshot)) {
 
 func cloneDebugSnapshot(source DebugSnapshot) DebugSnapshot {
 	clone := source
+	clone.Tasks = append([]DebugTaskView(nil), source.Tasks...)
+	for n := range clone.Tasks {
+		clone.Tasks[n].GraphPath = append([]string(nil), source.Tasks[n].GraphPath...)
+	}
 	clone.GraphPath = append([]string(nil), source.GraphPath...)
 	clone.PreviousGraphPath = append([]string(nil), source.PreviousGraphPath...)
 	clone.Queue = make([]DebugQueueEntry, len(source.Queue))
@@ -340,4 +381,18 @@ func cloneResolvedType(source datatype.ResolvedType) datatype.ResolvedType {
 		clone.Element = &element
 	}
 	return clone
+}
+
+func (c *DebugController) updateTasks(tasks []DebugTaskView) {
+	c.mu.Lock()
+	if c.mode == debugModeCompleted || reflect.DeepEqual(c.snapshot.Tasks, tasks) {
+		c.mu.Unlock()
+		return
+	}
+	c.snapshot.Tasks = tasks
+	snapshot, notify := c.changedLocked()
+	c.mu.Unlock()
+	if notify != nil {
+		notify(snapshot)
+	}
 }

@@ -26,6 +26,10 @@ type CurrentVersionDomain struct {
 	CurrentVersion   string
 	Class            string
 	ReadableVersions []string
+	// A retired reader may be replaced by an explicit offline conversion. This
+	// declaration never makes the application accept the older wire format.
+	MigratableVersions []string
+	MigrationCommand   string
 }
 
 type ReleasedVersionDomain struct {
@@ -132,7 +136,7 @@ func (r VersionDomainReleases) Check(
 			if now.Class != released.Class {
 				return 0, fmt.Errorf("release %s domain %q changed class from %q to %q", document.ProductVersion, released.Name, released.Class, now.Class)
 			}
-			if !containsVersion(now.ReadableVersions, released.Version) {
+			if !containsVersion(now.ReadableVersions, released.Version) && !(now.MigrationCommand != "" && containsVersion(now.MigratableVersions, released.Version)) {
 				return 0, fmt.Errorf(
 					"release %s domain %q version %q is not declared readable by current version %q",
 					document.ProductVersion, released.Name, released.Version, now.CurrentVersion,
