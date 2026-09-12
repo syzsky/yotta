@@ -8,21 +8,19 @@ import (
 type ReportDraft struct {
 	ID           string `json:"id"`
 	WorkflowID   string `json:"workflowId"`
-	ReleaseID    string `json:"releaseId"`
 	Reason       string `json:"reason"`
 	Description  string `json:"description"`
 	OriginalWork string `json:"originalWork"`
 }
 type Report struct {
-	ID             string `json:"id"`
-	WorkflowID     string `json:"workflowId"`
-	ReleaseVersion string `json:"releaseVersion"`
-	Reason         string `json:"reason"`
-	Description    string `json:"description"`
-	OriginalWork   string `json:"originalWork"`
-	State          string `json:"state"`
-	Result         string `json:"result"`
-	CreatedAt      string `json:"createdAt"`
+	ID           string `json:"id"`
+	WorkflowID   string `json:"workflowId"`
+	Reason       string `json:"reason"`
+	Description  string `json:"description"`
+	OriginalWork string `json:"originalWork"`
+	State        string `json:"state"`
+	Result       string `json:"result"`
+	CreatedAt    string `json:"createdAt"`
 }
 type ReportPage struct {
 	Items []Report `json:"items"`
@@ -31,7 +29,7 @@ type ReportPage struct {
 
 func (c *Client) SubmitReport(ctx context.Context, draft ReportDraft) (Report, error) {
 	var result Report
-	err := c.do(ctx, "POST", path(draft.WorkflowID)+"/reports", map[string]any{"id": draft.ID, "releaseId": draft.ReleaseID, "reason": draft.Reason, "description": draft.Description, "originalWork": draft.OriginalWork}, true, &result)
+	err := c.do(ctx, "POST", path(draft.WorkflowID)+"/reports", map[string]any{"id": draft.ID, "reason": draft.Reason, "description": draft.Description, "originalWork": draft.OriginalWork}, true, &result)
 	return result, err
 }
 func (c *Client) MyReports(ctx context.Context, workflowID string) (ReportPage, error) {

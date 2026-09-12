@@ -33,15 +33,14 @@ type Reply struct {
 	CreatedAt string `json:"createdAt"`
 }
 type Review struct {
-	ID             string  `json:"id"`
-	Author         Author  `json:"author"`
-	Stars          int     `json:"stars"`
-	Content        string  `json:"content"`
-	ReleaseVersion string  `json:"releaseVersion"`
-	CreatedAt      string  `json:"createdAt"`
-	UpdatedAt      string  `json:"updatedAt"`
-	Replies        []Reply `json:"replies"`
-	RepliesCursor  string  `json:"repliesCursor,omitempty"`
+	ID            string  `json:"id"`
+	Author        Author  `json:"author"`
+	Stars         int     `json:"stars"`
+	Content       string  `json:"content"`
+	CreatedAt     string  `json:"createdAt"`
+	UpdatedAt     string  `json:"updatedAt"`
+	Replies       []Reply `json:"replies"`
+	RepliesCursor string  `json:"repliesCursor,omitempty"`
 }
 type ReplyPage struct {
 	Items      []Reply `json:"items"`
@@ -60,7 +59,6 @@ type Page struct {
 }
 type Draft struct {
 	WorkflowID string `json:"workflowId"`
-	ReleaseID  string `json:"releaseId"`
 	Stars      int    `json:"stars"`
 	Content    string `json:"content"`
 }
@@ -102,7 +100,7 @@ func (c *Client) Replies(ctx context.Context, id, parent, cursor string) (ReplyP
 }
 func (c *Client) Save(ctx context.Context, draft Draft) (Review, error) {
 	var review Review
-	err := c.do(ctx, "PUT", path(draft.WorkflowID)+"/reviews/mine", map[string]any{"stars": draft.Stars, "content": draft.Content, "releaseId": draft.ReleaseID}, true, &review)
+	err := c.do(ctx, "PUT", path(draft.WorkflowID)+"/reviews/mine", map[string]any{"stars": draft.Stars, "content": draft.Content}, true, &review)
 	return review, err
 }
 func (c *Client) Delete(ctx context.Context, id string) error {

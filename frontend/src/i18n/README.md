@@ -6,6 +6,7 @@
 ## 归属
 
 - `locales/<locale>/app.ts`：共享 chrome、编辑器基础文案、类型、日志、通用操作、快捷键和错误。
+- `locales/<locale>/market.ts`：独立在线市场的内容类型切换、插件发现、安装和详情文案。
 - `locales/<locale>/node.ts`：完整的顶层 `node` namespace，包括节点标题、说明、端口、字段、outcome 和
   builtin 节点文案。
 - `locales/<locale>/workflow.ts`：工作流浏览、编辑、调试、AI 提案和运行时间线。

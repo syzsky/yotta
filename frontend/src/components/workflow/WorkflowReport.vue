@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { communityTransport } from '@/app/transport/workflow'
 import { errorMessage } from '@/lib/invoke'
 import type { Report } from '@bindings/github.com/yottaapp/yotta/internal/communityclient/models.js'
-const props = defineProps<{ workflowId: string; releaseId: string }>()
+const props = defineProps<{ workflowId: string }>()
 const { t } = useI18n()
 const open = ref(false),
   busy = ref(false),
@@ -34,7 +34,6 @@ async function submit() {
     const result = await communityTransport.submitReport({
       ...draft,
       workflowId: props.workflowId,
-      releaseId: props.releaseId,
     })
     reports.value = [result, ...reports.value.filter((v) => v.id !== result.id)]
     draft.id = crypto.randomUUID()
@@ -48,7 +47,7 @@ async function submit() {
 }
 </script>
 <template>
-  <UButton color="neutral" variant="ghost" icon="i-tabler-flag" @click="begin">{{
+  <UButton color="neutral" variant="ghost" icon="i-tabler-flag" size="xs" @click="begin">{{
     t('workflow.community.report')
   }}</UButton
   ><BaseModal v-model:open="open" :title="t('workflow.community.report')" :dismissible="!busy"

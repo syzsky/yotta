@@ -17,40 +17,13 @@
               >
                 {{ t('workflow.list.title') }}
               </h1>
-              <UBadge v-if="libraryMode === 'local'" color="neutral" variant="soft" size="sm">{{
-                total
-              }}</UBadge>
+              <UBadge color="neutral" variant="soft" size="sm">{{ total }}</UBadge>
             </div>
           </div>
         </div>
       </div>
       <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
-        <div
-          class="flex rounded-lg bg-elevated p-1"
-          role="tablist"
-          :aria-label="t('workflow.market.mode_label')"
-        >
-          <UButton
-            size="sm"
-            :variant="libraryMode === 'local' ? 'solid' : 'ghost'"
-            :color="libraryMode === 'local' ? 'primary' : 'neutral'"
-            role="tab"
-            :aria-selected="libraryMode === 'local'"
-            @click="libraryMode = 'local'"
-            >{{ t('workflow.market.local') }}</UButton
-          >
-          <UButton
-            size="sm"
-            :variant="libraryMode === 'market' ? 'solid' : 'ghost'"
-            :color="libraryMode === 'market' ? 'primary' : 'neutral'"
-            role="tab"
-            :aria-selected="libraryMode === 'market'"
-            @click="libraryMode = 'market'"
-            >{{ t('workflow.market.online') }}</UButton
-          >
-        </div>
         <UButton
-          v-if="libraryMode === 'local'"
           data-testid="workflow-new-button"
           icon="i-tabler-plus"
           :label="t('workflow.list.new_workflow')"
@@ -68,7 +41,6 @@
     </header>
 
     <main
-      v-if="libraryMode === 'local'"
       class="flex min-h-0 flex-1 flex-col px-6 py-4"
       data-testid="workflow-library"
       data-mode="manage"
@@ -478,8 +450,6 @@
       </footer>
     </main>
 
-    <WorkflowMarketPanel v-else @installed="load" />
-
     <BaseModal
       :open="publishAuthOpen"
       :title="t('workflow.market.login_before_publish')"
@@ -590,37 +560,54 @@
               class="w-full"
               :placeholder="t('workflow.market.summary_hint')"
           /></UFormField>
+          <div class="grid gap-4 md:grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)]">
+            <UFormField :label="t('workflow.market.category')" required
+              ><MarketCategorySelect
+                v-model="publishDraft.listing.category"
+                @update:model-value="publishTouched.add('category')"
+                data-testid="workflow-publish-category"
+                :categories="publishCategoryDirectory"
+                active-only
+                :disabled="publishing || publishLoading || publishHistoryFailed"
+                class="w-full"
+                :placeholder="t('workflow.market.category_select')"
+            /></UFormField>
+            <UFormField :label="t('workflow.market.tags')"
+              ><UInputTags
+                v-model="publishDraft.listing.tags"
+                @update:model-value="publishTouched.add('tags')"
+                data-testid="workflow-publish-tags"
+                :disabled="publishing || publishLoading || publishHistoryFailed"
+                class="w-full"
+                :max="16"
+            /></UFormField>
+          </div>
           <WorkflowDimensionSelect
             v-model="publishDraft.listing.filterValues"
             :dimensions="publishFilterDimensions"
             assignment
             @update:model-value="publishTouched.add('filterValues')"
           />
-          <UFormField
-            :label="t('workflow.market.category')"
-            required
-            :description="t('workflow.market.category_hint')"
-            ><MarketCategorySelect
-              v-model="publishDraft.listing.category"
-              @update:model-value="publishTouched.add('category')"
-              data-testid="workflow-publish-category"
-              :categories="publishCategoryDirectory"
-              active-only
-              :disabled="publishing || publishLoading || publishHistoryFailed"
-              class="w-full"
-              :placeholder="t('workflow.market.category_select')"
-          /></UFormField>
-          <UFormField
-            :label="t('workflow.market.tags')"
-            :description="t('workflow.market.tags_hint')"
-            ><UInputTags
-              v-model="publishDraft.listing.tags"
-              @update:model-value="publishTouched.add('tags')"
-              data-testid="workflow-publish-tags"
-              :disabled="publishing || publishLoading || publishHistoryFailed"
-              class="w-full"
-              :max="16"
-          /></UFormField>
+          <section
+            v-if="publishBundle?.panels?.length"
+            class="space-y-2 rounded-lg border border-default p-3"
+            data-testid="publish-panel-resources"
+          >
+            <h3 class="text-sm font-medium">{{ t('panels.bundle_title') }}</h3>
+            <p class="text-xs text-muted">{{ t('panels.bundle_hint') }}</p>
+            <div
+              v-for="panel in publishBundle.panels"
+              :key="panel.id"
+              class="flex items-center justify-between gap-3 text-sm"
+            >
+              <span>{{ te(panel.title) ? t(panel.title) : panel.title }}</span>
+              <span class="text-xs text-muted">{{
+                panel.plugin
+                  ? t('panels.bundle_plugin')
+                  : t('panels.bundle_components', { count: panel.componentCount })
+              }}</span>
+            </div>
+          </section>
         </div>
         <div v-show="publishSection === 'guide'" class="space-y-4">
           <UFormField
@@ -645,64 +632,6 @@
               class="w-full"
               :max-chars="16384"
           /></UFormField>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-highlighted">{{ t('workflow.market.screenshots') }}</span
-            ><UButton
-              icon="i-tabler-photo-plus"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              :disabled="
-                publishing ||
-                publishLoading ||
-                publishHistoryFailed ||
-                publishDraft.screenshots.length + publishDraft.existingScreenshots.length >= 6
-              "
-              @click="addPublishScreenshots"
-              >{{ t('workflow.market.add_screenshots') }}</UButton
-            >
-          </div>
-          <div
-            v-for="(shot, index) in publishDraft.existingScreenshots"
-            :key="shot.url"
-            class="flex items-center gap-2"
-          >
-            <img
-              :src="shot.url"
-              :alt="shot.alt"
-              class="size-12 rounded border border-default object-cover"
-            /><UInput
-              v-model="shot.alt"
-              :disabled="publishing || publishLoading || publishHistoryFailed"
-              :aria-label="t('workflow.market.screenshot_alt')"
-              class="min-w-0 flex-1"
-            /><UButton
-              icon="i-tabler-x"
-              color="neutral"
-              variant="ghost"
-              :aria-label="t('common.delete')"
-              :disabled="publishing || publishLoading || publishHistoryFailed"
-              @click="publishDraft.existingScreenshots.splice(index, 1)"
-            />
-          </div>
-          <div
-            v-for="(shot, index) in publishDraft.screenshots"
-            :key="shot.path"
-            class="flex items-center gap-2"
-          >
-            <UIcon name="i-tabler-photo" class="size-4 shrink-0 text-muted" /><UInput
-              v-model="shot.alt"
-              :aria-label="t('workflow.market.screenshot_alt')"
-              class="min-w-0 flex-1"
-            /><UButton
-              icon="i-tabler-x"
-              color="neutral"
-              variant="ghost"
-              :aria-label="t('common.delete')"
-              :disabled="publishing || publishLoading || publishHistoryFailed"
-              @click="publishDraft.screenshots.splice(index, 1)"
-            />
-          </div>
         </div>
         <div v-show="publishSection === 'release'" class="space-y-5">
           <UFormField
@@ -736,26 +665,6 @@
               :placeholder="t('workflow.market.release_notes_placeholder')"
           /></UFormField>
         </div>
-        <section
-          v-if="publishBundle?.panels?.length"
-          class="space-y-2 rounded-lg border border-default p-3"
-          data-testid="publish-panel-resources"
-        >
-          <h3 class="text-sm font-medium">{{ t('panels.bundle_title') }}</h3>
-          <p class="text-xs text-muted">{{ t('panels.bundle_hint') }}</p>
-          <div
-            v-for="panel in publishBundle.panels"
-            :key="panel.id"
-            class="flex items-center justify-between gap-3 text-sm"
-          >
-            <span>{{ te(panel.title) ? t(panel.title) : panel.title }}</span>
-            <span class="text-xs text-muted">{{
-              panel.plugin
-                ? t('panels.bundle_plugin')
-                : t('panels.bundle_components', { count: panel.componentCount })
-            }}</span>
-          </div>
-        </section>
         <p
           v-if="publishFailure"
           class="whitespace-pre-wrap text-sm leading-6 text-error"
@@ -1046,7 +955,6 @@ import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import LibrarySelectionToolbar from '@/components/library/LibrarySelectionToolbar.vue'
 import WorkflowHotkeyField from '@/components/hotkeys/WorkflowHotkeyField.vue'
-import WorkflowMarketPanel from '@/components/workflow/WorkflowMarketPanel.vue'
 import WorkflowDimensionSelect from '@/components/workflow/WorkflowDimensionSelect.vue'
 import MarketCategorySelect from '@/components/workflow/MarketCategorySelect.vue'
 import { categoryRows, type MarketCategory } from '@/lib/marketCategories'
@@ -1110,7 +1018,6 @@ const {
   remove: removeWorkflowSelection,
   name: selectedName,
 } = librarySelection
-const libraryMode = ref<'local' | 'market'>('local')
 const recoveries = ref<SourceRecoveryView[]>([])
 const recoveryExpanded = ref(false)
 const visibleColumns = ref<WorkflowColumn[]>(loadColumns())
@@ -1174,8 +1081,6 @@ const publishing = ref(false)
 const publishFailure = ref('')
 const publishSource = ref<SourceView | null>(null)
 const publishDraft = reactive({
-  previousReleaseId: '',
-  existingScreenshots: [] as { url: string; alt: string }[],
   listing: {
     filterValues: [] as string[],
     icon: 'i-tabler-route',
@@ -1184,7 +1089,6 @@ const publishDraft = reactive({
     description: '',
     instructions: '',
   },
-  screenshots: [] as { path: string; alt: string }[],
   releaseVersion: '1.0.0',
   title: '',
   summary: '',
@@ -1648,28 +1552,29 @@ function initializePublish(source: SourceView): void {
     description: '',
     instructions: '',
   }
-  publishDraft.screenshots = []
-  publishDraft.existingScreenshots = []
-  publishDraft.previousReleaseId = ''
   publishSection.value = 'listing'
   publishFailure.value = ''
   publishOpen.value = true
   void Promise.all([
-    shopTransport.history(source.workflowId),
+    shopTransport.discover({
+      workflowIds: [source.workflowId],
+      search: '',
+      category: '',
+      tag: '',
+      sort: 'updated',
+      cursor: '',
+      limit: 1,
+    }),
     workflowTransport.previewSourceBundle(source.workflowId),
     shopTransport.categories(),
     shopTransport.filterCatalog(),
   ])
-    .then(([releases, bundle, categories, filterCatalog]) => {
+    .then(([current, bundle, categories, filterCatalog]) => {
       if (generation !== publishGeneration || !publishOpen.value) return
       publishBundle.value = bundle
       publishCategoryDirectory.value = categories
       publishFilterDimensions.value = filterCatalog.dimensions
-      const previous = releases.reduce<(typeof releases)[number] | undefined>(
-        (best, item) =>
-          !best || isNewerRelease(item.releaseVersion, best.releaseVersion) ? item : best,
-        undefined,
-      )
+      const previous = current.items[0]
       if (!previous || generation !== publishGeneration || !publishOpen.value || publishing.value)
         return
       publishHighestVersion.value = previous.releaseVersion
@@ -1690,11 +1595,6 @@ function initializePublish(source: SourceView): void {
       if (!publishTouched.has('tags')) publishDraft.listing.tags = listing.tags
       if (!publishTouched.has('filterValues'))
         publishDraft.listing.filterValues = listing.filterValues
-      publishDraft.previousReleaseId = previous.releaseId
-      publishDraft.existingScreenshots = previous.screenshots.map((shot) => ({
-        url: shot.url,
-        alt: shot.alt,
-      }))
     })
     .catch((error) => {
       if (generation === publishGeneration) {
@@ -1731,12 +1631,9 @@ async function publishWorkflow(): Promise<void> {
       summary: publishDraft.summary.trim(),
       releaseNotes: publishDraft.releaseNotes.trim(),
       examples: [],
-      screenshots: publishDraft.screenshots,
-      previousReleaseId: publishDraft.previousReleaseId,
-      existingScreenshots: publishDraft.existingScreenshots,
     })
     publishOpen.value = false
-    libraryMode.value = 'market'
+    await router.push('/market')
   } catch (error) {
     publishFailure.value = errorMessage(error)
     publishNeedsLogin.value =
@@ -1765,19 +1662,6 @@ async function cancelPublish(): Promise<void> {
   try {
     if (publishing.value) await shopTransport.cancelLogin()
     else publishOpen.value = false
-  } catch (error) {
-    publishFailure.value = errorMessage(error)
-  }
-}
-
-async function addPublishScreenshots(): Promise<void> {
-  try {
-    const paths = await shopTransport.chooseScreenshots()
-    for (const path of Array.isArray(paths) ? paths : paths ? [paths] : []) {
-      if (publishDraft.screenshots.length + publishDraft.existingScreenshots.length >= 6) break
-      if (!publishDraft.screenshots.some((item) => item.path === path))
-        publishDraft.screenshots.push({ path, alt: publishDraft.title })
-    }
   } catch (error) {
     publishFailure.value = errorMessage(error)
   }

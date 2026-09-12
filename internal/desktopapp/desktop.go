@@ -289,6 +289,7 @@ func Run(config Config) error {
 		return fmt.Errorf("attach live installation settings: %w", err)
 	}
 	var scheduleSvc *schedule.Service
+	var registry *registryclient.Client
 	workflowOptions := []workflow.Option{
 		workflow.WithBundleManager(workflowRuntime.Bundles),
 		workflow.WithReferenceResolver(func(workflowID string) []workflow.SourceReference {
@@ -326,14 +327,15 @@ func Run(config Config) error {
 			tokens = session
 			workflowOptions = append(workflowOptions, workflow.WithRegistryAccount(session), workflow.WithWallet(securestore.New(), credentialScope+"\x00"+config.OIDCTokenEndpoint+"\x00"+config.RegistryURL, wailsApp.Browser))
 		}
-		registry, registryErr := registryclient.New(registryclient.Options{
+		registryClient, registryErr := registryclient.New(registryclient.Options{
 			BaseURL: config.RegistryURL, Tokens: tokens,
 			AllowLoopbackHTTP: config.RegistryAllowLoopbackHTTP,
 		})
 		if registryErr != nil {
 			return fmt.Errorf("initialize Registry client: %w", registryErr)
 		}
-		workflowOptions = append(workflowOptions, workflow.WithRegistryClient(registry))
+		registry = registryClient
+		workflowOptions = append(workflowOptions, workflow.WithRegistryClient(registryClient))
 		if config.HubURL != "" {
 			community, err := communityclient.New(config.HubURL, tokens, config.HubAllowLoopbackHTTP)
 			if err != nil {
@@ -660,9 +662,13 @@ func Run(config Config) error {
 	)
 
 	serviceErrors := application.ServiceOptions{MarshalError: apperr.Marshal}
+	pluginService := plugins.NewService(local.Plugins, local.Roots)
+	if registry != nil {
+		pluginService = plugins.NewService(local.Plugins, local.Roots, registry)
+	}
 	wailsServices = append(wailsServices,
 		application.NewServiceWithOptions(settingsSvc, serviceErrors),
-		application.NewServiceWithOptions(plugins.NewService(local.Plugins, local.Roots), serviceErrors),
+		application.NewServiceWithOptions(pluginService, serviceErrors),
 		application.NewServiceWithOptions(panels.NewService(local.Panels), serviceErrors),
 		application.NewServiceWithOptions(services.NewMCPService(), serviceErrors),
 		application.NewServiceWithOptions(services.NewAppInfoService(), serviceErrors),

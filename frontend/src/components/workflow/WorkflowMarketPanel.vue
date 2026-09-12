@@ -267,7 +267,6 @@
                 class="shrink-0 whitespace-nowrap"
                 >{{ t('workflow.market.quality_author') }}</UBadge
               >
-              <span aria-hidden="true">·</span><span>{{ selected.releaseVersion }}</span>
               <span aria-hidden="true">·</span
               ><span
                 class="inline-flex items-center gap-1"
@@ -276,6 +275,26 @@
                   t('workflow.market.download_count', { n: selected.downloadCount ?? 0 })
                 }}</span
               >
+              <span aria-hidden="true">·</span>
+              <span
+                class="inline-flex items-center gap-1"
+                :class="reviewSummary?.ratingCount ? 'text-warning' : 'text-muted'"
+                data-testid="market-rating-summary"
+              >
+                <UIcon
+                  :name="reviewSummary?.ratingCount ? 'i-tabler-star-filled' : 'i-tabler-star'"
+                  class="size-3.5"
+                />
+                <span v-if="reviewSummary?.ratingCount">
+                  {{
+                    t('workflow.community.average_count', {
+                      score: reviewSummary.average.toFixed(1),
+                      n: reviewSummary.ratingCount,
+                    })
+                  }}
+                </span>
+                <span v-else>{{ t('workflow.community.no_ratings') }}</span>
+              </span>
             </div>
             <p class="mt-2 max-w-[72ch] whitespace-pre-wrap text-sm leading-6 text-toned">
               {{ selected.summary }}
@@ -339,11 +358,6 @@
             {{ installFailure }}
           </p>
         </header>
-        <WorkflowReport
-          v-if="selected"
-          :workflow-id="selected.workflowId"
-          :release-id="selected.releaseId"
-        />
         <WorkflowCheckout
           v-if="purchaseOpen"
           class="min-h-0 flex-1 overflow-y-auto"
@@ -373,9 +387,6 @@
             @click="detailTab = 'overview'"
           >
             {{ t('workflow.market.overview') }}
-          </button>
-          <button type="button" :aria-pressed="detailTab === 'history'" @click="showHistory">
-            {{ t('workflow.market.history') }}
           </button>
           <button
             type="button"
@@ -410,16 +421,6 @@
                   <p class="mt-1 text-sm leading-6 text-toned">{{ example.description }}</p>
                 </div>
               </section>
-              <div v-if="selected.screenshots.length" class="space-y-4">
-                <img
-                  v-for="shot in selected.screenshots"
-                  :key="shot.url"
-                  :src="shot.url"
-                  :alt="shot.alt"
-                  loading="lazy"
-                  class="max-w-full rounded-lg border border-default"
-                />
-              </div>
             </section>
             <section v-else-if="detailTab === 'changes'">
               <h3 class="market-section-title">{{ selected.releaseVersion }}</h3>
@@ -427,112 +428,98 @@
                 {{ selected.releaseNotes || t('workflow.market.no_release_notes') }}
               </p>
             </section>
-            <section v-else-if="detailTab === 'history'" class="space-y-5">
-              <USkeleton v-if="historyLoading" class="h-24" />
-              <p v-else-if="historyFailure" role="alert" class="text-sm text-error">
-                {{ historyFailure }}
-              </p>
-              <article
-                v-for="release in history"
-                v-else
-                :key="release.releaseId"
-                class="border-b border-default pb-5"
-              >
-                <div class="flex items-center justify-between gap-3">
-                  <h3 class="market-section-title">{{ release.releaseVersion }}</h3>
-                  <time class="text-xs text-muted">{{
-                    new Date(release.publishedAt).toLocaleDateString(locale)
-                  }}</time>
-                </div>
-                <WorkflowMarketDocument
-                  class="mt-3"
-                  :content="release.releaseNotes || t('workflow.market.no_release_notes')"
-                />
-              </article>
-            </section>
             <WorkflowReviews
               v-show="detailTab === 'reviews'"
               :key="selected.workflowId"
               :workflow-id="selected.workflowId"
-              :release-id="installed?.releaseId || selected.releaseId"
-              :release-version="installed?.releaseVersion || selected.releaseVersion"
               :author-key="selected.creator.userKey"
               @summary="reviewSummary = $event"
             />
           </div>
           <aside class="market-metadata">
-            <section v-if="selected.dependencies?.length" class="mb-5">
-              <h3 class="market-section-title">{{ t('workflow.market.dependencies') }}</h3>
-              <p
-                v-for="pack in selected.dependencies"
-                :key="pack.packageId"
-                class="mt-2 break-words text-xs text-toned"
-              >
-                {{ pack.packageId }} · {{ pack.packageVersion }}
-              </p>
-            </section>
-            <h3 class="market-section-title">{{ t('workflow.market.version_info') }}</h3>
-            <dl class="mt-4 space-y-4 text-xs">
-              <div>
-                <dt>{{ t('workflow.market.version') }}</dt>
-                <dd>{{ selected.releaseVersion }}</dd>
+            <div class="market-metadata-card">
+              <section v-if="selected.dependencies?.length" class="mb-5">
+                <h3 class="market-section-title">{{ t('workflow.market.dependencies') }}</h3>
+                <p
+                  v-for="pack in selected.dependencies"
+                  :key="pack.packageId"
+                  class="mt-2 break-words text-xs text-toned"
+                >
+                  {{ pack.packageId }} · {{ pack.packageVersion }}
+                </p>
+              </section>
+              <h3 class="market-section-title">{{ t('workflow.market.version_info') }}</h3>
+              <dl class="mt-4 space-y-4 text-xs">
+                <div>
+                  <dt>{{ t('workflow.market.version') }}</dt>
+                  <dd>{{ selected.releaseVersion }}</dd>
+                </div>
+                <div v-if="publishedDate">
+                  <dt>{{ t('workflow.market.published_at') }}</dt>
+                  <dd>{{ publishedDate }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('workflow.market.creator') }}</dt>
+                  <dd>{{ creator(selected) }}</dd>
+                </div>
+                <div v-if="selected.listing?.category" class="market-taxonomy-group">
+                  <dt class="market-taxonomy-label">{{ t('workflow.market.category') }}</dt>
+                  <dd>
+                    <button
+                      type="button"
+                      class="market-category"
+                      @click="applyCategory(selected.listing.category)"
+                    >
+                      <UIcon name="i-tabler-folder" class="size-3.5 shrink-0" /><span>{{
+                        categoryLabel(selected.listing.category)
+                      }}</span>
+                    </button>
+                  </dd>
+                </div>
+                <div v-if="selected.listing?.tags?.length" class="market-taxonomy-group">
+                  <dt class="market-taxonomy-label">{{ t('workflow.market.tags') }}</dt>
+                  <dd class="market-tag-list">
+                    <button
+                      v-for="value in selected.listing.tags"
+                      :key="value"
+                      type="button"
+                      class="market-tag"
+                      @click="applyTag(value)"
+                    >
+                      <span class="market-tag-hash" aria-hidden="true">#</span
+                      ><span class="market-tag-text">{{ value }}</span>
+                    </button>
+                  </dd>
+                </div>
+                <div v-if="selected.facts?.verified">
+                  <dt>{{ t('workflow.market.requirements') }}</dt>
+                  <dd>
+                    {{
+                      t('workflow.market.target_count', { n: selected.facts.targetProfileCount })
+                    }}
+                  </dd>
+                  <dd>
+                    {{
+                      t('workflow.market.dependency_count', { n: selected.facts.dependencyCount })
+                    }}
+                  </dd>
+                  <dd v-if="selected.facts.credentialCount">
+                    {{
+                      t('workflow.market.credential_count', { n: selected.facts.credentialCount })
+                    }}
+                  </dd>
+                </div>
+                <div v-if="selected.facts?.verified">
+                  <dt>{{ t('workflow.market.resources') }}</dt>
+                  <dd>
+                    {{ t('workflow.market.resource_count', { n: selected.facts.resourceCount }) }}
+                  </dd>
+                </div>
+              </dl>
+              <div class="mt-5 flex justify-end border-t border-default pt-5">
+                <WorkflowReport :workflow-id="selected.workflowId" />
               </div>
-              <div v-if="publishedDate">
-                <dt>{{ t('workflow.market.published_at') }}</dt>
-                <dd>{{ publishedDate }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('workflow.market.creator') }}</dt>
-                <dd>{{ creator(selected) }}</dd>
-              </div>
-              <div v-if="selected.listing?.category" class="market-taxonomy-group">
-                <dt class="market-taxonomy-label">{{ t('workflow.market.category') }}</dt>
-                <dd>
-                  <button
-                    type="button"
-                    class="market-category"
-                    @click="applyCategory(selected.listing.category)"
-                  >
-                    <UIcon name="i-tabler-folder" class="size-3.5 shrink-0" /><span>{{
-                      categoryLabel(selected.listing.category)
-                    }}</span>
-                  </button>
-                </dd>
-              </div>
-              <div v-if="selected.listing?.tags?.length" class="market-taxonomy-group">
-                <dt class="market-taxonomy-label">{{ t('workflow.market.tags') }}</dt>
-                <dd class="market-tag-list">
-                  <button
-                    v-for="value in selected.listing.tags"
-                    :key="value"
-                    type="button"
-                    class="market-tag"
-                    @click="applyTag(value)"
-                  >
-                    <span class="market-tag-hash" aria-hidden="true">#</span
-                    ><span class="market-tag-text">{{ value }}</span>
-                  </button>
-                </dd>
-              </div>
-              <div v-if="selected.facts?.verified">
-                <dt>{{ t('workflow.market.requirements') }}</dt>
-                <dd>
-                  {{ t('workflow.market.target_count', { n: selected.facts.targetProfileCount }) }}
-                </dd>
-                <dd>
-                  {{ t('workflow.market.dependency_count', { n: selected.facts.dependencyCount }) }}
-                </dd>
-                <dd v-if="selected.facts.credentialCount">
-                  {{ t('workflow.market.credential_count', { n: selected.facts.credentialCount }) }}
-                </dd>
-              </div>
-              <div v-if="selected.facts?.verified">
-                <dt>{{ t('workflow.market.resources') }}</dt>
-                <dd>
-                  {{ t('workflow.market.resource_count', { n: selected.facts.resourceCount }) }}
-                </dd>
-              </div>
-            </dl>
+            </div>
           </aside>
         </div>
       </article>
@@ -669,9 +656,6 @@ const failure = ref(''),
   filter = ref('all'),
   detailTab = ref('overview')
 const facets = ref({ categories: [] as string[], tags: [] as string[] })
-const history = ref<RegistryWorkflowReleaseView[]>([]),
-  historyLoading = ref(false),
-  historyFailure = ref('')
 const installations = ref<Awaited<ReturnType<typeof shopTransport.installations>>>([])
 let queryGeneration = 0
 const filters = computed(() => [
@@ -707,7 +691,6 @@ function select(item: RegistryWorkflowReleaseView) {
   detailTab.value = 'overview'
   installFailure.value =
     lastInstallIssue.value.releaseId === item.releaseId ? lastInstallIssue.value.message : ''
-  history.value = []
   void refreshCreator()
 }
 watch(visibleItems, (values) => {
@@ -715,7 +698,6 @@ watch(visibleItems, (values) => {
     if (values[0]) select(values[0])
     else {
       selected.value = null
-      history.value = []
       detailTab.value = 'overview'
       installFailure.value = ''
     }
@@ -791,22 +773,6 @@ async function load(append: boolean) {
     }
   }
 }
-async function showHistory() {
-  detailTab.value = 'history'
-  const id = selected.value?.workflowId
-  if (!id) return
-  history.value = []
-  historyLoading.value = true
-  historyFailure.value = ''
-  try {
-    const result = await shopTransport.history(id)
-    if (selected.value?.workflowId === id) history.value = result
-  } catch (error) {
-    if (selected.value?.workflowId === id) historyFailure.value = errorMessage(error)
-  } finally {
-    if (selected.value?.workflowId === id) historyLoading.value = false
-  }
-}
 async function openInstalled() {
   const local = installed.value
   if (local && !installing.value) {
@@ -863,7 +829,7 @@ async function refreshCreator() {
     if (marketDisposed || generation !== queryGeneration) return
     const current = page.items[0]?.creator
     if (!current || current.userKey !== target.creator.userKey) return
-    for (const item of [...items.value, ...history.value])
+    for (const item of items.value)
       if (item.creator.userKey === current.userKey) item.creator = { ...current }
     if (selected.value?.creator.userKey === current.userKey) selected.value.creator = { ...current }
   } catch {
@@ -1142,6 +1108,12 @@ watch(filter, () => void search())
   padding: 28px 24px 40px;
   min-height: 0;
   overflow-y: auto;
+}
+.market-metadata-card {
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 18px;
+  background: var(--ui-bg-muted);
 }
 .market-metadata dt {
   color: var(--ui-text-muted);

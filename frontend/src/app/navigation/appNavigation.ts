@@ -1,5 +1,5 @@
 export interface AppNavigationItem {
-  key: 'workflows' | 'assets' | 'schedules'
+  key: 'workflows' | 'assets' | 'schedules' | 'market'
   to: string
   icon: string
   label: string
@@ -35,6 +35,13 @@ const destinations = [
     to: '/schedules',
     icon: 'i-tabler-clock',
     labelKey: 'sidebar.schedules',
+  },
+  {
+    key: 'market',
+    route: 'market',
+    to: '/market',
+    icon: 'i-tabler-building-store',
+    labelKey: 'sidebar.market',
   },
 ] as const
 

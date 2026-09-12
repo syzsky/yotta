@@ -7,9 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/yottaapp/yotta/internal/workflowstore"
-	"net/url"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"unicode/utf8"
@@ -59,15 +57,9 @@ type RegistryWorkflowReleaseView struct {
 	Summary            string                             `json:"summary"`
 	ReleaseNotes       string                             `json:"releaseNotes,omitempty"`
 	Examples           []PublishRegistryExample           `json:"examples"`
-	Screenshots        []RegistryScreenshotView           `json:"screenshots"`
 	Creator            RegistryCreatorView                `json:"creator"`
 	Availability       string                             `json:"availability"`
 	PublishedAt        string                             `json:"publishedAt"`
-}
-
-type RegistryScreenshotView struct {
-	URL string `json:"url"`
-	Alt string `json:"alt"`
 }
 
 type RegistrySearchPageView struct {
@@ -81,22 +73,14 @@ type PublishRegistryExample struct {
 	Description string `json:"description"`
 }
 
-type PublishRegistryScreenshot struct {
-	Path string `json:"path"`
-	Alt  string `json:"alt"`
-}
-
 type PublishRegistryRequest struct {
-	PreviousReleaseID   string                      `json:"previousReleaseId,omitempty"`
-	ExistingScreenshots []RegistryScreenshotView    `json:"existingScreenshots,omitempty"`
-	Listing             registryclient.Listing      `json:"listing"`
-	WorkflowID          string                      `json:"workflowId"`
-	ReleaseVersion      string                      `json:"releaseVersion"`
-	Title               string                      `json:"title"`
-	Summary             string                      `json:"summary"`
-	ReleaseNotes        string                      `json:"releaseNotes"`
-	Examples            []PublishRegistryExample    `json:"examples"`
-	Screenshots         []PublishRegistryScreenshot `json:"screenshots"`
+	Listing        registryclient.Listing   `json:"listing"`
+	WorkflowID     string                   `json:"workflowId"`
+	ReleaseVersion string                   `json:"releaseVersion"`
+	Title          string                   `json:"title"`
+	Summary        string                   `json:"summary"`
+	ReleaseNotes   string                   `json:"releaseNotes"`
+	Examples       []PublishRegistryExample `json:"examples"`
 }
 
 func (s *Service) PublishSourceToRegistry(
@@ -122,66 +106,12 @@ func (s *Service) PublishSourceToRegistry(
 	for _, example := range request.Examples {
 		examples = append(examples, registryclient.Example{Title: example.Title, Description: example.Description})
 	}
-	screenshots := make([]registryclient.ScreenshotUpload, 0, len(request.Screenshots))
-	if len(request.ExistingScreenshots)+len(request.Screenshots) > 6 {
-		return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_listing", apperr.CategoryValidation, nil, false, errors.New("too many screenshots"))
-	}
-	for _, screenshot := range request.Screenshots {
-		fileInfo, statErr := os.Stat(screenshot.Path)
-		if statErr != nil || !fileInfo.Mode().IsRegular() || fileInfo.Size() <= 0 || fileInfo.Size() > 16<<20 {
-			if statErr == nil {
-				statErr = errors.New("screenshot file is not a supported regular file")
-			}
-			return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_screenshot", apperr.CategoryValidation, nil, false, statErr)
-		}
-		content, readErr := os.ReadFile(screenshot.Path)
-		if readErr != nil {
-			return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_screenshot", apperr.CategoryValidation, nil, false, readErr)
-		}
-		screenshots = append(screenshots, registryclient.ScreenshotUpload{Filename: filepath.Base(screenshot.Path), Alt: screenshot.Alt, Content: content})
-	}
-	if len(request.ExistingScreenshots) > 0 {
-		newScreenshots := screenshots
-		screenshots = make([]registryclient.ScreenshotUpload, 0, len(newScreenshots)+len(request.ExistingScreenshots))
-		previous, err := s.registry.GetWorkflowRelease(ctx, request.PreviousReleaseID)
-		if err != nil {
-			return RegistryWorkflowReleaseView{}, registryError("previous_release", err)
-		}
-		if previous.WorkflowID != request.WorkflowID {
-			return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_listing", apperr.CategoryValidation, nil, false, errors.New("screenshot source workflow differs"))
-		}
-		for _, reference := range request.ExistingScreenshots {
-			parsed, parseErr := url.Parse(reference.URL)
-			allowed := false
-			if parseErr == nil {
-				for _, image := range previous.Screenshots {
-					candidate, err := url.Parse(image.URL)
-					if err == nil && candidate.Path == parsed.Path {
-						allowed = true
-						break
-					}
-				}
-			}
-			if !allowed || !strings.HasPrefix(parsed.Path, "/v1/artifacts/sha256:") {
-				return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_listing", apperr.CategoryValidation, nil, false, errors.New("unknown previous screenshot"))
-			}
-			content, err := s.registry.DownloadArtifact(ctx, strings.TrimPrefix(parsed.Path, "/v1/artifacts/"))
-			if err != nil {
-				return RegistryWorkflowReleaseView{}, registryError("screenshot", err)
-			}
-			if len(content) > 16<<20 {
-				return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_screenshot", apperr.CategoryValidation, nil, false, errors.New("previous screenshot exceeds limit"))
-			}
-			screenshots = append(screenshots, registryclient.ScreenshotUpload{Filename: "previous-image.png", Alt: reference.Alt, Content: content})
-		}
-		screenshots = append(screenshots, newScreenshots...)
-	}
 	release, err := s.registry.PublishWorkflow(ctx, registryclient.PublishRequest{
 		Listing: request.Listing,
 		Bundle:  bytes.NewReader(bundle), Filename: request.WorkflowID + ".yotta-workflow",
 		IdempotencyKey: publicationKey(request.WorkflowID, request.ReleaseVersion, string(info.SourceHash)),
 		ReleaseVersion: request.ReleaseVersion, Title: request.Title, Summary: request.Summary,
-		ReleaseNotes: request.ReleaseNotes, Examples: examples, Screenshots: screenshots,
+		ReleaseNotes: request.ReleaseNotes, Examples: examples,
 	})
 	if err != nil {
 		return RegistryWorkflowReleaseView{}, registryError("publish", err)
@@ -218,7 +148,7 @@ func (s *Service) InstallRegistryWorkflow(ctx context.Context, releaseID string)
 		return SourceView{}, unavailable("registry")
 	}
 	plan, err := s.registry.CreateInstallPlan(ctx, releaseID, registryclient.Environment{
-		YottaVersion: version.Version, OperatingSystem: runtime.GOOS, Architecture: runtime.GOARCH,
+		YottaVersion: registryclient.NormalizeEnvironmentVersion(version.Version), OperatingSystem: runtime.GOOS, Architecture: runtime.GOARCH,
 	})
 	if err != nil {
 		return SourceView{}, registryError("plan", err)
@@ -245,9 +175,6 @@ func (s *Service) InstallRegistryWorkflow(ctx context.Context, releaseID string)
 			return sourceView(current, false)
 		}
 		record, tracked := records[release.WorkflowID]
-		if tracked && record.ReleaseID == releaseID {
-			return sourceView(current, false)
-		}
 		if !tracked || record.SourceHash != string(current.Hash()) {
 			return SourceView{}, localRegistryChanges()
 		}
@@ -310,10 +237,6 @@ func registryReleaseView(release registryclient.WorkflowRelease) RegistryWorkflo
 	for _, example := range release.Examples {
 		examples = append(examples, PublishRegistryExample{Title: example.Title, Description: example.Description})
 	}
-	screenshots := make([]RegistryScreenshotView, 0, len(release.Screenshots))
-	for _, screenshot := range release.Screenshots {
-		screenshots = append(screenshots, RegistryScreenshotView{URL: screenshot.URL, Alt: screenshot.Alt})
-	}
 	return RegistryWorkflowReleaseView{
 		DownloadCount: release.DownloadCount,
 		Official:      release.Official, Recommended: release.Recommended,
@@ -323,7 +246,7 @@ func registryReleaseView(release registryclient.WorkflowRelease) RegistryWorkflo
 		WorkflowID: release.WorkflowID, ReleaseVersion: release.ReleaseVersion,
 		SourceHash: release.SourceHash, BundleDigest: release.BundleDigest,
 		Title: release.Title, Summary: release.Summary, ReleaseNotes: release.ReleaseNotes,
-		Examples: examples, Screenshots: screenshots,
+		Examples:     examples,
 		Creator:      RegistryCreatorView{QualityAuthor: release.Creator.QualityAuthor, UserKey: release.Creator.UserKey, DisplayName: release.Creator.DisplayName, Picture: release.Creator.Picture},
 		Availability: release.Availability, PublishedAt: release.PublishedAt,
 	}
@@ -358,8 +281,6 @@ func registryError(operation string, cause error) error {
 			return projectError("workflow.registry.invalid_title", apperr.CategoryValidation, nil, false, cause)
 		case "registry.invalid_summary":
 			return projectError("workflow.registry.invalid_summary", apperr.CategoryValidation, nil, false, cause)
-		case "registry.invalid_screenshot", "registry.screenshot_too_large":
-			return projectError("workflow.registry.invalid_screenshot", apperr.CategoryValidation, nil, false, cause)
 		case "registry.invalid_presentation":
 			return projectError("workflow.registry.invalid_presentation", apperr.CategoryValidation, nil, false, cause)
 		case "registry.bundle_invalid":

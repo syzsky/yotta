@@ -36,9 +36,6 @@ func TestPublishWorkflowStreamsBundleAndUsesToken(t *testing.T) {
 		if request.FormValue("releaseNotes") != "新增批量整理。" || !strings.Contains(request.FormValue("examples"), "整理相册") {
 			t.Fatalf("release notes = %q, examples = %q", request.FormValue("releaseNotes"), request.FormValue("examples"))
 		}
-		if len(request.MultipartForm.File["screenshots"]) != 1 || !strings.Contains(request.FormValue("screenshotAlts"), "整理结果") {
-			t.Fatalf("screenshots = %#v, alts = %q", request.MultipartForm.File["screenshots"], request.FormValue("screenshotAlts"))
-		}
 		response.Header().Set("Content-Type", "application/json")
 		_, _ = response.Write([]byte(`{"releaseId":"release-1","workflowId":"workflow","releaseVersion":"1.0.0","title":"整理照片","creator":{"userKey":"TestA123"},"availability":"active"}`))
 	}))
@@ -47,8 +44,7 @@ func TestPublishWorkflowStreamsBundleAndUsesToken(t *testing.T) {
 	release, err := client.PublishWorkflow(context.Background(), PublishRequest{
 		Bundle: strings.NewReader("bundle-content"), IdempotencyKey: "workflow-release-key", ReleaseVersion: "1.0.0",
 		Title: "整理照片", Summary: "自动整理照片。", ReleaseNotes: "新增批量整理。",
-		Examples:    []Example{{Title: "整理相册", Description: "按日期整理。"}},
-		Screenshots: []ScreenshotUpload{{Filename: "result.png", Alt: "整理结果", Content: []byte("png")}},
+		Examples: []Example{{Title: "整理相册", Description: "按日期整理。"}},
 	})
 	if err != nil || release.ReleaseID != "release-1" || release.Creator.UserKey != "TestA123" {
 		t.Fatalf("PublishWorkflow = %#v, %v", release, err)

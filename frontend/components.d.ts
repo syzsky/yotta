@@ -47,6 +47,7 @@ declare module 'vue' {
     PanelLog: typeof import('./src/components/panels/PanelLog.vue')['default']
     PanelRenderer: typeof import('./src/components/panels/PanelRenderer.vue')['default']
     PickerMagnifier: typeof import('./src/components/tools/PickerMagnifier.vue')['default']
+    PluginMarketPanel: typeof import('./src/components/plugins/PluginMarketPanel.vue')['default']
     PreciseRecordingWorkbench: typeof import('./src/components/recording/PreciseRecordingWorkbench.vue')['default']
     RecordingMetadataFields: typeof import('./src/components/recording/RecordingMetadataFields.vue')['default']
     ReferenceIdCell: typeof import('./src/components/arrangement/ReferenceIdCell.vue')['default']

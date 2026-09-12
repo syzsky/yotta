@@ -23,7 +23,7 @@ func TestReportWireBodyAndIdentity(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			t.Fatal(err)
 		}
-		if len(input) != 5 || input["releaseId"] != "release" || input["id"] != "request-id" {
+		if len(input) != 4 || input["id"] != "request-id" {
 			t.Errorf("wire payload=%#v", input)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -35,7 +35,7 @@ func TestReportWireBodyAndIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report, err := client.SubmitReport(context.Background(), ReportDraft{ID: "request-id", WorkflowID: "work", ReleaseID: "release", Reason: "outdated"})
+	report, err := client.SubmitReport(context.Background(), ReportDraft{ID: "request-id", WorkflowID: "work", Reason: "outdated"})
 	if err != nil || report.ID != "request-id" || report.State != "pending" {
 		t.Fatalf("report=%#v %v", report, err)
 	}

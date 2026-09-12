@@ -76,16 +76,6 @@ export const shopTransport = {
   refreshAccount: () => invoke(WorkflowService.RefreshRegistryAccount),
   openAccountCenter: () => invoke(WorkflowService.OpenAccountCenter),
   discover: (query: SearchOptions) => invoke(WorkflowService.DiscoverRegistry, query),
-  history: (workflowId: string) => invoke(WorkflowService.RegistryWorkflowHistory, workflowId),
-  chooseScreenshots: () =>
-    callRPC('shop.chooseScreenshots', () =>
-      Dialogs.OpenFile({
-        AllowsMultipleSelection: true,
-        CanChooseFiles: true,
-        CanChooseDirectories: false,
-        Filters: [{ DisplayName: 'PNG / JPEG', Pattern: '*.png;*.jpg;*.jpeg' }],
-      }),
-    ),
   account: () => invoke(WorkflowService.RegistryAccount),
   login: () => invoke(WorkflowService.LoginRegistry),
   register: () => invoke(WorkflowService.RegisterRegistry),

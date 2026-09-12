@@ -45,6 +45,7 @@ export default {
     workflow_edit: 'Edit workflow',
     assets: 'Library',
     schedules: 'Schedules',
+    market: 'Marketplace',
     settings: 'Settings',
     about: 'About',
     open_launcher: 'Open floating launcher',
@@ -575,6 +576,13 @@ export default {
     'plugins.load_failed': 'Could not read plugin information. Retry or import the package again.',
     'plugins.install_failed':
       'Plugin installation did not complete. Retry or obtain a fresh package.',
+    'plugins.market_unavailable': 'The plugin market is temporarily unavailable. Try again later.',
+    'plugins.market_invalid_release':
+      'This plugin release is invalid. Return to the market and choose it again.',
+    'plugins.market_install_failed': 'The plugin was not installed. Try again later.',
+    'plugins.market_incompatible': 'This plugin cannot be installed on this device: {reason}',
+    'plugins.market_runtime_required':
+      'This plugin needs runtime support before it can be installed: {reason}',
     'plugins.invalid_package':
       'The plugin package is incomplete or damaged. Obtain a fresh copy and import it.',
     'plugins.publisher_changed':
@@ -842,8 +850,7 @@ export default {
       'Use a version higher than the highest published version. Reopen the publish form to load the current version and try again.',
     'workflow.registry.invalid_summary':
       'Use 1–1000 characters for the summary. Put longer content in the detailed description.',
-    'workflow.registry.invalid_presentation':
-      'Check the length of release notes, examples and screenshot captions.',
+    'workflow.registry.invalid_presentation': 'Check the length of release notes and examples.',
     'workflow.registry.bundle_invalid':
       'The workflow file did not pass format validation. Export it and include the operation ID in your report; retrying unchanged content will not resolve this.',
     'workflow.registry.invalid_listing':
@@ -882,8 +889,6 @@ export default {
     'workflow.registry.incompatible':
       'This Workflow is not compatible with the current Yotta environment. Review its requirements or choose another version.',
     'workflow.registry.install_failed': 'The Workflow was not installed. Try again.',
-    'workflow.registry.invalid_screenshot':
-      'The selected screenshot could not be read. Choose it again and retry.',
     'workflow.registry.unavailable':
       'Registry {operation} is temporarily unavailable. Try again later.',
     'workflow.compile.failed':

@@ -13,8 +13,18 @@ describe('WorkflowsView entry points', () => {
   it('publishes a local workflow through the user-facing market form', () => {
     expect(source).toContain('data-testid="workflow-publish-submit"')
     expect(source).toContain('workflowTransport.publishSourceToRegistry({')
-    expect(source).toContain("libraryMode.value = 'market'")
+    expect(source).toContain("await router.push('/market')")
+    expect(source).not.toContain('libraryMode')
     expect(source).toContain('publishFailure.value = errorMessage(error)')
+  })
+
+  it('shows bundled panels only inside the listing section of the publish form', () => {
+    const listingStart = source.indexOf('v-show="publishSection === \'listing\'"')
+    const guideStart = source.indexOf('v-show="publishSection === \'guide\'"')
+    const listingSection = source.slice(listingStart, guideStart)
+
+    expect(listingSection).toContain('data-testid="publish-panel-resources"')
+    expect(source.match(/data-testid="publish-panel-resources"/g)).toHaveLength(1)
   })
 
   it('opens workflows by double-clicking the management row without a separate edit button', () => {

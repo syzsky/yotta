@@ -47,14 +47,9 @@
     </div>
 
     <div class="space-y-3 rounded-lg border border-default p-4">
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="text-sm font-semibold text-highlighted">
-          {{ mine ? t('workflow.community.edit_mine') : t('workflow.community.write') }}
-        </h3>
-        <span class="text-xs text-muted">{{
-          t('workflow.community.version', { version: releaseVersion })
-        }}</span>
-      </div>
+      <h3 class="text-sm font-semibold text-highlighted">
+        {{ mine ? t('workflow.community.edit_mine') : t('workflow.community.write') }}
+      </h3>
       <p class="text-xs leading-5 text-muted">
         {{ ownWork ? t('workflow.community.author_hint') : t('workflow.community.one_review') }}
       </p>
@@ -173,17 +168,16 @@
               }}</strong
               ><time class="text-xs text-muted">{{ formatDate(review.createdAt) }}</time>
             </div>
-            <div class="mt-1 flex items-center gap-2">
+            <div v-if="review.stars" class="mt-1 flex items-center gap-2">
               <span
-                v-if="review.stars"
                 class="flex text-warning"
                 :aria-label="t('workflow.community.stars', { n: review.stars })"
                 ><UIcon
                   v-for="star in 5"
                   :key="star"
                   :name="star <= review.stars ? 'i-tabler-star-filled' : 'i-tabler-star'"
-                  class="size-3" /></span
-              ><span class="text-xs text-muted">{{ review.releaseVersion }}</span>
+                  class="size-3"
+              /></span>
             </div>
           </div>
         </header>
@@ -292,8 +286,6 @@ import { useConfirm } from '@/composables/useConfirm'
 import AccountAvatar from '@/components/AccountAvatar.vue'
 const props = defineProps<{
   workflowId: string
-  releaseId: string
-  releaseVersion: string
   authorKey: string
 }>()
 const emit = defineEmits<{ summary: [value: Summary] }>()
@@ -423,7 +415,6 @@ async function submit() {
   try {
     mine.value = await communityTransport.save({
       workflowId: props.workflowId,
-      releaseId: props.releaseId,
       stars: ownWork.value ? 0 : stars.value,
       content: content.value,
     })

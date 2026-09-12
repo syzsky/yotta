@@ -3,8 +3,8 @@
   "generator": "wails3",
   "summary": {
     "services": 18,
-    "methods": 214,
-    "models": 300
+    "methods": 215,
+    "models": 306
   },
   "services": [
     {
@@ -1067,6 +1067,18 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "DiscoverRegistry",
+          "bindingId": "1566986923",
+          "parameters": [
+            {
+              "name": "options",
+              "optional": false,
+              "type": "registryclient$0.SearchOptions"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RegistrySearchPage>"
+        },
+        {
           "name": "Import",
           "bindingId": "2397308382",
           "parameters": [
@@ -1077,6 +1089,18 @@
             }
           ],
           "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "InstallRegistry",
+          "bindingId": "3601402197",
+          "parameters": [
+            {
+              "name": "releaseID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RegistryInstallResult>"
         },
         {
           "name": "List",
@@ -2455,18 +2479,6 @@
           "returns": "$CancellablePromise<$models.WalletView>"
         },
         {
-          "name": "RegistryWorkflowHistory",
-          "bindingId": "3699032966",
-          "parameters": [
-            {
-              "name": "id",
-              "optional": false,
-              "type": "string"
-            }
-          ],
-          "returns": "$CancellablePromise<$models.RegistryWorkflowReleaseView[]>"
-        },
-        {
           "name": "RenewRegistryPaymentSession",
           "bindingId": "3794438216",
           "parameters": [
@@ -3820,11 +3832,6 @@
               "type": "string"
             },
             {
-              "name": "\"releaseId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
               "name": "\"stars\"",
               "optional": false,
               "type": "number"
@@ -3914,11 +3921,6 @@
               "type": "string"
             },
             {
-              "name": "\"releaseVersion\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
               "name": "\"reason\"",
               "optional": false,
               "type": "string"
@@ -3961,11 +3963,6 @@
             },
             {
               "name": "\"workflowId\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"releaseId\"",
               "optional": false,
               "type": "string"
             },
@@ -4023,11 +4020,6 @@
             },
             {
               "name": "\"content\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"releaseVersion\"",
               "optional": false,
               "type": "string"
             },
@@ -4903,6 +4895,32 @@
         },
         {
           "kind": "class",
+          "name": "Creator",
+          "fields": [
+            {
+              "name": "\"qualityAuthor\"",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "\"picture\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"userKey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"displayName\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "DependencySummary",
           "fields": [
             {
@@ -5079,6 +5097,154 @@
         },
         {
           "kind": "class",
+          "name": "NodePackRelease",
+          "fields": [
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"publisherNamespace\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"packageId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"packageVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"contributionDigest\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseNotes\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"listing\"",
+              "optional": false,
+              "type": "Listing"
+            },
+            {
+              "name": "\"nodes\"",
+              "optional": false,
+              "type": "NodeProjection[]"
+            },
+            {
+              "name": "\"variants\"",
+              "optional": false,
+              "type": "RuntimeVariant[]"
+            },
+            {
+              "name": "\"creator\"",
+              "optional": false,
+              "type": "Creator"
+            },
+            {
+              "name": "\"availability\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"publishedAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "NodeProjection",
+          "fields": [
+            {
+              "name": "\"nodeRef\"",
+              "optional": false,
+              "type": "NodeRef"
+            },
+            {
+              "name": "\"packageId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"packageVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"contributionDigest\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"category\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"inputs\"",
+              "optional": false,
+              "type": "PortProjection[]"
+            },
+            {
+              "name": "\"outputs\"",
+              "optional": false,
+              "type": "PortProjection[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "NodeRef",
+          "fields": [
+            {
+              "name": "\"nodeTypeId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"nodeVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"semanticDigest\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "PaymentMethod",
           "fields": [
             {
@@ -5207,8 +5373,80 @@
         },
         {
           "kind": "class",
+          "name": "PortProjection",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RuntimeVariant",
+          "fields": [
+            {
+              "name": "\"variantId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"runtimeFamily\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"runtimeProfile\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"operatingSystems\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"architectures\"",
+              "optional": false,
+              "type": "string[]"
+            },
+            {
+              "name": "\"manifestDigest\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"artifactDigest\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"downloadBytes\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "SearchOptions",
           "fields": [
+            {
+              "name": "\"kinds\"",
+              "optional": true,
+              "type": "string[]"
+            },
             {
               "name": "\"filterValues\"",
               "optional": true,
@@ -7252,6 +7490,48 @@
               "type": "string"
             }
           ]
+        },
+        {
+          "kind": "class",
+          "name": "RegistryInstallResult",
+          "fields": [
+            {
+              "name": "\"plugin\"",
+              "optional": false,
+              "type": "pluginmanager$0.View"
+            },
+            {
+              "name": "\"alreadyInstalled\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"planId\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "RegistrySearchPage",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "registryclient$0.NodePackRelease[]"
+            },
+            {
+              "name": "\"facets\"",
+              "optional": false,
+              "type": "registryclient$0.Facets"
+            },
+            {
+              "name": "\"nextCursor\"",
+              "optional": true,
+              "type": "string"
+            }
+          ]
         }
       ]
     },
@@ -8976,16 +9256,6 @@
           "name": "PublishRegistryRequest",
           "fields": [
             {
-              "name": "\"previousReleaseId\"",
-              "optional": true,
-              "type": "string"
-            },
-            {
-              "name": "\"existingScreenshots\"",
-              "optional": true,
-              "type": "RegistryScreenshotView[]"
-            },
-            {
               "name": "\"listing\"",
               "optional": false,
               "type": "registryclient$0.Listing"
@@ -9019,27 +9289,6 @@
               "name": "\"examples\"",
               "optional": false,
               "type": "PublishRegistryExample[]"
-            },
-            {
-              "name": "\"screenshots\"",
-              "optional": false,
-              "type": "PublishRegistryScreenshot[]"
-            }
-          ]
-        },
-        {
-          "kind": "class",
-          "name": "PublishRegistryScreenshot",
-          "fields": [
-            {
-              "name": "\"path\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"alt\"",
-              "optional": false,
-              "type": "string"
             }
           ]
         },
@@ -9104,22 +9353,6 @@
           "kind": "type",
           "name": "RegistryQuery",
           "definition": "registryclient$0.SearchOptions"
-        },
-        {
-          "kind": "class",
-          "name": "RegistryScreenshotView",
-          "fields": [
-            {
-              "name": "\"url\"",
-              "optional": false,
-              "type": "string"
-            },
-            {
-              "name": "\"alt\"",
-              "optional": false,
-              "type": "string"
-            }
-          ]
         },
         {
           "kind": "class",
@@ -9225,11 +9458,6 @@
               "name": "\"examples\"",
               "optional": false,
               "type": "PublishRegistryExample[]"
-            },
-            {
-              "name": "\"screenshots\"",
-              "optional": false,
-              "type": "RegistryScreenshotView[]"
             },
             {
               "name": "\"creator\"",

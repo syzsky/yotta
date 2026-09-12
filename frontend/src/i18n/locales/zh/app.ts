@@ -45,6 +45,7 @@ export default {
     workflow_edit: '编辑工作流',
     assets: '资源库',
     schedules: '计划',
+    market: '在线市场',
     settings: '设置',
     about: '关于',
     open_launcher: '打开悬浮启动器',
@@ -518,6 +519,11 @@ export default {
     'plugins.batch_invalid': '批量操作无效，请重新选择插件后重试。',
     'plugins.load_failed': '插件信息读取失败，请重试或重新导入插件包。',
     'plugins.install_failed': '插件安装未完成，请重试或重新获取插件包。',
+    'plugins.market_unavailable': '插件市场暂时不可用，请稍后重试。',
+    'plugins.market_invalid_release': '这个插件版本无效，请返回市场后重新选择。',
+    'plugins.market_install_failed': '插件安装未完成，请稍后重试。',
+    'plugins.market_incompatible': '当前设备无法安装这个插件：{reason}',
+    'plugins.market_runtime_required': '安装这个插件前需要准备运行环境：{reason}',
     'plugins.invalid_package': '插件包不完整或内容已损坏，请重新获取后导入。',
     'plugins.publisher_changed': '新版插件的发布者与已安装版本不一致，请核对插件来源。',
     'plugins.in_use': '工作流正在使用此插件，请结束运行后重试。',
@@ -728,7 +734,7 @@ export default {
     'workflow.registry.version_not_increasing':
       '新版本必须高于已发布的最高版本。请重新打开发布窗口，选择更高版本后重试。',
     'workflow.registry.invalid_summary': '简介须为 1～1000 个字符；较长内容请放到“详细说明”。',
-    'workflow.registry.invalid_presentation': '请检查更新说明、示例和截图说明的长度后发布。',
+    'workflow.registry.invalid_presentation': '请检查更新说明和示例长度后发布。',
     'workflow.registry.bundle_invalid':
       '工作流文件未通过格式校验。请导出工作流，并附操作 ID 反馈；重复提交相同内容无法解决。',
     'workflow.registry.invalid_listing':
@@ -756,7 +762,6 @@ export default {
     'workflow.registry.incompatible':
       '这个工作流与当前 Yotta 环境不兼容，请查看要求或选择其他版本。',
     'workflow.registry.install_failed': '工作流安装未完成，请重试。',
-    'workflow.registry.invalid_screenshot': '无法读取所选截图，请重新选择后重试。',
     'workflow.registry.unavailable': 'Registry {operation} 暂时不可用，请稍后重试。',
     'workflow.compile.failed': '工作流检查未完成，请修正已显示的诊断；若没有诊断，请重启 Yotta。',
     'workflow.draft.invalid': '当前工作流草稿包含错误，修正定位到的节点后再保存。',

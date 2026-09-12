@@ -2,6 +2,11 @@ import { Dialogs } from '@wailsio/runtime'
 import { callRPC } from './invoke'
 import type { NormalizedError } from './invoke'
 import { i18n } from '@/i18n'
+import type {
+  Facets,
+  NodePackRelease,
+  SearchOptions,
+} from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
 
 type Bindings =
   typeof import('@bindings/github.com/yottaapp/yotta/internal/services/plugins/service.js')
@@ -30,6 +35,16 @@ export interface PluginBatchResult {
   succeeded: boolean
   problem?: NormalizedError
 }
+export interface PluginRegistrySearchPage {
+  items: NodePackRelease[]
+  facets: Facets
+  nextCursor?: string
+}
+export interface PluginRegistryInstallResult {
+  plugin: PluginView
+  alreadyInstalled: boolean
+  planId: string
+}
 
 function invokePlugin<K extends keyof Bindings>(method: K, ...args: Parameters<Bindings[K]>) {
   return callRPC<unknown>(method, async () => {
@@ -46,6 +61,10 @@ export const pluginBackend = {
     invokePlugin('Batch', action, ids) as Promise<PluginBatchResult[]>,
   needsRestart: () => invokePlugin('NeedsRestart'),
   list: () => invokePlugin('List') as Promise<PluginView[]>,
+  discoverRegistry: (options: SearchOptions) =>
+    invokePlugin('DiscoverRegistry', options) as Promise<PluginRegistrySearchPage>,
+  installRegistry: (releaseID: string) =>
+    invokePlugin('InstallRegistry', releaseID) as Promise<PluginRegistryInstallResult>,
   import: (path: string) => invokePlugin('Import', path),
   setEnabled: (id: string, enabled: boolean) => invokePlugin('SetEnabled', id, enabled),
   uninstall: (id: string) => invokePlugin('Uninstall', id),

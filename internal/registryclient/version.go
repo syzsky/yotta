@@ -6,6 +6,7 @@ import (
 )
 
 var workflowReleaseVersion = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+var environmentVersion = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
 
 func ValidWorkflowReleaseVersion(value string) bool {
 	return len(value) <= 128 && workflowReleaseVersion.MatchString(value)
@@ -25,4 +26,12 @@ func IsNewerWorkflowVersion(candidate, installed string) bool {
 		}
 	}
 	return false
+}
+
+func NormalizeEnvironmentVersion(value string) string {
+	value = strings.TrimSpace(strings.TrimPrefix(value, "v"))
+	if environmentVersion.MatchString(value) {
+		return value
+	}
+	return "0.0.0-dev"
 }

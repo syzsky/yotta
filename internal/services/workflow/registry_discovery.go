@@ -38,7 +38,6 @@ func (s *Service) RegistryCategories(ctx context.Context) ([]RegistryCategory, e
 
 type registryDiscovery interface {
 	SearchCatalog(context.Context, registryclient.SearchOptions) (registryclient.SearchPage, error)
-	WorkflowHistory(context.Context, string) ([]registryclient.WorkflowRelease, error)
 }
 
 func (s *Service) DiscoverRegistry(ctx context.Context, query RegistryQuery) (RegistrySearchPageView, error) {
@@ -55,21 +54,6 @@ func (s *Service) DiscoverRegistry(ctx context.Context, query RegistryQuery) (Re
 		if item.Kind == "workflow" {
 			result.Items = append(result.Items, registryReleaseView(item.Workflow))
 		}
-	}
-	return result, nil
-}
-func (s *Service) RegistryWorkflowHistory(ctx context.Context, id string) ([]RegistryWorkflowReleaseView, error) {
-	client, ok := s.registry.(registryDiscovery)
-	if !ok {
-		return nil, unavailable("registry")
-	}
-	releases, err := client.WorkflowHistory(ctx, id)
-	if err != nil {
-		return nil, registryError("history", err)
-	}
-	result := make([]RegistryWorkflowReleaseView, 0, len(releases))
-	for _, release := range releases {
-		result = append(result, registryReleaseView(release))
 	}
 	return result, nil
 }

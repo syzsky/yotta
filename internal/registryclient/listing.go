@@ -35,6 +35,7 @@ type Facets struct {
 	Tags       []string `json:"tags"`
 }
 type SearchOptions struct {
+	Kinds              []string `json:"kinds,omitempty"`
 	FilterValues       []string `json:"filterValues,omitempty"`
 	Selection          string   `json:"selection,omitempty"`
 	IncludeDescendants bool     `json:"includeDescendants,omitempty"`
@@ -49,6 +50,9 @@ type SearchOptions struct {
 
 func (client *Client) SearchCatalog(ctx context.Context, options SearchOptions) (SearchPage, error) {
 	query := url.Values{"q": {options.Search}, "selection": {options.Selection}, "category": {options.Category}, "tag": {options.Tag}, "sort": {options.Sort}, "cursor": {options.Cursor}}
+	if len(options.Kinds) > 0 {
+		query.Set("kinds", strings.Join(options.Kinds, ","))
+	}
 	for _, id := range options.FilterValues {
 		query.Add("filterValue", id)
 	}
@@ -75,40 +79,47 @@ func (client *Client) SearchCatalog(ctx context.Context, options SearchOptions) 
 		return SearchPage{}, err
 	}
 	for i := range page.Items {
-		client.resolveImages(&page.Items[i].Workflow)
+		switch page.Items[i].Kind {
+		case "workflow":
+			client.resolveImages(&page.Items[i].Workflow)
+		case "node-pack":
+			normalizeNodePackRelease(&page.Items[i].NodePack)
+		case "node":
+			if page.Items[i].Node.Inputs == nil {
+				page.Items[i].Node.Inputs = []PortProjection{}
+			}
+			if page.Items[i].Node.Outputs == nil {
+				page.Items[i].Node.Outputs = []PortProjection{}
+			}
+		}
 	}
 	return page, nil
 }
-func (client *Client) WorkflowHistory(ctx context.Context, id string) ([]WorkflowRelease, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+"/v1/workflows/"+url.PathEscape(id)+"/releases", nil)
-	if err != nil {
-		return nil, err
-	}
-	response, err := client.http.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	var page struct {
-		Items []WorkflowRelease `json:"items"`
-	}
-	if err := decodeResponse(response, &page); err != nil {
-		return nil, err
-	}
-	for i := range page.Items {
-		client.resolveImages(&page.Items[i])
-	}
-	return page.Items, nil
-}
 func (client *Client) resolveImages(release *WorkflowRelease) {
-	base, _ := url.Parse(client.baseURL)
-	for i := range release.Screenshots {
-		ref, err := url.Parse(release.Screenshots[i].URL)
-		if err == nil {
-			release.Screenshots[i].URL = base.ResolveReference(ref).String()
-		}
-	}
 	if release.Listing.Tags == nil {
 		release.Listing.Tags = []string{}
+	}
+}
+
+func normalizeNodePackRelease(release *NodePackRelease) {
+	if release.Listing.Tags == nil {
+		release.Listing.Tags = []string{}
+	}
+	if release.Listing.FilterValues == nil {
+		release.Listing.FilterValues = []string{}
+	}
+	if release.Nodes == nil {
+		release.Nodes = []NodeProjection{}
+	}
+	if release.Variants == nil {
+		release.Variants = []RuntimeVariant{}
+	}
+	for index := range release.Nodes {
+		if release.Nodes[index].Inputs == nil {
+			release.Nodes[index].Inputs = []PortProjection{}
+		}
+		if release.Nodes[index].Outputs == nil {
+			release.Nodes[index].Outputs = []PortProjection{}
+		}
 	}
 }

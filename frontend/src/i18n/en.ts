@@ -2,6 +2,7 @@ import panelsMessages from './locales/en/panels'
 // English locale composition root. See README.md for feature-module ownership.
 import aboutMessages from './locales/en/about'
 import appMessages from './locales/en/app'
+import marketMessages from './locales/en/market'
 import nodeMessages from './locales/en/node'
 import recordingMessages from './locales/en/recording'
 import resourcesMessages from './locales/en/resources'
@@ -13,6 +14,7 @@ import workflowMessages from './locales/en/workflow'
 export default {
   ...panelsMessages,
   ...appMessages,
+  ...marketMessages,
   ...nodeMessages,
   ...workflowMessages,
   ...scheduleMessages,

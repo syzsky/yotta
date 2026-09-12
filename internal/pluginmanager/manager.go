@@ -48,6 +48,12 @@ type View struct {
 	Workflows       []WorkflowUse   `json:"workflows"`
 	Companions      []CompanionView `json:"companions"`
 }
+
+type InstalledNodePack struct {
+	PackageID      string `json:"packageId"`
+	PackageVersion string `json:"packageVersion"`
+	ManifestDigest string `json:"manifestDigest"`
+}
 type record struct {
 	rollbackManaged bool
 	manifest        nodepackage.Manifest
@@ -179,6 +185,28 @@ func (m *Manager) List() ([]View, error) {
 		result = append(result, v)
 	}
 	return result, nil
+}
+
+func (m *Manager) InstalledNodePacks() []InstalledNodePack {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.store == nil {
+		return []InstalledNodePack{}
+	}
+	installed := m.store.List()
+	result := make([]InstalledNodePack, 0, len(installed))
+	for _, item := range installed {
+		for _, release := range item.Releases {
+			if release.ManifestDigest != item.Current {
+				continue
+			}
+			result = append(result, InstalledNodePack{
+				PackageID: item.PackageID, PackageVersion: release.PackageVersion, ManifestDigest: release.ManifestDigest.String(),
+			})
+			break
+		}
+	}
+	return result
 }
 func (m *Manager) Messages() map[string]map[string]string {
 	m.mu.Lock()

@@ -2,6 +2,7 @@ import panelsMessages from './locales/zh/panels'
 // 中文 locale 组合入口；功能模块归属见 README.md（en.ts 是平行翻译）。
 import aboutMessages from './locales/zh/about'
 import appMessages from './locales/zh/app'
+import marketMessages from './locales/zh/market'
 import nodeMessages from './locales/zh/node'
 import recordingMessages from './locales/zh/recording'
 import resourcesMessages from './locales/zh/resources'
@@ -13,6 +14,7 @@ import workflowMessages from './locales/zh/workflow'
 export default {
   ...panelsMessages,
   ...appMessages,
+  ...marketMessages,
   ...nodeMessages,
   ...workflowMessages,
   ...scheduleMessages,

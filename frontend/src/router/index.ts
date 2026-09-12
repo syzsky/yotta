@@ -25,6 +25,7 @@ const routes = [
   },
   { path: '/assets', name: 'assets', component: () => import('@/views/AssetsView.vue') },
   { path: '/schedules', name: 'schedules', component: () => import('@/views/SchedulesView.vue') },
+  { path: '/market', name: 'market', component: () => import('@/views/MarketView.vue') },
   { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   { path: '/about', name: 'about', component: () => import('@/views/AboutView.vue') },
   {

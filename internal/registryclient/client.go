@@ -46,7 +46,6 @@ type PublishRequest struct {
 	Summary        string
 	ReleaseNotes   string
 	Examples       []Example
-	Screenshots    []ScreenshotUpload
 	Bundle         io.Reader
 	Filename       string
 }
@@ -54,12 +53,6 @@ type PublishRequest struct {
 type Example struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
-}
-
-type ScreenshotUpload struct {
-	Filename string
-	Alt      string
-	Content  []byte
 }
 
 type Creator struct {
@@ -86,20 +79,16 @@ type WorkflowRelease struct {
 	Summary            string              `json:"summary"`
 	ReleaseNotes       string              `json:"releaseNotes,omitempty"`
 	Examples           []Example           `json:"examples"`
-	Screenshots        []Screenshot        `json:"screenshots"`
 	Creator            Creator             `json:"creator"`
 	Availability       string              `json:"availability"`
 	PublishedAt        string              `json:"publishedAt"`
 }
 
-type Screenshot struct {
-	URL string `json:"url"`
-	Alt string `json:"alt"`
-}
-
 type SearchResult struct {
 	Kind     string          `json:"kind"`
-	Workflow WorkflowRelease `json:"workflow"`
+	Workflow WorkflowRelease `json:"workflow,omitempty"`
+	NodePack NodePackRelease `json:"nodePack,omitempty"`
+	Node     NodeProjection  `json:"node,omitempty"`
 }
 
 type SearchPage struct {
@@ -115,14 +104,93 @@ type Environment struct {
 	RuntimeProfiles []string `json:"runtimeProfiles,omitempty"`
 }
 
+type NodeRef struct {
+	NodeTypeID     string `json:"nodeTypeId"`
+	NodeVersion    string `json:"nodeVersion"`
+	SemanticDigest string `json:"semanticDigest"`
+}
+
+type PortProjection struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+type NodeProjection struct {
+	NodeRef            NodeRef          `json:"nodeRef"`
+	PackageID          string           `json:"packageId"`
+	PackageVersion     string           `json:"packageVersion"`
+	ContributionDigest string           `json:"contributionDigest"`
+	Name               string           `json:"name"`
+	Summary            string           `json:"summary"`
+	Category           string           `json:"category,omitempty"`
+	Inputs             []PortProjection `json:"inputs"`
+	Outputs            []PortProjection `json:"outputs"`
+}
+
+type RuntimeVariant struct {
+	VariantID        string   `json:"variantId"`
+	RuntimeFamily    string   `json:"runtimeFamily"`
+	RuntimeProfile   string   `json:"runtimeProfile"`
+	OperatingSystems []string `json:"operatingSystems"`
+	Architectures    []string `json:"architectures"`
+	ManifestDigest   string   `json:"manifestDigest"`
+	ArtifactDigest   string   `json:"artifactDigest"`
+	DownloadBytes    int64    `json:"downloadBytes"`
+}
+
+type NodePackRelease struct {
+	ReleaseID          string           `json:"releaseId"`
+	PublisherNamespace string           `json:"publisherNamespace"`
+	PackageID          string           `json:"packageId"`
+	PackageVersion     string           `json:"packageVersion"`
+	ContributionDigest string           `json:"contributionDigest"`
+	Title              string           `json:"title"`
+	Summary            string           `json:"summary"`
+	ReleaseNotes       string           `json:"releaseNotes,omitempty"`
+	Listing            Listing          `json:"listing"`
+	Nodes              []NodeProjection `json:"nodes"`
+	Variants           []RuntimeVariant `json:"variants"`
+	Creator            Creator          `json:"creator"`
+	Availability       string           `json:"availability"`
+	PublishedAt        string           `json:"publishedAt"`
+}
+
+type InstalledNodePack struct {
+	PackageID      string `json:"packageId"`
+	PackageVersion string `json:"packageVersion"`
+	ManifestDigest string `json:"manifestDigest"`
+}
+
+type PlannedNodePack struct {
+	ReleaseID          string         `json:"releaseId"`
+	PackageID          string         `json:"packageId"`
+	PackageVersion     string         `json:"packageVersion"`
+	ContributionDigest string         `json:"contributionDigest"`
+	ManifestDigest     string         `json:"manifestDigest"`
+	Title              string         `json:"title"`
+	Reason             string         `json:"reason"`
+	SelectedVariant    RuntimeVariant `json:"selectedVariant"`
+	DownloadBytes      int64          `json:"downloadBytes"`
+}
+
+type UserAction struct {
+	Code        string `json:"code"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
 type InstallPlan struct {
-	PlanID                     string          `json:"planId"`
-	PlanDigest                 string          `json:"planDigest"`
-	ResolvedWorkflowRelease    WorkflowRelease `json:"resolvedWorkflowRelease"`
-	IncompatibleRequirements   []Problem       `json:"incompatibleRequirements"`
-	RuntimeConfigurationNeeded []Problem       `json:"runtimeConfigurationNeeded"`
-	DownloadBytes              int64           `json:"downloadBytes"`
-	ExpiresAt                  string          `json:"expiresAt"`
+	PlanID                     string              `json:"planId"`
+	PlanDigest                 string              `json:"planDigest"`
+	ResolvedWorkflowRelease    WorkflowRelease     `json:"resolvedWorkflowRelease"`
+	NodePacksToInstall         []PlannedNodePack   `json:"nodePacksToInstall"`
+	NodePacksAlreadySatisfied  []InstalledNodePack `json:"nodePacksAlreadySatisfied"`
+	Updates                    []PlannedNodePack   `json:"updates"`
+	IncompatibleRequirements   []UserAction        `json:"incompatibleRequirements"`
+	RuntimeConfigurationNeeded []UserAction        `json:"runtimeConfigurationNeeded"`
+	DownloadBytes              int64               `json:"downloadBytes"`
+	ExpiresAt                  string              `json:"expiresAt"`
 }
 
 type Problem struct {
@@ -236,10 +304,49 @@ func (client *Client) GetWorkflowRelease(ctx context.Context, releaseID string) 
 	return release, nil
 }
 
+func (client *Client) GetNodePackRelease(ctx context.Context, releaseID string) (NodePackRelease, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+"/v1/node-pack-releases/"+url.PathEscape(releaseID), nil)
+	if err != nil {
+		return NodePackRelease{}, err
+	}
+	response, err := client.http.Do(request)
+	if err != nil {
+		return NodePackRelease{}, err
+	}
+	defer response.Body.Close()
+	var release NodePackRelease
+	if err := decodeResponse(response, &release); err != nil {
+		return NodePackRelease{}, err
+	}
+	normalizeNodePackRelease(&release)
+	return release, nil
+}
+
 func (client *Client) CreateInstallPlan(ctx context.Context, releaseID string, environment Environment) (InstallPlan, error) {
+	return client.createInstallPlan(ctx, map[string]any{"kind": "workflow", "workflowReleaseId": releaseID}, environment, []InstalledNodePack{})
+}
+
+func (client *Client) CreateNodePackInstallPlan(ctx context.Context, releaseID string, environment Environment, installed []InstalledNodePack) (InstallPlan, error) {
+	if installed == nil {
+		installed = []InstalledNodePack{}
+	}
+	return client.createInstallPlan(ctx, map[string]any{"kind": "node-pack", "nodePackReleaseId": releaseID}, environment, installed)
+}
+
+func (client *Client) CreateNodeInstallPlan(ctx context.Context, nodeTypeID, preferredVersion string, environment Environment, installed []InstalledNodePack) (InstallPlan, error) {
+	if installed == nil {
+		installed = []InstalledNodePack{}
+	}
+	target := map[string]any{"kind": "node", "nodeTypeId": nodeTypeID}
+	if strings.TrimSpace(preferredVersion) != "" {
+		target["preferredVersion"] = strings.TrimSpace(preferredVersion)
+	}
+	return client.createInstallPlan(ctx, target, environment, installed)
+}
+
+func (client *Client) createInstallPlan(ctx context.Context, target map[string]any, environment Environment, installed []InstalledNodePack) (InstallPlan, error) {
 	body, err := json.Marshal(map[string]any{
-		"target":      map[string]any{"kind": "workflow", "workflowReleaseId": releaseID},
-		"environment": environment, "installedNodePacks": []any{},
+		"target": target, "environment": environment, "installedNodePacks": installed,
 	})
 	if err != nil {
 		return InstallPlan{}, err
@@ -335,17 +442,6 @@ func writePublication(multipartWriter *multipart.Writer, pipe *io.PipeWriter, in
 	if err := multipartWriter.WriteField("examples", string(examples)); err != nil {
 		return closeWith(err)
 	}
-	alts := make([]string, 0, len(input.Screenshots))
-	for _, screenshot := range input.Screenshots {
-		alts = append(alts, screenshot.Alt)
-	}
-	encodedAlts, err := json.Marshal(alts)
-	if err != nil {
-		return closeWith(err)
-	}
-	if err := multipartWriter.WriteField("screenshotAlts", string(encodedAlts)); err != nil {
-		return closeWith(err)
-	}
 	filename := strings.TrimSpace(input.Filename)
 	if filename == "" {
 		filename = "workflow.yotta-workflow"
@@ -356,15 +452,6 @@ func writePublication(multipartWriter *multipart.Writer, pipe *io.PipeWriter, in
 	}
 	if _, err := io.Copy(part, input.Bundle); err != nil {
 		return closeWith(err)
-	}
-	for _, screenshot := range input.Screenshots {
-		part, err := multipartWriter.CreateFormFile("screenshots", screenshot.Filename)
-		if err != nil {
-			return closeWith(err)
-		}
-		if _, err := part.Write(screenshot.Content); err != nil {
-			return closeWith(err)
-		}
 	}
 	return closeWith(nil)
 }
