@@ -1,6 +1,188 @@
 export default {
   node: {
     navigation: {
+      'align-path': {
+        title: '对齐局部路径',
+        description: '显式指定世界参照、原点和旋转角度，将局部路径变换为世界路径。',
+        input: {
+          path: { title: '局部路径', description: '局部路径' },
+          reference: { title: '世界参照', description: '世界参照' },
+          origin: { title: '世界原点', description: '世界原点' },
+          angle: { title: '逆时针旋转角度', description: '逆时针旋转角度' },
+        },
+        output: { result: { title: '路径', description: '变换后的世界路径。' } },
+      },
+      readPath: {
+        title: '读取路径',
+        description: '读取选定内容版本，输出可连线的路径。',
+        input: { asset: { title: '路径资源', description: '路径资源' } },
+        output: { path: { title: '路径', description: '路径' } },
+      },
+      followSavedPath: {
+        title: '沿保存路径移动',
+        description:
+          '直接选择保存的路线，一次读取后依次经过途经点；长路径无需经过数据线。定位源字符串变量应由采样节点持续更新。',
+      },
+      followPath: {
+        title: '沿路径移动',
+        description:
+          '依次经过起点到终点。每点独立计时；终点 -1 表示最后一点。定位源字符串变量应由采样节点持续更新。',
+        sourceVariable: '定位源采样变量',
+        help: {
+          intro: '将下方执行输出连接到已有按键节点或子图调用，为移动过程添加动作。',
+          title: '如何连接沿途动作',
+          moving:
+            '移动时周期执行按键等动作，动作间隔默认 500 毫秒。动作尚未完成时，重复触发会合并；同一移动动作分支不会重叠执行。',
+          marker:
+            '在路径编辑器中给点命名，即可将它设为标记。标记动作按途经顺序执行。将「到达标记」连接到比较或分支选择节点，用「点名称」输出筛选，再将匹配出口连接到动作或子图。「继续移动」在执行动作时继续前进；「等待动作完成」会暂停移动，直到动作结束。',
+          recover:
+            '连接跳跃等脱困动作或恢复子图。动作结束后自动继续沿路径移动，无需额外连接恢复入口。恢复尝试默认 2 次，最多可设 20 次。未连接恢复动作时，会立即从「无法前进」出口结束。',
+          stuck:
+            '恢复仍无法继续前进时，从这个终态出口执行最终兜底。它会结束本次路径跟随；脱困动作应连接「尝试恢复」。',
+          data: '「点名称」用于识别标记；「恢复次数」和「原因」描述本次恢复；「进度」是 0 到 1 的数值，乘以 100 可显示百分比。将数据输出连接到动作节点的对应输入。',
+          start:
+            '「运行开始」在工作流启动时开启持续采样。将它的「已开始」也连接到跟随节点入口，即可开始移动。移动中、到达标记和尝试恢复期间持续采样，终态出口才停止采样。',
+        },
+        recoveryAttempts: '恢复尝试次数',
+        markerMode: '标记动作模式',
+        actionInterval: '动作间隔（毫秒）',
+        markerModeOptions: { continue: '继续移动', pause: '等待动作完成' },
+        branch: {
+          moving: {
+            title: '移动中',
+            description: '沿路径移动时周期执行动作，同一分支不重叠执行。',
+          },
+          marker: { title: '到达标记', description: '到达命名点时执行动作，可用点名称筛选。' },
+          recover: { title: '尝试恢复', description: '执行脱困动作，结束后自动继续沿路径移动。' },
+        },
+        input: {
+          asset: {
+            title: '保存的路径',
+            description:
+              '直接选择保存的路线，一次读取后依次经过途经点；长路径无需经过数据线。定位源字符串变量应由采样节点持续更新。',
+          },
+          path: { title: '路径', description: '路径' },
+          start: { title: '起点索引（从 0 开始）', description: '起点索引（从 0 开始）' },
+          end: { title: '终点索引（-1 为末点）', description: '终点索引（-1 为末点）' },
+          tolerance: { title: '平面到达容差', description: '平面到达容差' },
+          'height-tolerance': { title: '高度容差', description: '高度容差' },
+          timeout: { title: '每点最长时间', description: '每点最长时间' },
+          interval: { title: '位置检测间隔', description: '位置检测间隔' },
+          'slow-distance': { title: '减速距离', description: '减速距离' },
+        },
+        output: {
+          'point-name': {
+            title: '点名称',
+            description: '用此字符串筛选命名标记，为指定位置连接动作。',
+          },
+          'recovery-attempt': { title: '恢复次数', description: '当前恢复尝试的次数，整数。' },
+          reason: { title: '原因', description: '本次恢复或移动结果的原因。' },
+          progress: { title: '进度', description: '路径进度，0 到 1 的数值，不是百分数。' },
+
+          'last-index': { title: '最后到达点索引', description: '最后到达点索引' },
+          'current-index': { title: '当前点索引', description: '当前点索引' },
+          'point-id': { title: '当前点 ID', description: '当前点 ID' },
+          x: { title: '当前 X', description: '当前 X' },
+          y: { title: '当前 Y', description: '当前 Y' },
+          distance: { title: '剩余距离', description: '剩余距离' },
+        },
+      },
+      'make-path': {
+        title: '构建路径',
+        description: '操作点位顺序并保留坐标参照，不改变输入路径。',
+        input: {
+          reference: {
+            title: '坐标参照',
+            description: '坐标参照',
+          },
+          points: {
+            title: '有序点列',
+            description: '有序点列',
+          },
+        },
+        output: {
+          result: {
+            title: '结果路径',
+            description: '结果路径',
+          },
+        },
+      },
+      'path-point': {
+        title: '获取路径点',
+        description: '操作点位顺序并保留坐标参照，不改变输入路径。',
+        input: {
+          path: {
+            title: '路径',
+            description: '路径',
+          },
+          index: {
+            title: '点位序号',
+            description: '从 0 开始的序号，包含结束点。',
+          },
+        },
+        output: {
+          point: {
+            title: '点位',
+            description: '点位',
+          },
+        },
+      },
+      'slice-path': {
+        title: '截取路径',
+        description: '操作点位顺序并保留坐标参照，不改变输入路径。',
+        input: {
+          path: {
+            title: '路径',
+            description: '路径',
+          },
+          start: {
+            title: '起始序号',
+            description: '从 0 开始的序号，包含结束点。',
+          },
+          end: {
+            title: '结束序号',
+            description: '从 0 开始的序号，包含结束点。',
+          },
+        },
+        output: {
+          result: {
+            title: '结果路径',
+            description: '结果路径',
+          },
+        },
+      },
+      'reverse-path': {
+        title: '反转路径',
+        description: '操作点位顺序并保留坐标参照，不改变输入路径。',
+        input: {
+          path: {
+            title: '路径',
+            description: '路径',
+          },
+        },
+        output: {
+          result: {
+            title: '结果路径',
+            description: '结果路径',
+          },
+        },
+      },
+      'join-path': {
+        title: '拼接路径',
+        description: '操作点位顺序并保留坐标参照，不改变输入路径。',
+        input: {
+          paths: {
+            title: '路径列表',
+            description: '路径列表',
+          },
+        },
+        output: {
+          result: {
+            title: '结果路径',
+            description: '结果路径',
+          },
+        },
+      },
       position: {
         title: '构造实时位置',
         description: '将坐标和朝向转换为标准位置，可接入识图、插件或其他数据来源。',
@@ -1542,8 +1724,9 @@ export default {
     },
     event: {
       runStarted: {
-        title: 'Run 开始',
-        description: '这个 Program Run 开始时，准确发出一次「已开始」。',
+        title: '运行开始',
+        description:
+          '工作流运行开始时发出一次「已开始」。连接到需要启动的节点，例如持续采样与沿路径移动。',
       },
     },
     control: {

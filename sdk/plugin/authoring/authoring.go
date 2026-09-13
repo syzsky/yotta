@@ -8,6 +8,7 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/navigation"
 	"github.com/yottaapp/yotta/internal/datatype"
 	"github.com/yottaapp/yotta/internal/httpegress"
+	"github.com/yottaapp/yotta/internal/navigationpath"
 	"github.com/yottaapp/yotta/internal/nodecatalog"
 	"github.com/yottaapp/yotta/internal/nodecontract"
 	"github.com/yottaapp/yotta/internal/nodes"
@@ -19,6 +20,17 @@ import (
 type WorldPosition = navigation.WorldPosition
 
 const WorldPositionTypeID = nodes.WorldPositionTypeID
+
+// Path is durable ordered geometry, independent of a live observation session.
+type Path = navigationpath.Path
+type PathPoint = navigationpath.Point
+type PathReference = navigationpath.Reference
+
+const PathTypeID = nodes.PathTypeID
+const PathPointTypeID = nodes.PathPointTypeID
+const PathReferenceTypeID = nodes.PathReferenceTypeID
+const PathAssetTypeID = nodes.PathAssetTypeID
+const PathMediaType = navigationpath.MediaType
 
 type Catalog = nodecatalog.Snapshot
 type TypeRef = datatype.TypeRef

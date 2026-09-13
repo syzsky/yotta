@@ -133,7 +133,10 @@ const inspectorFieldUI = {
   container: 'mt-2',
 }
 const enumItems = computed(() =>
-  props.field.constraints.enum.map((value) => ({ label: String(value), value })),
+  props.field.constraints.enum.map((value) => {
+    const key = `${props.field.titleKey}Options.${String(value)}`
+    return { label: props.field.titleKey && te(key) ? t(key) : String(value), value }
+  }),
 )
 const stateVariableItems = computed(() =>
   (props.stateVariables ?? []).map((name) => ({ label: name, value: name })),

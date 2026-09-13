@@ -36,19 +36,23 @@
               data-testid="plugin-market-filter-toggle"
             />
             <template #content>
-              <div class="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-3">
+              <div
+                class="max-h-[70vh] w-80 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto p-3"
+                data-testid="plugin-market-filters"
+              >
                 <UFormField :label="t('market.plugins.category')" size="sm">
-                  <select v-model="category" class="plugin-market-select" @change="search">
-                    <option value="">{{ t('market.plugins.all_categories') }}</option>
-                    <option v-for="value in facets.categories" :key="value" :value="value">
-                      {{ value }}
-                    </option>
-                  </select>
+                  <MarketCategorySelect
+                    v-model="category"
+                    :categories="profile?.categories || []"
+                    :all-label="t('market.plugins.all_categories')"
+                    :aria-label="t('market.plugins.category')"
+                    @update:model-value="search"
+                  />
                 </UFormField>
-                <UFormField v-if="facets.tags.length" :label="t('market.plugins.tags')" size="sm">
+                <UFormField v-if="tagOptions.length" :label="t('market.plugins.tags')" size="sm">
                   <select v-model="tag" class="plugin-market-select" @change="search">
                     <option value="">{{ t('market.plugins.all_tags') }}</option>
-                    <option v-for="value in facets.tags" :key="value" :value="value">
+                    <option v-for="value in tagOptions" :key="value" :value="value">
                       {{ value }}
                     </option>
                   </select>
@@ -64,6 +68,29 @@
                   :label="t('market.plugins.quality_authors_only')"
                   @update:model-value="search"
                 />
+                <WorkflowDimensionSelect
+                  v-model="filterValues"
+                  :dimensions="profile?.dimensions || []"
+                  :counts="facets.dimensions"
+                  @update:model-value="search"
+                />
+                <fieldset
+                  v-for="facet in profile?.systemFacets || []"
+                  :key="facet.id"
+                  class="space-y-1"
+                >
+                  <legend class="mb-2 text-xs font-medium">{{ facet.name }}</legend>
+                  <UCheckbox
+                    v-for="option in systemOptions(facet.id)"
+                    :key="option.value"
+                    :model-value="systemFacets.includes(`${facet.id}:${option.value}`)"
+                    :label="`${option.value} (${option.count})`"
+                    @update:model-value="
+                      (checked: boolean | 'indeterminate') =>
+                        toggleSystemFacet(facet.id, option.value, checked === true)
+                    "
+                  />
+                </fieldset>
               </div>
             </template>
           </UPopover>
@@ -143,7 +170,7 @@
                 {{ t('market.plugins.quality_author') }}
               </UBadge>
               <span v-if="item.listing.category" class="plugin-market-result-category">
-                {{ item.listing.category }}
+                {{ categoryName(item.listing.category) }}
               </span>
             </span>
           </span>
@@ -363,7 +390,7 @@
                     class="plugin-market-link"
                     @click="applyCategory(selected.listing.category)"
                   >
-                    {{ selected.listing.category }}
+                    {{ categoryName(selected.listing.category) }}
                   </button>
                 </dd>
               </div>
@@ -398,14 +425,19 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type {
+  DimensionFacet,
   NodePackRelease,
   PortProjection,
   RuntimeVariant,
   SearchOptions,
+  SystemFacet,
+  TaxonomyProfile,
 } from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
 import AccountAvatar from '@/components/AccountAvatar.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import WorkflowMarketDocument from '@/components/workflow/WorkflowMarketDocument.vue'
+import WorkflowDimensionSelect from '@/components/workflow/WorkflowDimensionSelect.vue'
+import MarketCategorySelect from '@/components/workflow/MarketCategorySelect.vue'
 import { isNewerRelease } from '@/app/workflow-library/releaseVersion'
 import { errorMessage } from '@/lib/invoke'
 import { pluginBackend, type PluginView } from '@/lib/plugins'
@@ -420,7 +452,16 @@ const qualityOnly = ref(false)
 const statusFilter = ref<'all' | 'installed' | 'updates'>('all')
 const items = ref<NodePackRelease[]>([])
 const installedPlugins = ref<PluginView[]>([])
-const facets = ref({ categories: [] as string[], tags: [] as string[] })
+const facets = ref({
+  categories: [] as string[],
+  tags: [] as string[],
+  dimensions: [] as DimensionFacet[],
+})
+const tagOptions = computed(() => [...new Set([...facets.value.tags, tag.value].filter(Boolean))])
+const profile = ref<TaxonomyProfile | null>(null)
+const filterValues = ref<string[]>([])
+const systemFacets = ref<string[]>([])
+const systemFacetCounts = ref<SystemFacet[]>([])
 const nextCursor = ref('')
 const selected = ref<NodePackRelease | null>(null)
 const detailTab = ref<'overview' | 'nodes' | 'changes'>('overview')
@@ -438,7 +479,14 @@ const statusFilters = computed(() => [
   { value: 'updates' as const, label: t('market.plugins.update_available') },
 ])
 const hasDiscoveryFilters = computed(() =>
-  Boolean(category.value || tag.value || qualityOnly.value || sort.value !== 'updated'),
+  Boolean(
+    category.value ||
+    tag.value ||
+    filterValues.value.length ||
+    systemFacets.value.length ||
+    qualityOnly.value ||
+    sort.value !== 'updated',
+  ),
 )
 const installedFor = (item: NodePackRelease) =>
   installedPlugins.value.find((plugin) => plugin.id === item.packageId)
@@ -462,6 +510,31 @@ const maxDownloadBytes = computed(() =>
 
 function creator(item: NodePackRelease): string {
   return item.creator.displayName || item.creator.userKey || t('market.plugins.unnamed_creator')
+}
+function categoryName(key: string): string {
+  return profile.value?.categories.find((item) => item.key === key)?.name || key
+}
+function systemOptions(id: string) {
+  const values = new Map(
+    (systemFacetCounts.value.find((facet) => facet.id === id)?.values || []).map((item) => [
+      item.value,
+      item,
+    ]),
+  )
+  // Selected values remain removable when the current query has no matching packages.
+  for (const selection of systemFacets.value) {
+    if (!selection.startsWith(`${id}:`)) continue
+    const value = selection.slice(id.length + 1)
+    if (!values.has(value)) values.set(value, { value, count: 0 })
+  }
+  return [...values.values()]
+}
+function toggleSystemFacet(id: string, value: string, checked: boolean) {
+  const selection = `${id}:${value}`
+  systemFacets.value = checked
+    ? [...new Set([...systemFacets.value, selection])]
+    : systemFacets.value.filter((item) => item !== selection)
+  void search()
 }
 function select(item: NodePackRelease): void {
   selected.value = item
@@ -495,6 +568,8 @@ async function load(append: boolean): Promise<void> {
   try {
     const options: SearchOptions = {
       search: query.value,
+      filterValues: filterValues.value,
+      systemFacets: systemFacets.value,
       category: category.value,
       tag: tag.value,
       sort: sort.value,
@@ -503,15 +578,20 @@ async function load(append: boolean): Promise<void> {
       includeDescendants: true,
       selection: qualityOnly.value ? 'quality-author' : '',
     }
-    const [page, local] = await Promise.all([
+    const [page, local, taxonomy] = await Promise.all([
       pluginBackend.discoverRegistry(options),
       pluginBackend.list(),
+      pluginBackend.registryTaxonomy(),
     ])
     if (ticket !== queryGeneration) return
     installedPlugins.value = local
+    profile.value = taxonomy
+    systemFacetCounts.value = page.facets?.systemFacets || []
     facets.value = {
       categories: page.facets?.categories || [],
       tags: page.facets?.tags || [],
+      dimensions:
+        page.facets?.profileRevision === taxonomy.revision ? page.facets.dimensions || [] : [],
     }
     nextCursor.value = page.nextCursor || ''
     items.value = append

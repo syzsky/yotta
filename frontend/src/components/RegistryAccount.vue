@@ -25,6 +25,7 @@
         @logout="accountAction(shopTransport.logout)"
         @cancel="cancel"
         @center="openAccountCenter"
+        @submissions="accountAction(shopTransport.openMySubmissions)"
         @wallet="openWallet"
       />
     </template>

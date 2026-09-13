@@ -1,0 +1,100 @@
+package main
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	project "@@MODULE@@"
+	"github.com/yottaapp/yotta/sdk/plugin/authoring"
+	"github.com/yottaapp/yotta/sdk/plugin/packaging"
+)
+
+type metadata = project.Metadata
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	keyPath := flag.String("key", "", "publisher key outside this project")
+	arch := flag.String("arch", "amd64", "Windows architecture")
+	initKey := flag.Bool("init-key", false, "create a new publisher key without overwriting")
+	flag.Parse()
+	if *keyPath == "" {
+		return fmt.Errorf("key is required")
+	}
+	if *initKey {
+		_, key, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(*keyPath), 0700); err != nil {
+			return err
+		}
+		file, err := os.OpenFile(*keyPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			return err
+		}
+		_, err = file.Write(key)
+		closeErr := file.Close()
+		if err != nil {
+			return err
+		}
+		return closeErr
+	}
+	if *arch != "amd64" && *arch != "arm64" {
+		return fmt.Errorf("unsupported architecture")
+	}
+	key, err := os.ReadFile(*keyPath)
+	if err != nil {
+		return err
+	}
+	config, err := project.Load()
+	if err != nil {
+		return err
+	}
+	nodeID := config.Namespace + "/nodes/" + config.Slug
+	schemaID := nodeID + "/config"
+	schema, err := json.Marshal(map[string]any{"$id": schemaID, "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "additionalProperties": false})
+	if err != nil {
+		return err
+	}
+	prefix := "plugin." + config.Slug
+	contract, err := authoring.Seal(authoring.Draft{
+		NodeTypeID: nodeID, Version: config.NodeVersion, ConfigSchemaRoot: schemaID,
+		ConfigSchemaBundle: []authoring.SchemaResource{{ID: schemaID, Schema: schema}},
+		Ports:              authoring.PortSet{ExecInputs: []authoring.SignalPort{{ID: "in"}}, ExecOutputs: []authoring.SignalPort{{ID: "done"}}},
+		Execution:          authoring.ExecutionSpec{Class: authoring.ExecutionEffect, Effects: []authoring.EffectID{authoring.EffectID(config.EffectID())}, Determinism: authoring.Recorded, Evaluation: authoring.EvaluationPush, Cache: authoring.CacheNone, Retry: authoring.RetryNever, Cancellation: authoring.CancellationCooperative, Timeout: authoring.TimeoutRequired},
+		Instruction:        authoring.Invoke(), HostFeatureRequirements: []authoring.HostFeatureRequirement{{ID: "isolation", FeatureID: authoring.ProcessIsolation}},
+		ImplementationABI: []authoring.ABIRequirement{{Kind: authoring.ABIProcess, Version: "v1"}}, Authoring: authoring.Authoring{TitleKey: prefix + ".node"},
+	})
+	if err != nil {
+		return err
+	}
+	payload, err := os.ReadFile(filepath.Join("bin", "windows-"+*arch, "node.exe"))
+	if err != nil {
+		return err
+	}
+	build := packaging.Build{Namespace: config.Namespace, PackageID: config.Namespace + "/packages/" + config.Slug + "/v1", Version: config.Version,
+		Descriptor: packaging.Descriptor{Name: config.Name, Description: config.Description, Messages: map[string]map[string]string{"zh": {prefix + ".node": config.Name}, "en": {prefix + ".node": config.Name}}},
+		Nodes:      []packaging.Node{{Contract: contract, PayloadPath: "bin/node.exe", Entrypoint: config.Slug + "/v1", OperatingSystems: []string{"windows"}, Architectures: []string{*arch}}},
+		Files:      map[string][]byte{"bin/node.exe": payload},
+	}
+	if err := addPanel(&build, config, *arch); err != nil {
+		return err
+	}
+	output := filepath.Join("dist", fmt.Sprintf("%s-%s-windows-%s.ynp", config.Slug, config.Version, *arch))
+	digest, err := packaging.Write(output, build, ed25519.PrivateKey(key))
+	if err == nil {
+		fmt.Printf("%s\n%s\n", output, digest)
+	}
+	return err
+}

@@ -22,7 +22,7 @@ import (
 
 const (
 	Format            = "yotta.node-contract"
-	Version           = "3"
+	Version           = "4"
 	SchemaPathVersion = "v" + Version
 
 	semanticDigestDomain = "yotta/node-contract-semantic/v1"
@@ -400,7 +400,7 @@ type MachineContract struct {
 
 type document struct {
 	Format    string          `json:"format" jsonschema:"required,enum=yotta.node-contract"`
-	Version   string          `json:"version" jsonschema:"required,enum=3"`
+	Version   string          `json:"version" jsonschema:"required,enum=4"`
 	NodeRef   NodeRef         `json:"nodeRef" jsonschema:"required"`
 	Semantic  MachineContract `json:"semantic" jsonschema:"required"`
 	Authoring Authoring       `json:"authoring" jsonschema:"required"`
@@ -454,8 +454,12 @@ func Open(raw []byte) (Contract, error) {
 		return Contract{}, errors.New("node contract contains trailing JSON values")
 	}
 	legacyV1 := decoded.Version == "1"
-	if decoded.Format != Format || decoded.Version != Version && !legacyV1 {
+	legacyV3 := decoded.Version == "3"
+	if decoded.Format != Format || decoded.Version != Version && !legacyV1 && !legacyV3 {
 		return Contract{}, errors.New("unsupported node contract format")
+	}
+	if decoded.Version != Version && decoded.Semantic.Instruction.Invoke != nil && len(decoded.Semantic.Instruction.Invoke.Branches) > 0 {
+		return Contract{}, errors.New("invocation branches require node contract version 4")
 	}
 	normalized, err := normalizeSemantic(Draft{
 		NodeTypeID:              decoded.Semantic.NodeTypeID,
@@ -491,7 +495,16 @@ func Open(raw []byte) (Contract, error) {
 	if decoded.NodeRef.NodeTypeID != normalized.NodeTypeID || decoded.NodeRef.Version != normalized.Version || decoded.NodeRef != sealed.NodeRef() {
 		return Contract{}, errors.New("node contract semantic digest mismatch")
 	}
-	if !legacyV1 && !bytes.Equal(sealed.Bytes(), raw) {
+	normalizedBytes := sealed.Bytes()
+	if legacyV3 {
+		// Preserve strict v3 normalization while upgrading only the envelope.
+		// The semantic artifact and NodeRef remain byte-for-byte unchanged.
+		normalizedBytes, err = artifact.Marshal(document{Format: Format, Version: decoded.Version, NodeRef: sealed.NodeRef(), Semantic: normalized, Authoring: authoring})
+		if err != nil {
+			return Contract{}, err
+		}
+	}
+	if !legacyV1 && !bytes.Equal(normalizedBytes, raw) {
 		return Contract{}, errors.New("node contract is not normalized")
 	}
 	return sealed, nil

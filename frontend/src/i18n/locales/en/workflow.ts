@@ -327,8 +327,26 @@ export default {
       release_notes: 'Update log',
       examples: 'Examples',
       publish_title: 'Publish Workflow',
-      publish_description: 'Publish the currently saved workflow to the online market.',
-      publish_action: 'Publish to market',
+      publish_description:
+        'Submit the currently saved workflow. Paid workflows require approval before listing. Each user has an individual daily submission quota. Track review progress in My submissions.',
+      publish_action: 'Submit to market',
+      pricing: 'Pricing',
+      pricing_free: 'Free',
+      pricing_paid: 'Paid',
+      price_cny: 'Price (CNY)',
+      invalid_price:
+        'Enter a positive amount with up to two decimal places, at most CNY 21,474,836.47.',
+      license_terms: 'Terms of use',
+      invalid_license_terms: 'The terms reference is too long. Use a shorter URL or name.',
+      license_terms_hint: 'Enter the terms URL or name that applies to buyers.',
+      submission_pending: 'Submitted for review',
+      pending_review_hint:
+        'The workflow will be listed after approval. Track progress in My submissions. Another submission cannot be made while review is pending.',
+      submission_approved: 'Latest submission approved',
+      submission_rejected: 'Latest submission rejected',
+      submission_published: 'Published to market',
+      submission_received: 'Submission received. Check its status in My submissions.',
+      my_submissions: 'My submissions',
       publish_name: 'Market name',
       version: 'Version',
       summary: 'Summary',
@@ -411,6 +429,7 @@ export default {
       search_placeholder: 'Search node names, types, or tags',
       no_results: 'No matching nodes',
       category: {
+        data: 'Path data',
         panel: 'Panels',
         plugins: 'Third-party nodes',
         ai: 'AI',
@@ -834,6 +853,17 @@ export default {
       show_optional_inputs: 'Show {n} optional inputs',
       hide_optional_inputs: 'Hide optional inputs',
       port: {
+        moving: 'While moving',
+        marker: 'Marker reached',
+        recover: 'Recover',
+
+        'reference-mismatch': 'Reference mismatch',
+        'height-mismatch': 'Altitude mismatch',
+        reference: 'Coordinate reference',
+        version: 'Format version',
+        map: 'Map',
+        floor: 'Floor',
+        z: 'Altitude Z',
         event: 'Signal received',
         'interval-milliseconds': 'Tick interval',
         tick: 'Tick',
@@ -859,7 +889,7 @@ export default {
         id: 'ID',
         generation: 'Reference version',
         panel: 'Panel reference',
-        kind: 'Component type',
+        kind: 'Type',
 
         a: 'Value A',
         all: 'All',
@@ -1255,6 +1285,18 @@ export default {
       locate_node: 'Locate node',
       ai_diagnose: 'AI diagnose',
       unhandled_route: 'The “{route}” output is not connected; this Run ends here',
+      path_progress: 'Moving to point {point}; last reached point {last} (0 means none).',
+      path_arrived: 'Path completed at point {last}.',
+      path_stuck:
+        'Position did not move at point {point}, distance {distance}. Check for obstacles.',
+      path_unavailable:
+        'Position, heading or required altitude is unavailable at point {point}. Movement stopped; restore positioning and retry this point.',
+      path_timeout:
+        'Timed out moving to point {point}, distance {distance}; last reached point {last}.',
+      path_reference_mismatch:
+        'Coordinate frame, map, floor or session changed at point {point}. Stopped; check the source and path reference.',
+      path_height_mismatch:
+        'Near point {point} in XY, but altitude differs. Stopped; add waypoints through stairs or slopes.',
       navigation_arrived: 'Target reached. Remaining distance: {distance}.',
       navigation_stuck:
         'Movement or turning stopped making progress. Distance remaining: {distance}. Check the path, heading settings and turn calibration.',
@@ -1266,6 +1308,15 @@ export default {
       status: {
         'automation.navigation.waiting': 'Moving or looking for the target',
         'automation.navigation.timeout': 'Navigation time limit reached',
+        'navigation.path.input-conflict':
+          'Mouse or camera input conflicts with movement. Use a marker set to Pause for action, or the Recover branch.',
+        'navigation.path.recovering': 'Recovering before resuming the path',
+        'navigation.path.stuck': 'No movement detected',
+        'navigation.path.turning-stuck': 'Camera did not respond to turning',
+        'navigation.path.unavailable': 'Position or heading unavailable',
+        'navigation.path.reference-mismatch': 'Path coordinate reference changed',
+        'navigation.path.height-mismatch': 'Path altitude mismatch',
+        'navigation.path.progress': 'Visiting path points',
         'automation.navigation.finished': 'Movement or search finished',
         'automation.template.waiting': 'Waiting for a template match',
         'automation.template.matched': 'Template matched',

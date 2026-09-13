@@ -12,7 +12,7 @@ func TestFilterCatalogAndRepeatedQueryValues(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/v1/filter-catalog":
+		case "/v1/taxonomy/profiles/workflow":
 			w.Write([]byte(`{"revision":2,"dimensions":[{"id":"platform","name":"Platform","active":true,"values":[{"id":"windows","name":"Windows","parentId":"desktop","active":true}]}]}`))
 		case "/v1/catalog/search":
 			if !reflect.DeepEqual(r.URL.Query()["filterValue"], []string{"desktop", "reward"}) {

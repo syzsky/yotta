@@ -75,6 +75,9 @@ export const shopTransport = {
   filterCatalog: () => invoke(WorkflowService.RegistryFilterCatalog),
   refreshAccount: () => invoke(WorkflowService.RefreshRegistryAccount),
   openAccountCenter: () => invoke(WorkflowService.OpenAccountCenter),
+  openMySubmissions: () => invoke(WorkflowService.OpenMySubmissions),
+  publicationHistory: (workflowId: string) =>
+    invoke(WorkflowService.RegistryWorkflowPublicationHistory, workflowId),
   discover: (query: SearchOptions) => invoke(WorkflowService.DiscoverRegistry, query),
   account: () => invoke(WorkflowService.RegistryAccount),
   login: () => invoke(WorkflowService.LoginRegistry),

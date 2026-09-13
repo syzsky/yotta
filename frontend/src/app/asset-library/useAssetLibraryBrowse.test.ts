@@ -39,6 +39,11 @@ describe('useAssetLibraryBrowse', () => {
       }),
     )
     expect(browse.assetPage.value.map((item) => item.guid)).toEqual(['a'])
+    browse.activeTab.value = 'paths'
+    await browse.refresh()
+    expect(queryAssets).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'path', category: 'vision' }),
+    )
   })
 
   it('keeps cross-page selection and retains only failed batch items', () => {
@@ -55,4 +60,36 @@ describe('useAssetLibraryBrowse', () => {
     browse.retainFailedSelection(['b', 'c'])
     expect(browse.selectedRows.value.map((item) => item.guid)).toEqual(['b', 'c'])
   })
+})
+
+it('does not restore a deleted item from an older in-flight page', async () => {
+  let completeOld!: (value: AssetPage) => void
+  const latest = {
+    items: [],
+    total: 0,
+    revision: 2,
+    categories: [],
+    tags: [],
+  } as unknown as AssetPage
+  const queryAssets = vi
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<AssetPage>((resolve) => {
+          completeOld = resolve
+        }),
+    )
+    .mockResolvedValueOnce(latest)
+  const browse = useAssetLibraryBrowse({
+    queryAssets,
+    recentGUIDs: () => [],
+    translate: (key) => key,
+    showError: vi.fn(),
+  })
+  const old = browse.refresh()
+  await browse.refresh()
+  completeOld({ ...latest, items: [asset('deleted')], total: 1, revision: 1 })
+  await old
+  expect(browse.assetPage.value).toEqual([])
+  expect(browse.total.value).toBe(0)
 })

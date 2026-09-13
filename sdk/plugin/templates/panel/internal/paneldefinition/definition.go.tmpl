@@ -1,0 +1,22 @@
+package paneldefinition
+
+import "github.com/yottaapp/yotta/sdk/plugin/panel"
+
+const Prefix = "plugin.@@SLUG@@"
+
+func Definition() panel.Definition {
+	return panel.Definition{Format: panel.Format, ID: "counter", TitleKey: Prefix + ".panel",
+		Fields: []panel.Field{{ID: "count", Kind: "number"}},
+		Components: []panel.Component{
+			{ID: "count", Kind: "number", Field: "count", TitleKey: Prefix + ".count"},
+			{ID: "increment", Kind: "button", Event: "increment", TitleKey: Prefix + ".increment"},
+		},
+	}
+}
+
+func Messages() map[string]map[string]string {
+	return map[string]map[string]string{
+		"zh": {Prefix + ".panel": "示例计数面板", Prefix + ".count": "计数", Prefix + ".increment": "增加一次"},
+		"en": {Prefix + ".panel": "Example counter", Prefix + ".count": "Count", Prefix + ".increment": "Increment"},
+	}
+}

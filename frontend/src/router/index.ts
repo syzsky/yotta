@@ -23,6 +23,13 @@ const routes = [
     name: 'workflow-edit',
     component: () => import('@/views/WorkflowEditorView.vue'),
   },
+  { path: '/paths', redirect: '/tools/path-editor' },
+  {
+    path: '/tools/path-editor',
+    name: 'paths',
+    component: () => import('@/views/PathsView.vue'),
+    meta: { standalone: true },
+  },
   { path: '/assets', name: 'assets', component: () => import('@/views/AssetsView.vue') },
   { path: '/schedules', name: 'schedules', component: () => import('@/views/SchedulesView.vue') },
   { path: '/market', name: 'market', component: () => import('@/views/MarketView.vue') },

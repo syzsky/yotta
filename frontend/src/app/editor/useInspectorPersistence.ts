@@ -15,6 +15,7 @@ export function useInspectorPersistence(options: {
   let changed = false
   let queued: ReturnType<typeof setTimeout> | undefined
   let saving: Promise<boolean> | undefined
+  let decidingExit = false
 
   async function commit(): Promise<boolean> {
     commitActiveInspectorInput(options.root())
@@ -25,6 +26,7 @@ export function useInspectorPersistence(options: {
   async function persist(): Promise<boolean> {
     clearTimeout(queued)
     await nextTick()
+    if (decidingExit) return false
     if (options.root()?.querySelector('[aria-invalid="true"]')) return false
     if (saving) return saving
     if (!changed || !options.isDirty()) return true
@@ -47,6 +49,7 @@ export function useInspectorPersistence(options: {
 
   function schedule(): void {
     clearTimeout(queued)
+    if (decidingExit) return
     queued = setTimeout(() => {
       void persist()
     }, 0)
@@ -80,5 +83,19 @@ export function useInspectorPersistence(options: {
     document.removeEventListener('pointerdown', beforePointerDown, true)
     document.removeEventListener('focusout', afterFocusOut, true)
   })
-  return { commit, flush, markChanged }
+  // Exit must offer discard even when inputs or the last save are invalid.
+  // Wait for an existing write before reloading/discarding, but do not start
+  // another write while the user is choosing what to do with the draft.
+  async function decideExit<T>(decide: (inputsValid: boolean) => Promise<T>): Promise<T> {
+    decidingExit = true
+    clearTimeout(queued)
+    try {
+      const valid = await commit()
+      if (saving) await saving
+      return await decide(valid)
+    } finally {
+      decidingExit = false
+    }
+  }
+  return { commit, flush, markChanged, decideExit }
 }

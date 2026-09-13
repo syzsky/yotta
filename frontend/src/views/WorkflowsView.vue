@@ -483,7 +483,13 @@
       :dismissible="false"
       :show-close="!publishing"
     >
-      <div class="space-y-4">
+      <WorkflowPublicationStatus v-if="publishResult" :status="publishResult" />
+      <div v-else class="space-y-4">
+        <WorkflowPublicationStatus
+          v-if="latestSubmission"
+          :status="latestSubmission.status"
+          :reason="latestSubmission.reason"
+        />
         <div class="flex items-center gap-3">
           <UPopover>
             <button
@@ -540,6 +546,10 @@
           </button>
         </div>
         <div v-show="publishSection === 'listing'" class="space-y-4">
+          <WorkflowPublicationPricing
+            v-model="salesDraft"
+            :disabled="publishing || publishLoading || publishHistoryFailed"
+          />
           <UFormField :label="t('workflow.market.publish_name')" required
             ><UInput
               v-model="publishDraft.title"
@@ -696,9 +706,19 @@
           publishDraft.releaseVersion
         }}</span>
         <UButton color="neutral" variant="ghost" @click="cancelPublish">{{
-          t('common.cancel')
+          t(publishResult ? 'common.close' : 'common.cancel')
         }}</UButton>
         <UButton
+          v-if="publishResult || latestSubmission"
+          color="neutral"
+          @click="openPublicationHistory"
+          >{{ t('workflow.market.my_submissions') }}</UButton
+        >
+        <p v-if="publishResult && publishFailure" role="alert" class="text-error">
+          {{ publishFailure }}
+        </p>
+        <UButton
+          v-if="!publishResult"
           data-testid="workflow-publish-submit"
           icon="i-tabler-cloud-upload"
           :loading="publishing || publishLoading"
@@ -706,6 +726,8 @@
             publishLoading ||
             publishHistoryFailed ||
             !publishVersionValid ||
+            !validSalesDraft(salesDraft) ||
+            latestSubmission?.status === 'pending_review' ||
             publishNeedsLogin ||
             !publishCategoryValid ||
             !publishMarkdownValid ||
@@ -917,13 +939,17 @@ import {
   watch,
 } from 'vue'
 import WorkflowVersionInput from '@/components/workflow/WorkflowVersionInput.vue'
+import WorkflowPublicationPricing from '@/components/workflow/WorkflowPublicationPricing.vue'
+import WorkflowPublicationStatus from '@/components/workflow/WorkflowPublicationStatus.vue'
+import {
+  validSalesDraft,
+  publicationSales,
+  publicationVersion,
+  type SalesDraft,
+} from '@/lib/publication'
 import IconPicker from '@/components/common/IconPicker.vue'
 import { usePublicationEntry } from '@/app/workflow-library/usePublicationEntry'
-import {
-  validReleaseVersion,
-  isNewerRelease,
-  nextRelease,
-} from '@/app/workflow-library/releaseVersion'
+import { validReleaseVersion, isNewerRelease } from '@/app/workflow-library/releaseVersion'
 const WorkflowMarkdownEditor = defineAsyncComponent(
   () => import('@/components/workflow/WorkflowMarkdownEditor.vue'),
 )
@@ -1062,6 +1088,16 @@ const metadataDraft = reactive({
   template: 'generic' as 'generic' | 'windows' | 'android' | 'browser' | 'cross-target',
 })
 const publishOpen = ref(false)
+const publishResult = ref('')
+const latestSubmission = ref<{ submissionId: string; status: string; reason: string } | null>(null)
+const salesDraft = ref<SalesDraft>({
+  paid: false,
+  price: '',
+  licenseRef: '',
+  revision: 0,
+  available: true,
+  configured: false,
+})
 const pendingPublishSource = ref<SourceView | null>(null)
 const publishNeedsLogin = ref(false)
 const publicationEntry = usePublicationEntry({
@@ -1530,6 +1566,16 @@ function openPublish(source: SourceView): void {
 }
 
 function initializePublish(source: SourceView): void {
+  publishResult.value = ''
+  latestSubmission.value = null
+  Object.assign(salesDraft.value, {
+    paid: false,
+    price: '',
+    licenseRef: '',
+    revision: 0,
+    available: true,
+    configured: false,
+  })
   publishBundle.value = null
   publishCategoryDirectory.value = []
   publishFilterDimensions.value = []
@@ -1568,18 +1614,34 @@ function initializePublish(source: SourceView): void {
     workflowTransport.previewSourceBundle(source.workflowId),
     shopTransport.categories(),
     shopTransport.filterCatalog(),
+    shopTransport.publicationHistory(source.workflowId),
   ])
-    .then(([current, bundle, categories, filterCatalog]) => {
+    .then(([current, bundle, categories, filterCatalog, history]) => {
       if (generation !== publishGeneration || !publishOpen.value) return
       publishBundle.value = bundle
       publishCategoryDirectory.value = categories
       publishFilterDimensions.value = filterCatalog.dimensions
-      const previous = current.items[0]
+      latestSubmission.value = history.items[0] || null
+      const rejected = history.items[0]?.status === 'rejected' ? history.items[0] : undefined
+      const sales = rejected?.sales || history.sales || history.items[0]?.sales
+      if (sales)
+        Object.assign(salesDraft.value, {
+          paid: sales.priceCents > 0,
+          price: (sales.priceCents / 100).toFixed(2),
+          licenseRef: sales.licenseRef,
+          revision: history.sales?.revision || 0,
+          available: sales.available,
+          configured: !!history.sales,
+        })
+      const previous = rejected?.release || current.items[0] || history.items[0]?.release
       if (!previous || generation !== publishGeneration || !publishOpen.value || publishing.value)
         return
-      publishHighestVersion.value = previous.releaseVersion
+      publishHighestVersion.value = current.items[0]?.releaseVersion || ''
       if (!publishTouched.has('version'))
-        publishDraft.releaseVersion = nextRelease(previous.releaseVersion)
+        publishDraft.releaseVersion = publicationVersion(
+          publishHighestVersion.value,
+          rejected?.release.releaseVersion,
+        )
       if (!publishTouched.has('title')) publishDraft.title = previous.title
       if (!publishTouched.has('summary')) publishDraft.summary = previous.summary
       const listing = {
@@ -1613,6 +1675,9 @@ async function publishWorkflow(): Promise<void> {
     !source ||
     publishNeedsLogin.value ||
     publishing.value ||
+    !!publishResult.value ||
+    latestSubmission.value?.status === 'pending_review' ||
+    !validSalesDraft(salesDraft.value) ||
     publishLoading.value ||
     publishHistoryFailed.value ||
     !publishVersionValid.value ||
@@ -1623,7 +1688,12 @@ async function publishWorkflow(): Promise<void> {
   publishing.value = true
   publishFailure.value = ''
   try {
-    await workflowTransport.publishSourceToRegistry({
+    const result = await workflowTransport.publishSourceToRegistry({
+      resubmissionId:
+        latestSubmission.value?.status === 'rejected'
+          ? latestSubmission.value.submissionId
+          : undefined,
+      sales: publicationSales(salesDraft.value),
       listing: publishDraft.listing,
       workflowId: source.workflowId,
       releaseVersion: publishDraft.releaseVersion.trim(),
@@ -1632,14 +1702,21 @@ async function publishWorkflow(): Promise<void> {
       releaseNotes: publishDraft.releaseNotes.trim(),
       examples: [],
     })
-    publishOpen.value = false
-    await router.push('/market')
+    publishResult.value = result.publicationStatus || 'published'
   } catch (error) {
     publishFailure.value = errorMessage(error)
     publishNeedsLogin.value =
       normalizeError(error).id === 'workflow.registry.authentication_required'
   } finally {
     publishing.value = false
+  }
+}
+
+async function openPublicationHistory(): Promise<void> {
+  try {
+    await shopTransport.openMySubmissions()
+  } catch (error) {
+    publishFailure.value = errorMessage(error)
   }
 }
 

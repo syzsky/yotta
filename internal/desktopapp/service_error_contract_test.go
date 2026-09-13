@@ -27,8 +27,8 @@ func TestEveryWailsServiceUsesCanonicalErrorMarshaler(t *testing.T) {
 	if strings.Contains(source, "application.NewService(") {
 		t.Fatal("a Wails service bypasses the canonical service-level error marshaler")
 	}
-	if got := strings.Count(source, "application.NewServiceWithOptions("); got != 18 {
-		t.Fatalf("canonical Wails service registrations = %d, want 18", got)
+	if got := strings.Count(source, "application.NewServiceWithOptions("); got != 19 {
+		t.Fatalf("canonical Wails service registrations = %d, want 19", got)
 	}
 	if !strings.Contains(source, "application.ServiceOptions{MarshalError: apperr.Marshal}") {
 		t.Fatal("canonical Wails service error options are missing")

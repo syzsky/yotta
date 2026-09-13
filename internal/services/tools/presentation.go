@@ -11,6 +11,7 @@ const (
 	WindowPanels        WindowKind = "panels"
 	WindowCalibratorHUD WindowKind = "calibrator-hud"
 	WindowScreenPicker  WindowKind = "screen-picker"
+	WindowPathEditor    WindowKind = "path-editor"
 )
 
 // WindowRequest asks the presentation layer to open a semantic tools window.

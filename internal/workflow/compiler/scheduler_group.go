@@ -92,10 +92,15 @@ func (g *executionGroup) spawn(parent *scheduler, queue []scheduledInvocation, d
 		nodes: parent.nodes, routes: parent.routes, dataConsumers: parent.dataConsumers, volatile: parent.volatile,
 		attempts: parent.attempts, evaluating: map[string]bool{}, queue: queue, result: emptyExecutionResult(),
 		outputSessions: map[string]map[string]*run.Session{}, control: parent.control,
+		transientOutputs: parent.transientOutputs,
 	}
 	g.nextScopeID++
 	s.scopeID = g.nextScopeID
 	s.inputOwner = inputcoord.NewOwner()
+	if parent.cooperativeInput {
+		s.inputOwner = inputcoord.NewCooperatingOwner(parent.inputOwner)
+		s.cooperativeInput = true
+	}
 	s.inputOwner.SetWake(g.wake)
 	s.jobs = newScopeJobs(parent.owner.Context(), g.wake)
 	for id, outputs := range parent.result.NodeOutputs {
@@ -129,6 +134,9 @@ func (g *executionGroup) schedule(owner *scheduler, at time.Time, fire func(cont
 
 func (g *executionGroup) merge(s *scheduler) error {
 	for id, outputs := range s.result.NodeOutputs {
+		if s.transientOutputs[id] {
+			continue
+		}
 		for port, value := range outputs {
 			if _, _, runtimeValue := runtimeHandle(value); runtimeValue {
 				continue
@@ -161,6 +169,9 @@ func (s *scheduler) canRetain(delta int) bool {
 	bytes := s.group.resultBytes + delta
 	for _, scope := range s.group.scopes {
 		bytes += scope.retainedBytes
+		if scope.operation != nil {
+			bytes += scope.operation.branchBytes
+		}
 	}
 	return bytes <= MaxRunRetainedValueBytes
 }
@@ -197,6 +208,10 @@ func (g *executionGroup) retire(ctx context.Context, s *scheduler, cause error) 
 	}
 	if s.done != nil {
 		err = errors.Join(err, s.done(ctx, errors.Join(cause, err)))
+	} else if b := s.branchRoot; b != nil && b.lane.active == b {
+		// Group shutdown suppresses routing callbacks, but must still settle
+		// handles before the owning worker is cancelled and joined.
+		b.owner.finishBranch(b, errors.Join(cause, err))
 	}
 	return err
 }
@@ -305,9 +320,15 @@ func (g *executionGroup) run(ctx context.Context) (_ ExecutionResult, resultErr 
 			return ExecutionResult{}, err
 		}
 		pendingOperations := false
-		for _, s := range g.scopes {
+		for _, s := range append([]*scheduler(nil), g.scopes...) {
+			if s.stopped {
+				continue
+			}
 			if err := s.jobs.failure(); err != nil {
-				return ExecutionResult{}, err
+				if err := g.scopeFailure(ctx, s, err); err != nil {
+					return ExecutionResult{}, err
+				}
+				continue
 			}
 			pendingOperations = pendingOperations || s.jobs.active()
 			if s.operation == nil {
@@ -316,22 +337,37 @@ func (g *executionGroup) run(ctx context.Context) (_ ExecutionResult, resultErr 
 			select {
 			case <-s.operation.done:
 				if err := s.finishOperation(ctx); err != nil {
-					return ExecutionResult{}, err
+					if err := g.scopeFailure(ctx, s, err); err != nil {
+						return ExecutionResult{}, err
+					}
 				}
 			default:
 				pendingOperations = true
+				s.advanceBranches(ctx, s.operation)
 			}
 		}
 		for _, s := range append([]*scheduler(nil), g.scopes...) {
+			if s.stopped {
+				continue
+			}
 			pendingOperations = pendingOperations || len(s.listeners) > 0
 			for _, listener := range s.listeners {
 				if err := listener.advance(ctx); err != nil {
-					return ExecutionResult{}, err
+					if err := g.scopeFailure(ctx, s, err); err != nil {
+						return ExecutionResult{}, err
+					}
+					break
 				}
+			}
+			if s.stopped {
+				continue
 			}
 			for _, task := range s.tasks {
 				if err := task.startHandler(ctx); err != nil {
-					return ExecutionResult{}, err
+					if err := g.scopeFailure(ctx, s, err); err != nil {
+						return ExecutionResult{}, err
+					}
+					break
 				}
 				pendingOperations = pendingOperations || task.resuming != nil
 			}
@@ -363,7 +399,9 @@ func (g *executionGroup) run(ctx context.Context) (_ ExecutionResult, resultErr 
 		if nextTimer != nil && !deadline.After(now) && !timerWasLast {
 			nextTimer.active = false
 			if err := nextTimer.fire(ctx); err != nil {
-				return ExecutionResult{}, err
+				if err := g.scopeFailure(ctx, nextTimer.owner, err); err != nil {
+					return ExecutionResult{}, err
+				}
 			}
 			timerWasLast = true
 			continue
@@ -393,7 +431,9 @@ func (g *executionGroup) run(ctx context.Context) (_ ExecutionResult, resultErr 
 			}
 			if len(s.queue) > 0 || len(s.frames) > 0 && len(s.waits) == 0 && s.keepAlive == 0 || len(s.waits) > 0 && !s.waits[0].due.After(now) {
 				if err := s.step(ctx); err != nil {
-					return ExecutionResult{}, err
+					if err := g.scopeFailure(ctx, s, err); err != nil {
+						return ExecutionResult{}, err
+					}
 				}
 				progress = true
 				break
@@ -411,7 +451,9 @@ func (g *executionGroup) run(ctx context.Context) (_ ExecutionResult, resultErr 
 		}
 		if nextScope != nil {
 			if err := nextScope.resumeWait(ctx); err != nil {
-				return ExecutionResult{}, err
+				if err := g.scopeFailure(ctx, nextScope, err); err != nil {
+					return ExecutionResult{}, err
+				}
 			}
 		} else if nextTimer != nil {
 			if err := g.root.executor.wait(ctx, max(time.Duration(0), deadline.Sub(now))); err != nil {
@@ -419,7 +461,9 @@ func (g *executionGroup) run(ctx context.Context) (_ ExecutionResult, resultErr 
 			}
 			nextTimer.active = false
 			if err := nextTimer.fire(ctx); err != nil {
-				return ExecutionResult{}, err
+				if err := g.scopeFailure(ctx, nextTimer.owner, err); err != nil {
+					return ExecutionResult{}, err
+				}
 			}
 		} else {
 			return ExecutionResult{}, errors.New("execution scopes have no runnable task or wakeup")

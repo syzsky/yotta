@@ -22,6 +22,7 @@
       </div>
 
       <div
+        v-if="props.kind !== 'path'"
         class="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-default bg-elevated/40 p-1"
         role="group"
         :aria-label="t('workflow.resources.title')"
@@ -49,7 +50,18 @@
 
       <div class="mt-2 flex items-center gap-2">
         <UButton
-          v-if="props.kind !== 'template'"
+          v-if="props.kind === 'path'"
+          data-testid="workflow-resource-create"
+          icon="i-tabler-map-pin-plus"
+          :label="t('paths.new')"
+          size="xs"
+          color="primary"
+          variant="soft"
+          class="min-w-0 flex-1 justify-center"
+          @click="openPath()"
+        />
+        <UButton
+          v-else-if="props.kind !== 'template'"
           data-testid="workflow-resource-create"
           :icon="props.kind === 'macro' ? 'i-tabler-list-details' : 'i-tabler-route-alt-left'"
           :label="
@@ -233,8 +245,9 @@
       <AssetLibraryList
         v-else-if="visibleItems.length"
         :items="libraryItems"
+        :activate-on-click="props.kind === 'path'"
         compact
-        :draggable="scope === 'library'"
+        :draggable="true"
         :focused-id="focusedResourceId"
         @use="useLibraryItem"
         @dragstart="startResourceDrag"
@@ -249,14 +262,29 @@
         </template>
         <template #actions="{ item }">
           <div class="flex shrink-0 items-center gap-0.5">
+            <UDropdownMenu
+              v-if="resourceNodeActions(props.kind).length > 1"
+              :items="nodeActions(item)"
+            >
+              <UButton
+                icon="i-tabler-player-play"
+                color="primary"
+                variant="soft"
+                size="xs"
+                :label="t('paths.resource_use')"
+                :disabled="busy"
+                @click.stop
+              />
+            </UDropdownMenu>
             <UButton
-              icon="i-tabler-plus"
-              color="neutral"
-              variant="ghost"
+              v-else
+              icon="i-tabler-player-play"
+              color="primary"
+              variant="soft"
               size="xs"
+              :label="t('paths.resource_use')"
               :disabled="busy"
-              :aria-label="t('workflow.resources.use', { name: item.name })"
-              @click.stop="useLibraryItem(item)"
+              @click.stop="useLibraryItem(item, resourceNodeActions(props.kind)[0]!.nodeTypeId)"
             />
             <UDropdownMenu :items="itemMenu(item.id)">
               <UButton
@@ -416,7 +444,12 @@ import type {
   WorkflowResource,
   YottaWorkflowSource,
 } from '../../../../contracts/workflow/current/workflow-source'
-import { RESOURCE_DRAG_FORMAT, serializeWorkspaceResource } from './resourceDrag'
+import { resourceNodeActions } from './resourceNodeActions'
+import {
+  LOCAL_RESOURCE_DRAG_FORMAT,
+  RESOURCE_DRAG_FORMAT,
+  serializeWorkspaceResource,
+} from './resourceDrag'
 import { snapshotGlobalAsset } from './workflowResourceSnapshot'
 import {
   projectWorkflowResourcePage,
@@ -424,7 +457,7 @@ import {
 } from './workflowResourceLibrary'
 import type { ResourceLocateRequest } from './resourceLocator'
 
-type ResourceKind = 'macro' | 'clip' | 'template'
+type ResourceKind = 'macro' | 'clip' | 'template' | 'path'
 type ResourceScope = 'workflow' | 'library'
 type EditableResource =
   | { scope: 'workflow'; resource: WorkflowResource }
@@ -444,9 +477,13 @@ const emit = defineEmits<{
   'remove-workflow-resource-variant': [resource: WorkflowResource, variantId: string]
   'open-library': []
   edit: [asset: AssetSummary]
-  use: [selection: AssetPickerSelection]
-  'use-workflow': [resource: WorkflowResource, variantId: string]
-  'import-workflow-resource': [resource: WorkflowResource]
+  use: [selection: AssetPickerSelection, position?: { x: number; y: number }, actionId?: string]
+  'use-workflow': [resource: WorkflowResource, variantId: string, actionId?: string]
+  'import-workflow-resource': [
+    resource: WorkflowResource,
+    position?: { x: number; y: number },
+    actionId?: string,
+  ]
   'edit-workflow-resource': [resource: WorkflowResource]
   'duplicate-workflow-resource': [resource: WorkflowResource]
   'update-workflow-resources': [
@@ -464,7 +501,7 @@ const { t } = useI18n()
 const { confirm } = useConfirm()
 const assets = useAssetsStore()
 const allCategoriesValue = '__yotta_all_categories__'
-const scope = ref<ResourceScope>('workflow')
+const scope = ref<ResourceScope>(props.kind === 'path' ? 'library' : 'workflow')
 const variantResourceId = ref<string | null>(null)
 const searchInput = ref('')
 const search = ref('')
@@ -506,14 +543,18 @@ const scopeItems = computed(() => [
 ])
 const resourceTitle = computed(() =>
   t(
-    props.kind === 'macro'
-      ? 'assets.tabs.macros'
-      : props.kind === 'clip'
-        ? 'assets.tabs.clips'
-        : 'assets.tabs.templates',
+    props.kind === 'path'
+      ? 'paths.title'
+      : props.kind === 'macro'
+        ? 'assets.tabs.macros'
+        : props.kind === 'clip'
+          ? 'assets.tabs.clips'
+          : 'assets.tabs.templates',
   ),
 )
-const resourceHint = computed(() => t(`workflow.resources.${props.kind}_hint`))
+const resourceHint = computed(() =>
+  t(props.kind === 'path' ? 'paths.dock_hint' : `workflow.resources.${props.kind}_hint`),
+)
 const workflowResourceKind = computed(() =>
   props.kind === 'template' ? 'image' : props.kind === 'clip' ? 'input-clip' : 'macro',
 )
@@ -657,17 +698,23 @@ async function loadLibrary(force = false): Promise<void> {
     )
     if (generation !== requestGeneration) return
     libraryAssets.value = result.items
+    if (page.value > Math.max(1, Math.ceil(result.total / pageSize.value))) {
+      page.value = Math.max(1, Math.ceil(result.total / pageSize.value))
+      await loadLibrary(true)
+      return
+    }
     libraryTotal.value = result.total
     libraryCategories.value = result.categories
     libraryTags.value = result.tags
   } catch (error) {
-    showFeedback('error', errorMessage(error))
+    if (generation === requestGeneration) showFeedback('error', errorMessage(error))
   } finally {
     if (generation === requestGeneration) loading.value = false
   }
 }
 
 function resetView(): void {
+  if (props.kind === 'path') scope.value = 'library'
   category.value = allCategoriesValue
   tagFilters.value = []
   sort.value = 'name_asc'
@@ -744,24 +791,50 @@ function toggleCurrentPage(checked: boolean): void {
   selected.value = next
 }
 
-function useLibraryItem(item: AssetLibraryListItem): void {
+function nodeActions(item: AssetLibraryListItem) {
+  return resourceNodeActions(props.kind).map((action) => ({
+    label: t(action.titleKey),
+    onSelect: () => useLibraryItem(item, action.nodeTypeId),
+  }))
+}
+function useLibraryItem(item: AssetLibraryListItem, actionId?: string): void {
   if (busy.value) return
   if (scope.value === 'workflow') {
     const resource = workflowResources.value.find((candidate) => candidate.id === item.id)
     if (resource) {
       const variantId = resource.kind === 'image' ? (resource.image?.variants[0]?.id ?? '') : ''
-      emit('use-workflow', resource, variantId)
+      emit('use-workflow', resource, variantId, actionId)
     }
     return
   }
   const asset = libraryAssets.value.find((candidate) => candidate.guid === item.id)
-  if (asset) void importAsset(asset)
+  if (asset) void importAsset(asset, actionId)
 }
 
-async function importAsset(asset: AssetSummary): Promise<void> {
+async function openPath(guid = ''): Promise<void> {
+  try {
+    await backend.tools.openPathEditor(guid)
+  } catch (error) {
+    showFeedback('error', errorMessage(error))
+  }
+}
+
+async function importAsset(asset: AssetSummary, actionId?: string): Promise<void> {
+  if (asset.kind === 'path') {
+    if (asset.blob) {
+      emit(
+        'use',
+        { guid: asset.guid, kind: 'path', name: asset.name, blob: { ...asset.blob } },
+        undefined,
+        actionId,
+      )
+      assets.markUsed(asset.guid)
+    }
+    return
+  }
   busy.value = true
   try {
-    emit('import-workflow-resource', await snapshotGlobalAsset(asset))
+    emit('import-workflow-resource', await snapshotGlobalAsset(asset), undefined, actionId)
     assets.markUsed(asset.guid)
     showFeedback('success', t('workflow.resources.snapshot_created'))
   } catch (error) {
@@ -781,6 +854,10 @@ function itemMenu(id: string) {
         label: t('common.edit'),
         icon: 'i-tabler-edit',
         onSelect: () => {
+          if (value.kind === 'path' && !isWorkflowResource(value)) {
+            void openPath(value.guid)
+            return
+          }
           if (value.kind !== 'macro') {
             openEdit(value)
             return
@@ -933,13 +1010,29 @@ async function saveBatchEdit(): Promise<void> {
           })),
       )
     } else {
-      await backend.assets.batchUpdateMeta(
+      const results = await backend.assets.batchUpdateMeta(
         selectedRows.value
           .filter((value): value is AssetSummary => !isWorkflowResource(value))
           .map((asset) => ({ guid: asset.guid, category: categoryValue, tags })),
       )
       assets.invalidate()
       await loadLibrary(true)
+      const failed = new Set(
+        results.filter((result) => !result.updated).map((result) => result.guid),
+      )
+      if (failed.size) {
+        selected.value = Object.fromEntries(
+          Object.entries(selected.value).filter(([id]) => failed.has(id)),
+        )
+        showFeedback(
+          'warning',
+          t('assets.batch_update_result', {
+            updated: results.filter((result) => result.updated).length,
+            failed: failed.size,
+          }),
+        )
+        return
+      }
     }
     batchEditing.value = false
     clearSelection()
@@ -968,6 +1061,9 @@ async function deleteOne(value: WorkflowResource | AssetSummary, name: string): 
       assets.invalidate()
       await loadLibrary(true)
     }
+    const next = { ...selected.value }
+    delete next[sourceID(value)]
+    selected.value = next
     showFeedback('success', t('workflow.resources.deleted'))
   } catch (error) {
     showFeedback('error', errorMessage(error))
@@ -1003,13 +1099,27 @@ async function deleteSelected(): Promise<void> {
         .map((resource) => resource.id)
       if (ids.length) emit('remove-workflow-resources', ids)
     } else {
-      await backend.assets.batchDelete(
+      const results = await backend.assets.batchDelete(
         selectedRows.value
           .filter((value): value is AssetSummary => !isWorkflowResource(value))
           .map((asset) => asset.guid),
       )
       assets.invalidate()
       await loadLibrary(true)
+      const failed = new Set(
+        results.filter((result) => !result.deleted).map((result) => result.guid),
+      )
+      selected.value = Object.fromEntries(
+        Object.entries(selected.value).filter(([id]) => failed.has(id)),
+      )
+      showFeedback(
+        failed.size ? 'warning' : 'success',
+        t('assets.batch_delete_result', {
+          deleted: results.filter((result) => result.deleted).length,
+          failed: failed.size,
+        }),
+      )
+      return
     }
     clearSelection()
     showFeedback(
@@ -1024,7 +1134,13 @@ async function deleteSelected(): Promise<void> {
 }
 
 function startResourceDrag(event: DragEvent, item: AssetLibraryListItem): void {
-  if (scope.value !== 'library') return
+  if (scope.value === 'workflow') {
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'copy'
+      event.dataTransfer.setData(LOCAL_RESOURCE_DRAG_FORMAT, serializeWorkspaceResource(item.id))
+    }
+    return
+  }
   const asset = libraryAssets.value.find((candidate) => candidate.guid === item.id)
   if (!asset || !event.dataTransfer) return
   event.dataTransfer.effectAllowed = 'copy'
@@ -1104,12 +1220,14 @@ function assetIcon(asset: AssetSummary): string {
 }
 
 function assetIconForKind(kind: string): string {
+  if (kind === 'path') return 'i-tabler-map-route'
   if (kind === 'template' || kind === 'image') return 'i-tabler-photo'
   if (kind === 'clip' || kind === 'input-clip') return 'i-tabler-route-alt-left'
   return 'i-tabler-list-details'
 }
 
 function assetMeta(asset: AssetSummary): string {
+  if (asset.kind === 'path') return t('paths.content_size', { size: asset.blob?.size ?? 0 })
   if (asset.kind === 'template') return t('assets.templates.meta', { count: asset.variantCount })
   if (asset.kind === 'clip') return t('assetPicker.clip_size', { size: asset.blob?.size ?? 0 })
   return t('assetPicker.macro_size', { size: asset.blob?.size ?? 0 })

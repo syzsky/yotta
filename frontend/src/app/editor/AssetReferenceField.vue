@@ -9,7 +9,9 @@
         ? 'i-tabler-photo-search'
         : kind === 'macro'
           ? 'i-tabler-list-details'
-          : 'i-tabler-route-alt-left'
+          : kind === 'path'
+            ? 'i-tabler-map-route'
+            : 'i-tabler-route-alt-left'
     "
     trailing-icon="i-tabler-chevron-right"
     @click="emit('change')"
@@ -43,7 +45,9 @@
             ? 'i-tabler-photo'
             : kind === 'macro'
               ? 'i-tabler-list-details'
-              : 'i-tabler-route-alt-left'
+              : kind === 'path'
+                ? 'i-tabler-map-route'
+                : 'i-tabler-route-alt-left'
         "
         class="size-4"
       />
@@ -103,7 +107,7 @@ import type { BlobRef } from '@/lib/backend'
 import BlobPreview from '@/components/common/BlobPreview.vue'
 
 const props = defineProps<{
-  kind: 'template' | 'macro' | 'clip'
+  kind: 'template' | 'macro' | 'clip' | 'path'
   bound: boolean
   blob?: BlobRef
   label: string
@@ -129,6 +133,7 @@ const metadata = computed(() => {
     const digest = props.blob.digest.slice(0, 18)
     return props.identity ? `${props.identity} · ${digest}` : digest
   }
+  if (props.kind === 'path') return t('paths.content_size', { size: props.blob.size })
   if (props.kind === 'macro') return t('assetPicker.macro_size', { size: props.blob.size })
   return t('assetPicker.clip_size', { size: props.blob.size })
 })

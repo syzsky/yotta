@@ -1,6 +1,210 @@
 export default {
   node: {
     navigation: {
+      'align-path': {
+        title: 'Align local path',
+        description:
+          'Transform a local path using an explicit world reference, origin and rotation.',
+        input: {
+          path: { title: 'Local path', description: 'Local path' },
+          reference: { title: 'World reference', description: 'World reference' },
+          origin: { title: 'World origin', description: 'World origin' },
+          angle: {
+            title: 'Counterclockwise rotation in degrees',
+            description: 'Counterclockwise rotation in degrees',
+          },
+        },
+        output: { result: { title: 'Path', description: 'Transformed world path.' } },
+      },
+      readPath: {
+        title: 'Read path',
+        description: 'Load pinned path content as a typed path value.',
+        input: { asset: { title: 'Path asset', description: 'Path asset' } },
+        output: { path: { title: 'Path', description: 'Path' } },
+      },
+      followSavedPath: {
+        title: 'Follow Saved Path',
+        description:
+          'Select a saved route and visit its points after one content read, without carrying the entire route on data wires. Keep its position-source string variable updated.',
+      },
+      followPath: {
+        title: 'Follow path',
+        description:
+          'Visit the selected range in order. Timeout applies per point; end -1 means the last point. Keep the position-source string variable updated.',
+        sourceVariable: 'Position source sample variable',
+        help: {
+          intro:
+            'Connect movement actions to existing key nodes or subgraph calls using the execution outputs below.',
+          title: 'Actions while following a path',
+          moving:
+            'While moving, run a periodic action such as pressing a key. The action interval defaults to 500 ms. Repeated triggers are coalesced while the action runs; invocations of this branch never overlap.',
+          marker:
+            'Name a point in the path editor to make it a marker. Marker actions run in point order. Connect Marker reached to a comparison or switch using the Point name output, then connect the matching branch to your action or subgraph. Continue moving keeps moving during the action; Pause for action waits for the action to finish.',
+          recover:
+            'Connect a recovery action, such as jumping or a recovery subgraph. Following resumes automatically when that action finishes. Recovery attempts default to 2, with a maximum of 20. Without a connected recovery action, following ends immediately through Unable to advance.',
+          stuck:
+            'Use this terminal output for your final fallback when recovery cannot restore movement. It ends following; it is not the recovery action branch.',
+          data: 'Point name identifies the marker. Recovery attempt and Reason describe recovery; Progress is a number from 0 to 1 (multiply by 100 for a percentage). Connect data outputs to the inputs of your action nodes.',
+          start:
+            'Run started begins sampling once when the workflow starts. Connect its Started output to the follower input as well to start moving. Moving, Marker reached and Recover keep sampling active; terminal outcomes stop it.',
+        },
+        recoveryAttempts: 'Recovery attempts',
+        markerMode: 'Marker action mode',
+        actionInterval: 'Action interval (ms)',
+        markerModeOptions: { continue: 'Continue moving', pause: 'Pause for action' },
+        branch: {
+          moving: {
+            title: 'While moving',
+            description: 'Run periodic actions without overlapping invocations while following.',
+          },
+          marker: {
+            title: 'Marker reached',
+            description: 'Run an action at a named point; filter using Point name.',
+          },
+          recover: {
+            title: 'Recover',
+            description: 'Run a recovery action, then resume following automatically.',
+          },
+        },
+        input: {
+          asset: {
+            title: 'Saved path',
+            description:
+              'Select a saved route and visit its points after one content read, without carrying the entire route on data wires. Keep its position-source string variable updated.',
+          },
+          path: { title: 'Path', description: 'Path' },
+          start: { title: 'Start index (zero-based)', description: 'Start index (zero-based)' },
+          end: { title: 'End index (-1 for last)', description: 'End index (-1 for last)' },
+          tolerance: { title: 'Planar arrival tolerance', description: 'Planar arrival tolerance' },
+          'height-tolerance': { title: 'Altitude tolerance', description: 'Altitude tolerance' },
+          timeout: { title: 'Timeout per point', description: 'Timeout per point' },
+          interval: { title: 'Observation interval', description: 'Observation interval' },
+          'slow-distance': { title: 'Slowdown distance', description: 'Slowdown distance' },
+        },
+        output: {
+          'point-name': {
+            title: 'Point name',
+            description: 'Use this string to select actions for a named path marker.',
+          },
+          'recovery-attempt': {
+            title: 'Recovery attempt',
+            description: 'Integer identifying the current recovery attempt.',
+          },
+          reason: { title: 'Reason', description: 'Reason for recovery or the movement outcome.' },
+          progress: {
+            title: 'Progress',
+            description: 'Path progress as a number from 0 to 1, not a percentage.',
+          },
+
+          'last-index': { title: 'Last reached index', description: 'Last reached index' },
+          'current-index': { title: 'Current point index', description: 'Current point index' },
+          'point-id': { title: 'Current point ID', description: 'Current point ID' },
+          x: { title: 'Current X', description: 'Current X' },
+          y: { title: 'Current Y', description: 'Current Y' },
+          distance: { title: 'Remaining distance', description: 'Remaining distance' },
+        },
+      },
+      'make-path': {
+        title: 'Build path',
+        description:
+          'Operate on ordered points while preserving their reference and the input path.',
+        input: {
+          reference: {
+            title: 'Reference',
+            description: 'Reference',
+          },
+          points: {
+            title: 'Ordered points',
+            description: 'Ordered points',
+          },
+        },
+        output: {
+          result: {
+            title: 'Result path',
+            description: 'Result path',
+          },
+        },
+      },
+      'path-point': {
+        title: 'Get path point',
+        description:
+          'Operate on ordered points while preserving their reference and the input path.',
+        input: {
+          path: {
+            title: 'Path',
+            description: 'Path',
+          },
+          index: {
+            title: 'Point index',
+            description: 'Zero-based index; the end point is included.',
+          },
+        },
+        output: {
+          point: {
+            title: 'Point',
+            description: 'Point',
+          },
+        },
+      },
+      'slice-path': {
+        title: 'Slice path',
+        description:
+          'Operate on ordered points while preserving their reference and the input path.',
+        input: {
+          path: {
+            title: 'Path',
+            description: 'Path',
+          },
+          start: {
+            title: 'Start index',
+            description: 'Zero-based index; the end point is included.',
+          },
+          end: {
+            title: 'End index',
+            description: 'Zero-based index; the end point is included.',
+          },
+        },
+        output: {
+          result: {
+            title: 'Result path',
+            description: 'Result path',
+          },
+        },
+      },
+      'reverse-path': {
+        title: 'Reverse path',
+        description:
+          'Operate on ordered points while preserving their reference and the input path.',
+        input: {
+          path: {
+            title: 'Path',
+            description: 'Path',
+          },
+        },
+        output: {
+          result: {
+            title: 'Result path',
+            description: 'Result path',
+          },
+        },
+      },
+      'join-path': {
+        title: 'Join paths',
+        description:
+          'Operate on ordered points while preserving their reference and the input path.',
+        input: {
+          paths: {
+            title: 'Paths',
+            description: 'Paths',
+          },
+        },
+        output: {
+          result: {
+            title: 'Result path',
+            description: 'Result path',
+          },
+        },
+      },
       position: {
         title: 'Make live position',
         description:
@@ -2289,7 +2493,8 @@ export default {
     event: {
       runStarted: {
         title: 'Run started',
-        description: 'Emit Started exactly once when this Program Run begins.',
+        description:
+          'Emit Started once when this workflow run begins. Connect it to the nodes that should start, such as position sampling and path following.',
       },
     },
     control: {

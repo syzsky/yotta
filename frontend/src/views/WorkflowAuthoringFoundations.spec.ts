@@ -154,7 +154,9 @@ describe('workflow authoring foundations', () => {
     expect(dock).toContain('assets.query(')
     expect(dock).toContain("emit('start-recording'")
     expect(dock).toContain("emit('edit', value)")
-    expect(dock).toContain("scope = ref<ResourceScope>('workflow')")
+    expect(dock).toContain(
+      "scope = ref<ResourceScope>(props.kind === 'path' ? 'library' : 'workflow')",
+    )
     expect(dock).not.toContain('type ResourceMode')
     expect(dock).not.toContain('workflow-resource-mode-')
     expect(dock).toContain(':data-active="scope === candidate.value"')
@@ -204,7 +206,7 @@ describe('workflow authoring foundations', () => {
     const dialog = readSource('src/components/common/ConfirmDialog.vue')
     expect(editor).toContain("alternateValue: 'discard'")
     expect(editor).toContain("t('workflow.editor.discard_and_exit_pending')")
-    expect(editor).toContain('await session.load(session.workflowId)')
+    expect(editor).toContain('session.discardDraft()')
     expect(editor).toContain('await closeRequest.close()')
     expect(dialog).toContain(':loading="pending"')
     expect(editor).toContain(

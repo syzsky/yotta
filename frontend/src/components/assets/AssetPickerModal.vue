@@ -291,7 +291,7 @@ import { workspaceResourceKind } from '@/app/editor/resourceLocator'
 
 const props = defineProps<{
   open: boolean
-  kind: 'template' | 'macro' | 'clip'
+  kind: 'template' | 'macro' | 'clip' | 'path'
   selectedBlob?: BlobRef
   resources?: WorkflowResource[]
 }>()
@@ -305,20 +305,24 @@ const { t } = useI18n()
 const assets = useAssetsStore()
 const pickerTitle = computed(() =>
   t(
-    props.kind === 'template'
-      ? 'assetPicker.template_title'
-      : props.kind === 'macro'
-        ? 'assetPicker.macro_title'
-        : 'assetPicker.clip_title',
+    props.kind === 'path'
+      ? 'paths.choose'
+      : props.kind === 'template'
+        ? 'assetPicker.template_title'
+        : props.kind === 'macro'
+          ? 'assetPicker.macro_title'
+          : 'assetPicker.clip_title',
   ),
 )
 const confirmLabel = computed(() =>
   t(
-    props.kind === 'template'
-      ? 'assetPicker.use_template'
-      : props.kind === 'macro'
-        ? 'assetPicker.use_macro'
-        : 'assetPicker.use_clip',
+    props.kind === 'path'
+      ? 'paths.choose'
+      : props.kind === 'template'
+        ? 'assetPicker.use_template'
+        : props.kind === 'macro'
+          ? 'assetPicker.use_macro'
+          : 'assetPicker.use_clip',
   ),
 )
 const searchInput = ref('')
@@ -539,7 +543,7 @@ function activateAsset(asset: AssetSummary, confirm = false): void {
 }
 
 function selectionForAsset(asset: AssetSummary): PickerCandidate | null {
-  if (asset.kind === 'clip' || asset.kind === 'macro') {
+  if (asset.kind === 'clip' || asset.kind === 'macro' || asset.kind === 'path') {
     return asset.blob
       ? {
           scope: scope.value,
@@ -592,6 +596,7 @@ function assetMeta(asset: AssetSummary): string {
   }
   if (asset.kind === 'macro')
     return t('assets.macros.library_meta', { bytes: asset.blob?.size ?? 0 })
+  if (asset.kind === 'path') return t('paths.content_size', { size: asset.blob?.size ?? 0 })
   return t('assets.clips.library_meta', { bytes: asset.blob?.size ?? 0 })
 }
 

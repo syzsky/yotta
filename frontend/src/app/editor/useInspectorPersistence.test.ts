@@ -70,3 +70,44 @@ it('blocks leaving on invalid input and retries a failed save', async () => {
   await expect(h.persistence.flush()).resolves.toBe(true)
   expect(h.stored()).toBe('edited')
 })
+
+it('allows an exit decision after invalid input or a rejected autosave', async () => {
+  const h = harness()
+  h.input.focus()
+  h.input.value = 'edited'
+  h.save.mockResolvedValue(false)
+  await expect(h.persistence.flush()).resolves.toBe(false)
+  h.input.setAttribute('aria-invalid', 'true')
+  const decide = vi.fn(async (valid: boolean) => {
+    expect(valid).toBe(false)
+    expect(h.value()).toBe('edited')
+    await vi.advanceTimersByTimeAsync(0)
+    return 'discard'
+  })
+  const saves = h.save.mock.calls.length
+  await expect(h.persistence.decideExit(decide)).resolves.toBe('discard')
+  expect(decide).toHaveBeenCalledOnce()
+  expect(h.save).toHaveBeenCalledTimes(saves)
+})
+
+it('waits for a running autosave before allowing discard without saving again', async () => {
+  const h = harness()
+  let finish!: (ok: boolean) => void
+  h.save.mockImplementationOnce(
+    () =>
+      new Promise<boolean>((resolve) => {
+        finish = resolve
+      }),
+  )
+  h.input.focus()
+  h.input.value = 'edited'
+  h.next.focus()
+  await vi.advanceTimersByTimeAsync(0)
+  const decide = vi.fn(async () => 'discard')
+  const exiting = h.persistence.decideExit(decide)
+  await Promise.resolve()
+  expect(decide).not.toHaveBeenCalled()
+  finish(false)
+  await expect(exiting).resolves.toBe('discard')
+  expect(h.save).toHaveBeenCalledOnce()
+})

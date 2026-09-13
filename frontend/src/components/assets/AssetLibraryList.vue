@@ -31,7 +31,8 @@
       :style="compact ? undefined : { gridTemplateColumns: resolvedGridTemplate }"
       tabindex="0"
       @dragstart="emit('dragstart', $event, item)"
-      @dblclick="emit('use', item)"
+      @click="activateOnClick && emit('use', item)"
+      @dblclick="!activateOnClick && emit('use', item)"
       @keydown.enter.prevent="emit('use', item)"
     >
       <template v-if="selectable && (!compact || $slots.select)">
@@ -138,6 +139,7 @@ const props = withDefaults(
     items: AssetLibraryListItem[]
     compact?: boolean
     draggable?: boolean
+    activateOnClick?: boolean
     focusedId?: string
     selectable?: boolean
     visibleColumns?: string[]
@@ -146,6 +148,7 @@ const props = withDefaults(
   {
     compact: false,
     draggable: false,
+    activateOnClick: false,
     focusedId: '',
     selectable: true,
     visibleColumns: () => ['category', 'tags', 'details', 'createdAt'],

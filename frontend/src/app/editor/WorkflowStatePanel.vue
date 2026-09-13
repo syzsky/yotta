@@ -35,6 +35,7 @@
         <p class="text-[11px] leading-5 text-muted">
           {{ t('workflow.inspector.state_hint') }}
         </p>
+        <p class="text-[11px] leading-5 text-muted">{{ t('paths.variable_types_hint') }}</p>
         <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
           <UInput
             v-model="newVariableName"
@@ -42,7 +43,7 @@
             :placeholder="t('workflow.inspector.state_name_placeholder')"
             size="sm"
           />
-          <AdaptiveSelect
+          <TypeSelect
             v-model="newVariableTypeId"
             data-testid="workflow-state-new-type"
             :items="stateTypeItems"
@@ -97,6 +98,11 @@
             <span class="min-w-0 flex-1 truncate font-mono text-xs text-toned">{{
               variable.name
             }}</span>
+            <span
+              class="size-2 shrink-0 rounded-full"
+              :style="{ backgroundColor: typeForVariable(variable)?.color || '#a1a1aa' }"
+              aria-hidden="true"
+            />
             <span class="max-w-28 truncate text-[10px] text-dimmed">{{
               variableTypeLabel(variable)
             }}</span>
@@ -157,7 +163,7 @@
             class="space-y-2 border-t border-default px-3 py-2"
           >
             <div class="flex items-center gap-2">
-              <AdaptiveSelect
+              <TypeSelect
                 v-model="editingTypeId"
                 class="min-w-0 flex-1"
                 width-mode="fill"
@@ -274,7 +280,7 @@ import type {
   StateTypeChangeImpact,
 } from '@/app/editor/EditorSession'
 import { filterStateVariables, STATE_VARIABLE_PAGE_SIZE } from '@/app/editor/stateVariableQuery'
-import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
+import TypeSelect from '@/components/common/TypeSelect.vue'
 import StateDefaultValueEditor from '@/app/editor/StateDefaultValueEditor.vue'
 import {
   buildStateTypeChoices,
@@ -315,6 +321,7 @@ const stateTypeItems = computed(() =>
         ? t(choice.projection.titleKey)
         : choice.id.split('/').at(-2)!,
     value: choice.id,
+    color: choice.projection.color || '#a1a1aa',
   })),
 )
 const selectedStateTypeChoice = computed(() =>

@@ -1,0 +1,141 @@
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"net/http"
+	"os"
+	"reflect"
+	"sync"
+	"time"
+
+	"@@MODULE@@/internal/paneldefinition"
+	"github.com/yottaapp/yotta/sdk/plugin/panel"
+)
+
+type receipt struct {
+	event  panel.Event
+	result panel.Result
+}
+type provider struct {
+	mu       sync.Mutex
+	session  string
+	revision uint64
+	count    float64
+	receipts map[string]receipt
+	order    []string
+}
+
+func newProvider() (*provider, error) {
+	id := make([]byte, 16)
+	if _, err := rand.Read(id); err != nil {
+		return nil, err
+	}
+	return &provider{session: hex.EncodeToString(id), revision: 1, receipts: map[string]receipt{}}, nil
+}
+
+// Call with the mutex held. Each snapshot owns its maps so responses are stable.
+func (p *provider) snapshot() panel.Snapshot {
+	return panel.Snapshot{Protocol: panel.Protocol, SessionID: p.session, Revision: p.revision, Status: "ready",
+		Values: map[string]any{"count": p.count}, ControlRevisions: map[string]uint64{"increment": p.revision}, Records: map[string][]panel.Record{}}
+}
+
+func (p *provider) event(event panel.Event) (panel.Result, int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	result := panel.Result{EventID: event.EventID, Snapshot: p.snapshot()}
+	if err := paneldefinition.Definition().ValidateEvent(event); err != nil {
+		return result, http.StatusBadRequest
+	}
+	if previous, ok := p.receipts[event.EventID]; ok {
+		if !reflect.DeepEqual(previous.event, event) {
+			return result, http.StatusConflict
+		}
+		return previous.result, http.StatusOK
+	}
+	if event.SessionID != p.session || event.Revision != p.revision {
+		return result, http.StatusConflict
+	}
+	p.count++
+	p.revision++
+	result.Snapshot = p.snapshot()
+	p.receipts[event.EventID] = receipt{event: event, result: result}
+	p.order = append(p.order, event.EventID)
+	if len(p.order) > 1024 {
+		delete(p.receipts, p.order[0])
+		p.order = p.order[1:]
+	}
+	return result, http.StatusOK
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
+}
+
+func (p *provider) handler(stop func()) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"protocol": panel.Protocol, "status": "ready"})
+	})
+	mux.HandleFunc("POST /stop", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent); stop() })
+	mux.HandleFunc("GET /v1/panel", func(w http.ResponseWriter, _ *http.Request) {
+		p.mu.Lock()
+		snapshot := p.snapshot()
+		p.mu.Unlock()
+		writeJSON(w, http.StatusOK, snapshot)
+	})
+	mux.HandleFunc("POST /v1/events", func(w http.ResponseWriter, r *http.Request) {
+		var event panel.Event
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 65536)).Decode(&event); err != nil {
+			http.Error(w, "invalid event", http.StatusBadRequest)
+			return
+		}
+		result, status := p.event(event)
+		writeJSON(w, status, result)
+	})
+	return mux
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	port := flag.Int("port", 18760, "loopback panel port")
+	flag.Parse()
+	if *port < 1024 || *port > 65535 {
+		return fmt.Errorf("invalid port")
+	}
+	p, err := newProvider()
+	if err != nil {
+		return err
+	}
+	stopped := make(chan struct{})
+	var once sync.Once
+	server := &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", *port), Handler: p.handler(func() { once.Do(func() { close(stopped) }) }), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second}
+	shutdown := make(chan struct{})
+	go func() {
+		<-stopped
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+		close(shutdown)
+	}()
+	err = server.ListenAndServe()
+	once.Do(func() { close(stopped) })
+	<-shutdown
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}

@@ -255,6 +255,8 @@ type UISettings struct {
 	RecordingPauseHotkey string `json:"recordingPauseHotkey"`
 	// RecordingCancelHotkey 丢弃当前录制的热键 (LL hook 拦截, 不透传游戏也不进 clip). 默认 "F7".
 	RecordingCancelHotkey string `json:"recordingCancelHotkey"`
+	// PathMarkHotkey is the persistent shortcut managed by the hotkey center.
+	PathMarkHotkey string `json:"pathMarkHotkey"`
 	// RecordingMouseMode 录制时鼠标语义. "relative" (FPS 相机 RawDelta, 默认) / "absolute" (UI 点击 MouseMove screen px).
 	// 决定 recorder drainLoop 是否窗口过滤. 改动需重启生效.
 	RecordingMouseMode string `json:"recordingMouseMode"`
@@ -374,6 +376,7 @@ func defaultSettings() *Settings {
 			RecordingStartHotkey:        "F10",
 			RecordingPauseHotkey:        "F11",
 			RecordingCancelHotkey:       "F7",
+			PathMarkHotkey:              "F6",
 			RecordingMouseMode:          "relative",
 			LauncherSize:                "medium",
 			LauncherSlotHotkeyModifiers: "Ctrl+Shift",

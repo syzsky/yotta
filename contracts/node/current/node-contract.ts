@@ -1,1 +1,1 @@
-export * from '../v3/node-contract'
+export * from '../v4/node-contract'

@@ -1,3 +1,4 @@
+import { resourceNodeActions } from './resourceNodeActions'
 import { ref, type Ref } from 'vue'
 import type { AssetPickerSelection, useAssetsStore } from '@/stores/assets'
 import type { WorkflowResource } from '../../../../contracts/workflow/current/workflow-source'
@@ -147,14 +148,23 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
   function useWorkspaceResource(
     selection: AssetPickerSelection,
     dropPosition?: { x: number; y: number },
+    actionId?: string,
   ): void {
     const portId =
-      selection.kind === 'macro' ? 'macro' : selection.kind === 'clip' ? 'clip' : 'template'
+      selection.kind === 'path'
+        ? 'asset'
+        : selection.kind === 'macro'
+          ? 'macro'
+          : selection.kind === 'clip'
+            ? 'clip'
+            : 'template'
     const current = options.selectedNode.value
     const projection = current
       ? options.session.nodeProjection(current.nodeRef.nodeTypeId)
       : undefined
     if (
+      !dropPosition &&
+      !actionId &&
       current &&
       projection?.dataInputs.some(
         (port) =>
@@ -172,22 +182,23 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
       return
     }
 
-    const nodeTypeId =
-      selection.kind === 'macro'
-        ? 'https://schemas.yotta.dev/nodes/automation/play-macro'
-        : selection.kind === 'clip'
-          ? 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
-          : 'https://schemas.yotta.dev/nodes/automation/click-template'
+    const action =
+      resourceNodeActions(selection.kind).find((candidate) => candidate.nodeTypeId === actionId) ??
+      resourceNodeActions(selection.kind)[0]!
+    const nodeTypeId = action.nodeTypeId
     try {
       const ids = options.session.insertLinearDraft(
         [
           {
             nodeTypeID: nodeTypeId,
-            config: targetSlot() ? { slot: targetSlot() } : {},
+            config:
+              targetSlot() && nodeTypeId !== 'https://schemas.yotta.dev/nodes/navigation/read-path'
+                ? { slot: targetSlot() }
+                : {},
             values: {},
             blobs: { [portId]: { ...selection.blob } },
             execInput: 'in',
-            execOutput: 'completed',
+            execOutput: action.execOutput,
           },
         ],
         insertionPosition(dropPosition),
@@ -199,8 +210,8 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
     }
   }
 
-  function useResource(resource: WorkflowResource, variantId: string): void {
-    placeResource(resource, variantId, false)
+  function useResource(resource: WorkflowResource, variantId: string, actionId?: string): void {
+    placeResource(resource, variantId, false, undefined, actionId)
   }
 
   function locateBoundResource(location: ResourceLocation): void {
@@ -208,7 +219,11 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
     locateRequest.value = { ...location, requestId: ++locateSequence }
   }
 
-  function importResource(resource: WorkflowResource, position?: { x: number; y: number }): void {
+  function importResource(
+    resource: WorkflowResource,
+    position?: { x: number; y: number },
+    actionId?: string,
+  ): void {
     const source = options.session.source
     if (!source) return
     const baseID = resource.id
@@ -217,7 +232,7 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
     while (source.resources.some((candidate) => candidate.id === id)) id = `${baseID}-${suffix++}`
     const snapshot = { ...copy(resource), id }
     const variantId = snapshot.kind === 'image' ? (snapshot.image?.variants[0]?.id ?? '') : ''
-    placeResource(snapshot, variantId, true, position)
+    placeResource(snapshot, variantId, true, position, actionId)
   }
 
   function placeResource(
@@ -225,6 +240,7 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
     variantId: string,
     addResource: boolean,
     requestedPosition?: { x: number; y: number },
+    actionId?: string,
   ): void {
     const portId =
       resource.kind === 'macro' ? 'macro' : resource.kind === 'input-clip' ? 'clip' : 'template'
@@ -233,7 +249,12 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
     const projection = current
       ? options.session.nodeProjection(current.nodeRef.nodeTypeId)
       : undefined
-    if (current && projection?.dataInputs.some((port) => port.id === portId)) {
+    if (
+      !requestedPosition &&
+      !actionId &&
+      current &&
+      projection?.dataInputs.some((port) => port.id === portId)
+    ) {
       try {
         if (addResource) {
           options.session.applyBatch([
@@ -254,12 +275,10 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
         return
       }
     }
-    const nodeTypeId =
-      resource.kind === 'macro'
-        ? 'https://schemas.yotta.dev/nodes/automation/play-macro'
-        : resource.kind === 'input-clip'
-          ? 'https://schemas.yotta.dev/nodes/automation/play-input-clip'
-          : 'https://schemas.yotta.dev/nodes/automation/click-template'
+    const action =
+      resourceNodeActions(resource.kind).find((candidate) => candidate.nodeTypeId === actionId) ??
+      resourceNodeActions(resource.kind)[0]!
+    const nodeTypeId = action.nodeTypeId
     try {
       const ids = options.session.insertLinearDraft(
         [
@@ -270,7 +289,7 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
             blobs: {},
             resources: { [portId]: binding },
             execInput: 'in',
-            execOutput: 'completed',
+            execOutput: action.execOutput,
           },
         ],
         insertionPosition(requestedPosition),
@@ -353,6 +372,13 @@ export function useWorkflowResourceAuthoring(options: WorkflowResourceAuthoringO
     removeVariant,
     useWorkspaceResource,
     useResource,
+    dropResource: (resource: WorkflowResource, position: { x: number; y: number }) =>
+      placeResource(
+        resource,
+        resource.kind === 'image' ? (resource.image?.variants[0]?.id ?? '') : '',
+        false,
+        position,
+      ),
     locateBoundResource,
     importResource,
     updateResources,

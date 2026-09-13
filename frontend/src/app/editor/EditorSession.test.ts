@@ -1,3 +1,4 @@
+import { connectPositionSource, POSITION_STRING_TYPE } from './positionSourceAuthoring'
 import { describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { useWorkflowConnectionAuthoring } from './useWorkflowConnectionAuthoring'
@@ -50,6 +51,102 @@ const playInputClip = node('https://schemas.yotta.dev/nodes/automation/play-inpu
 const aiExtract = node('https://schemas.yotta.dev/nodes/ai/extract')
 
 describe('EditorSession', () => {
+  it('discards a failed draft locally even when reloading the workflow is unavailable', async () => {
+    const source = emptySource()
+    const transport = mockTransport(sourceView(source), runView('QUEUED'))
+    const session = new EditorSession(transport)
+    await session.load(source.workflow.id)
+    session.apply({ kind: 'rename-workflow', name: 'unsaved' })
+    transport.applyPatch = vi.fn(async () => {
+      throw new Error('save unavailable')
+    })
+    await expect(session.save()).rejects.toThrow()
+    transport.getSource = vi.fn(async () => {
+      throw new Error('reload unavailable')
+    })
+    session.discardDraft()
+    expect(session.source?.workflow.name).toBe(source.workflow.name)
+    expect(session.dirty).toBe(false)
+    expect(session.canUndo).toBe(false)
+    expect(session.saveError).toBe('')
+    expect(transport.getSource).not.toHaveBeenCalled()
+  })
+
+  it('connects position sampling as one undoable edit and stops sampling on movement outcomes', async () => {
+    const source = emptySource()
+    const session = createEditorSession(mockTransport(sourceView(source), runView('QUEUED')))
+    await session.load(source.workflow.id)
+    session.apply({
+      kind: 'add-node',
+      nodeTypeId: 'https://schemas.yotta.dev/nodes/navigation/follow-saved-path',
+      nodeId: 'follower',
+      position: { x: 50, y: 100 },
+    })
+    session.apply({ kind: 'set-config', nodeId: 'follower', fieldId: 'slot', value: 'desktop' })
+    session.apply({
+      kind: 'bind-blob',
+      nodeId: 'follower',
+      portId: 'asset',
+      blob: {
+        digest: 'sha256:' + 'a'.repeat(64),
+        size: 708,
+        mediaType: 'application/vnd.yotta.path+json',
+      },
+    })
+    const before = structuredClone(session.source)
+    const name = connectPositionSource(session, 'follower', 'position-network')
+    expect(connectPositionSource(session, 'follower', 'position-network')).toBe(name)
+    expect(session.source?.variables).toHaveLength(2)
+    expect(
+      session.source?.variables.find((variable) => variable.name === name)?.type,
+    ).toMatchObject({ kind: 'ref', ref: { typeId: POSITION_STRING_TYPE } })
+    const nodes = session.currentGraph!.nodes
+    const getter = nodes.find((node) => node.nodeRef.nodeTypeId.endsWith('/network/http-get'))!
+    const timer = nodes.find((node) => node.nodeRef.nodeTypeId.endsWith('/control/periodic'))!
+    const writer = nodes.find((node) => node.nodeRef.nodeTypeId.endsWith('/state/write'))!
+    expect(getter.config.slot).toBe('position-network')
+    expect(getter.bindings.path).toEqual({ kind: 'value', value: '/v1/position-source/sample' })
+    expect(timer.bindings['interval-milliseconds']).toEqual({ kind: 'value', value: 100 })
+    expect(writer.config.variable).toBe(name)
+    expect(nodes.find((node) => node.id === 'follower')?.config['position-variable']).toBe(name)
+    const stopWriter = nodes.find(
+      (node) =>
+        node.config.variable === `${name}.active` &&
+        node.nodeRef.nodeTypeId.endsWith('/state/write'),
+    )!
+    expect(stopWriter.bindings.value).toEqual({ kind: 'value', value: false })
+    expect(
+      session
+        .currentGraph!.edges.filter(
+          (edge) => edge.from.nodeId === 'follower' && edge.to.nodeId === stopWriter.id,
+        )
+        .map((edge) => edge.from.portId)
+        .sort(),
+    ).toEqual([
+      'arrived',
+      'height-mismatch',
+      'reference-mismatch',
+      'stuck',
+      'timeout',
+      'unavailable',
+    ])
+    expect(session.currentGraph?.edges).toContainEqual({
+      channel: 'exec',
+      from: { nodeId: 'follower', portId: 'arrived' },
+      to: { nodeId: stopWriter.id, portId: 'in' },
+    })
+    expect(session.currentGraph?.edges).toContainEqual({
+      channel: 'data',
+      from: { nodeId: getter.id, portId: 'body' },
+      to: { nodeId: writer.id, portId: 'value' },
+    })
+    session.undo()
+    expect(session.source?.variables).toEqual(before?.variables)
+    expect(session.currentGraph?.nodes).toEqual(before?.graphs[0]?.nodes)
+    session.redo()
+    expect(session.source?.variables).toHaveLength(2)
+  })
+
   it('identifies packaged nodes from the installed package catalog, not their category', async () => {
     const source = emptySource()
     const transport = mockTransport(sourceView(source), runView('QUEUED'))
@@ -2650,7 +2747,10 @@ function mockTransport(saved: SourceView, run: RunView): WorkflowTransport {
     chooseRunTimelineDestination: vi.fn(async () => ''),
     exportRunTimeline: vi.fn(async () => ({ path: '', entries: run.timelineTotal })),
     getAuthoringProjection: vi.fn(async () => JSON.stringify(authoring)),
-    searchRegistry: vi.fn(async () => ({ items: [], facets: { categories: [], tags: [] } })),
+    searchRegistry: vi.fn(async () => ({
+      items: [],
+      facets: { categories: [], tags: [], systemFacets: [] },
+    })),
     publishSourceToRegistry: vi.fn(async () => ({}) as never),
     installRegistryWorkflow: vi.fn(async () => saved),
   }

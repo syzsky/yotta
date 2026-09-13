@@ -42,7 +42,21 @@ export function buildStateTypeChoices(types: readonly TypeProjection[]): StateTy
       titleKey: 'workflow.state_panel.key_chord_type',
     })
   }
-  return choices
+  const common = [
+    'core/string',
+    'core/boolean',
+    'core/number',
+    'core/integer',
+    'core/json',
+    'navigation/path',
+    'automation/world-position',
+    'automation/key-code',
+  ]
+  const rank = (choice: StateTypeChoice) => {
+    const index = common.findIndex((id) => choice.id === `https://schemas.yotta.dev/types/${id}/v1`)
+    return index < 0 ? common.length : index
+  }
+  return choices.sort((a, b) => rank(a) - rank(b))
 }
 
 export function defaultStateValue(type: TypeProjection): unknown {

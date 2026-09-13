@@ -1,0 +1,37 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+
+	"@@MODULE@@/internal/paneldefinition"
+	"github.com/yottaapp/yotta/sdk/plugin/packaging"
+	"github.com/yottaapp/yotta/sdk/plugin/panel"
+)
+
+func addPanel(build *packaging.Build, config metadata, arch string) error {
+	if !config.Panel {
+		return nil
+	}
+	if config.PanelPort < 1024 || config.PanelPort > 65535 {
+		return fmt.Errorf("invalid panel port")
+	}
+	payload, err := os.ReadFile(filepath.Join("bin", "windows-"+arch, "companion.exe"))
+	if err != nil {
+		return err
+	}
+	build.Files["bin/companion.exe"] = payload
+	build.Descriptor.Companions = []packaging.Companion{{ID: "counter", Name: config.Name + " panel provider",
+		Executable: "bin/companion.exe", Arguments: []string{"-port", strconv.Itoa(config.PanelPort)},
+		ApplicationSlot: config.Slug + "-provider", NetworkSlot: config.Slug + "-data",
+		Origin: fmt.Sprintf("http://127.0.0.1:%d", config.PanelPort), HealthPath: "/health", StopPath: "/stop", Protocol: panel.Protocol}}
+	build.Descriptor.Panels = []panel.Contribution{{Definition: paneldefinition.Definition(), CompanionID: "counter", SnapshotPath: "/v1/panel", EventPath: "/v1/events"}}
+	for locale, messages := range paneldefinition.Messages() {
+		for key, text := range messages {
+			build.Descriptor.Messages[locale][key] = text
+		}
+	}
+	return nil
+}

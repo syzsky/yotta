@@ -62,6 +62,15 @@ type TaskInstruction struct {
 
 type InvokeInstruction struct {
 	Subscription *SubscriptionInstruction `json:"subscription,omitempty"`
+	Branches     []BranchInstruction      `json:"branches,omitempty"`
+}
+
+// BranchInstruction declares scheduler-owned serial child executions of an
+// effect. Coalescing returns the active handle without replacing its snapshot;
+// otherwise requests queue in order within the executor's fixed budget.
+type BranchInstruction struct {
+	Output   string `json:"output"`
+	Coalesce bool   `json:"coalesce,omitempty"`
 }
 
 // SubscriptionInstruction declares scheduler-owned serial event handling.
@@ -172,6 +181,18 @@ func normalizeInstruction(source InstructionSpec, execution ExecutionSpec, ports
 		return InstructionSpec{}, errors.New("node instruction kind does not match its payload")
 	}
 	if source.Kind == InstructionInvoke {
+		if len(source.Invoke.Branches) > 0 {
+			if source.Invoke.Subscription != nil || execution.Class != ExecutionEffect || execution.Evaluation != EvaluationPush {
+				return InstructionSpec{}, errors.New("invocation branches require a push effect without a subscription")
+			}
+			seen := map[string]bool{}
+			for _, branch := range source.Invoke.Branches {
+				if !hasExecOutput(ports, branch.Output) || seen[branch.Output] {
+					return InstructionSpec{}, errors.New("invocation branch references an invalid or duplicate exec output")
+				}
+				seen[branch.Output] = true
+			}
+		}
 		if v := source.Invoke.Subscription; v != nil {
 			if execution.Class != ExecutionEffect || !hasExecInput(ports, v.StopInput) || !hasExecOutput(ports, v.EventOutput) || !hasExecOutput(ports, v.MainOutput) || !hasExecOutput(ports, v.CompletedOutput) {
 				return InstructionSpec{}, errors.New("subscription instruction references invalid ports")

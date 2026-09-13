@@ -1,0 +1,32 @@
+# @@SLUG@@
+
+Independent Go Process plugin for Yotta. Edit `plugin.json` for package metadata and `cmd/node/main.go` for the invocation. The starter exposes an `in` → `done` node; replace its behavior and declare matching inputs/outputs in `cmd/package/main.go`.
+
+`project.go` embeds plugin.json so guest and packager share the exact effect identity. Every declared effect requires one `guest.Record` with its actual outcome before the final result. The no-op starter records success; replace that with honest success/failure/cancellation evidence when adding real behavior. Returning success without the required action record fails the host journal contract.
+
+## Build and package
+
+Pin the SDK version in go.mod. For a locally exported SDK, set GOPROXY to the printed file:/// proxy followed by your normal proxy, and add github.com/yottaapp/yotta to GONOSUMDB. These settings apply only to the current shell.
+
+```powershell
+go mod tidy
+./build.ps1 -Action Check
+./build.ps1 -Action Keygen -PublisherKey E:/private/plugin-keys/@@SLUG@@.key
+./build.ps1 -Action Pack -PublisherKey E:/private/plugin-keys/@@SLUG@@.key
+```
+
+Keygen creates a new key and refuses to overwrite one. Retain the same key for updates. Pack checks tests, compiles Windows amd64/arm64 payloads, signs packages, and writes `dist/<slug>-<version>-windows-<arch>.ynp`. `-Architectures amd64` builds only amd64. Run `Build` to compile without a key, or `Check` to run tests alone. The script resolves paths from this project and restores build environment variables.
+
+Windows payloads use `-ldflags=-H windowsgui`, matching the host's no-console LPAC launch. Protocol input/output still uses inherited standard handles. Keep this flag when replacing the build wrapper.
+
+Import the matching `.ynp` in Yotta Settings → Plugins, restart, then connect Run Started → this node and run. Updating the package version does not automatically change the node contract version. Preserve node IDs; version a contract when its semantics change. Upload all same-version platform files through Hub's plugin publication form after local verification.
+
+## Optional panel
+
+With the panel option, `internal/paneldefinition` declares a counter and an increment button. `cmd/companion` serves health, snapshot, event and stop routes over loopback. The descriptor connects these routes to the panel. A node does not register a panel; installation discovers the descriptor.
+
+`plugin.json.panelPort` chooses the local port. Choose a free port distinct from other installed companions before packaging. The sample stores values in memory, resets on restart, retains the latest 1024 event results for idempotent replay, and rejects old session/control revisions. Adapt storage and retention to your actual product. Closing the panel does not stop its provider.
+
+## References
+
+Public SDK packages: `sdk/plugin/go`, `authoring`, `packaging`, `panel` in the pinned Yotta module. Its `sdk/plugin/authoring/README.md` and `sdk/plugin/panel/README.md` describe the protocols. The public Yotta documentation repository owns the Chinese developer guide at `content/zh/plugins/`.

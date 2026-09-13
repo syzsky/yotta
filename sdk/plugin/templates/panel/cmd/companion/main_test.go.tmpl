@@ -1,0 +1,139 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"sync"
+	"testing"
+
+	"@@MODULE@@/internal/paneldefinition"
+	"github.com/yottaapp/yotta/sdk/plugin/panel"
+)
+
+func TestProviderProtocol(t *testing.T) {
+	p, err := newProvider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	definition := paneldefinition.Definition()
+	if err := definition.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(p.handler(func() {}))
+	defer server.Close()
+	health, err := http.Get(server.URL + "/health")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var healthBody struct {
+		Protocol string `json:"protocol"`
+		Status   string `json:"status"`
+	}
+	err = json.NewDecoder(health.Body).Decode(&healthBody)
+	health.Body.Close()
+	if err != nil || health.StatusCode != 200 || healthBody.Protocol != panel.Protocol || healthBody.Status != "ready" {
+		t.Fatalf("companion health: %+v status=%d err=%v", healthBody, health.StatusCode, err)
+	}
+	response, err := http.Get(server.URL + "/v1/panel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var snapshot panel.Snapshot
+	err = json.NewDecoder(response.Body).Decode(&snapshot)
+	response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := definition.ValidateSnapshot(snapshot); err != nil {
+		t.Fatal(err)
+	}
+	post := func(event panel.Event) (panel.Result, int) {
+		t.Helper()
+		data, _ := json.Marshal(event)
+		response, err := http.Post(server.URL+"/v1/events", "application/json", bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		var result panel.Result
+		if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+			t.Fatal(err)
+		}
+		return result, response.StatusCode
+	}
+	event := panel.Event{SessionID: snapshot.SessionID, EventID: "click-1", ComponentID: "increment", Name: "increment", Revision: 1}
+	result, status := post(event)
+	if status != 200 || result.EventID != event.EventID || result.Snapshot.Values["count"] != float64(1) {
+		t.Fatalf("increment: %+v %d", result, status)
+	}
+	if err := definition.ValidateSnapshot(result.Snapshot); err != nil {
+		t.Fatal(err)
+	}
+	result, status = post(event)
+	if status != 200 || result.Snapshot.Revision != 2 || result.Snapshot.Values["count"] != float64(1) {
+		t.Fatal("replay incremented twice")
+	}
+	event.Revision = 2
+	if _, status = post(event); status != 409 {
+		t.Fatal("same ID with different request accepted")
+	}
+	event.EventID = "click-2"
+	event.Revision = 1
+	if _, status = post(event); status != 409 {
+		t.Fatal("stale control accepted")
+	}
+	event.Revision = 2
+	event.SessionID = "old-session"
+	if _, status = post(event); status != 409 {
+		t.Fatal("old session accepted")
+	}
+	event.SessionID = snapshot.SessionID
+	event.Value = true
+	if _, status = post(event); status != 400 {
+		t.Fatal("button with value accepted")
+	}
+	another, err := newProvider()
+	if err != nil || another.session == p.session {
+		t.Fatal("provider lifetime reused session")
+	}
+}
+
+func TestConcurrentReplayAndReceiptEviction(t *testing.T) {
+	p, err := newProvider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := panel.Event{SessionID: p.session, EventID: "same", ComponentID: "increment", Name: "increment", Revision: 1}
+	var workers sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			if _, status := p.event(event); status != 200 {
+				t.Errorf("replay status=%d", status)
+			}
+		}()
+	}
+	workers.Wait()
+	if p.count != 1 {
+		t.Fatalf("duplicate count=%v", p.count)
+	}
+	for i := 0; i < 1024; i++ {
+		event.EventID = string(rune('a' + i))
+		event.Revision = p.revision
+		// IDs are opaque strings; this loop only exercises bounded receipt retention.
+		if _, status := p.event(event); status != 200 {
+			t.Fatalf("event status=%d", status)
+		}
+	}
+	if len(p.receipts) != 1024 {
+		t.Fatalf("receipt retention=%d", len(p.receipts))
+	}
+	event.EventID = "same"
+	event.Revision = 1
+	if _, status := p.event(event); status != 409 {
+		t.Fatal("evicted stale request applied again")
+	}
+}

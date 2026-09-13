@@ -20,15 +20,21 @@ const operationWorkers = maxExecutionScopes
 var errInputsPending = errors.New("input producer is pending")
 
 type pendingOperation struct {
-	activation waitingActivation
-	ctx        context.Context
-	cancel     context.CancelFunc
-	run        nodeadapter.Adapter
-	invocation nodeadapter.Invocation
-	done       chan struct{}
-	outcome    nodeadapter.AdapterResult
-	err        error
-	parked     atomic.Bool
+	branchRequests  chan *branchCall
+	branches        map[string]*branchLane
+	branchBytes     int
+	branchCount     int
+	branchFailure   error
+	closingBranches bool
+	activation      waitingActivation
+	ctx             context.Context
+	cancel          context.CancelFunc
+	run             nodeadapter.Adapter
+	invocation      nodeadapter.Invocation
+	done            chan struct{}
+	outcome         nodeadapter.AdapterResult
+	err             error
+	parked          atomic.Bool
 }
 
 type operationPool struct {
@@ -95,6 +101,19 @@ func (s *scheduler) startOperation(ctx context.Context, activation waitingActiva
 	op.invocation.Await = func(ctx context.Context, ready <-chan struct{}, duration time.Duration) error {
 		return s.awaitEvent(ctx, op, ready, duration)
 	}
+	if v := activation.node.Instruction.Invoke; v != nil && len(v.Branches) > 0 {
+		op.branchRequests = make(chan *branchCall, 1)
+		op.branches = make(map[string]*branchLane, len(v.Branches))
+		connected := make(map[string]bool, len(v.Branches))
+		for _, spec := range v.Branches {
+			op.branches[spec.Output] = &branchLane{coalesce: spec.Coalesce}
+			connected[spec.Output] = len(s.instructionRoutes(activation.node.ID, spec.Output, nil)) > 0
+		}
+		op.invocation.HasBranch = func(output string) bool { return connected[output] }
+		op.invocation.Branch = func(ctx context.Context, request nodeadapter.BranchRequest) (nodeadapter.BranchHandle, error) {
+			return s.requestBranch(ctx, op, request)
+		}
+	}
 	s.operation = op
 	// At most one operation belongs to each of the bounded live scopes.
 	s.group.operations.submit(op)
@@ -103,9 +122,17 @@ func (s *scheduler) startOperation(ctx context.Context, activation waitingActiva
 
 func (s *scheduler) finishOperation(ctx context.Context) error {
 	op := s.operation
-	s.operation = nil
 	defer op.cancel()
-	return s.completeInvocation(ctx, op.activation, op.outcome, op.err)
+	err := s.closeBranches(ctx, op)
+	s.operation = nil
+	runErr := op.err
+	if runErr == nil {
+		// Do not silently succeed after an unobserved side-branch failure. If
+		// the adapter returns an error it owns translation (e.g. NodeFailure
+		// params); rejoining the original child cause would invalidate routing.
+		runErr = op.branchFailure
+	}
+	return s.completeInvocation(ctx, op.activation, op.outcome, errors.Join(runErr, err))
 }
 
 func (s *scheduler) closeOperation(ctx context.Context) error {

@@ -13,7 +13,8 @@ describe('WorkflowsView entry points', () => {
   it('publishes a local workflow through the user-facing market form', () => {
     expect(source).toContain('data-testid="workflow-publish-submit"')
     expect(source).toContain('workflowTransport.publishSourceToRegistry({')
-    expect(source).toContain("await router.push('/market')")
+    expect(source).not.toContain("await router.push('/market')")
+    expect(source).toContain('result.publicationStatus')
     expect(source).not.toContain('libraryMode')
     expect(source).toContain('publishFailure.value = errorMessage(error)')
   })

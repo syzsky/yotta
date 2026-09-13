@@ -1,10 +1,21 @@
 # Independent Go plugin authoring
 
+Create an independent project with `python scripts/create-plugin.py --help` from
+the Yotta checkout. The generator uses `sdk/plugin/templates`, accepts an explicit
+SDK version and publisher namespace, and optionally adds a tested companion/panel
+with `--with-panel`. Generated projects contain README/AGENTS plus `build.ps1`
+for Check, Build, Keygen and Pack. It never overwrites an existing project.
+
+The Chinese developer guide is maintained in the public `yottaapp/docs` repository
+under `content/zh/plugins/` (overview, quickstart, panels, packaging).
+
 Plugin repositories import the public packages in the pinned Yotta module:
 
 - `sdk/plugin/go`: Process guest protocol, host targets and canonical payloads.
 - `sdk/plugin/authoring`: canonical node contracts and the exact built-in scalar types.
 - `sdk/plugin/packaging`: signed, complete `.ynp` archives and desktop metadata.
+- `sdk/plugin/positionsource`: shared position/heading capability observations;
+  see [the position source contract](../positionsource/README.md).
 
 The SDK uses the host's implementation internally. An external plugin imports
 only these public packages, never `internal/` or a sibling checkout. Build the
@@ -38,6 +49,8 @@ process's loaded generation. Running workflows retain their package identity
 and prevent lifecycle changes until they finish. Workflows survive uninstall.
 
 ## Periodic work and live position
+
+For durable ordered geometry, see [path values and nodes](paths.md).
 
 Node contracts use format v3. The host schedules process/Wasm invocations as
 bounded asynchronous operations; one plugin invocation must finish or acknowledge

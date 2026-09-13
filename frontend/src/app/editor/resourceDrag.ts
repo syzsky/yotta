@@ -1,3 +1,4 @@
+export const LOCAL_RESOURCE_DRAG_FORMAT = 'application/x-yotta-local-resource'
 export const RESOURCE_DRAG_FORMAT = 'application/x-yotta-workflow-resource'
 
 export function serializeWorkspaceResource(guid: string): string {

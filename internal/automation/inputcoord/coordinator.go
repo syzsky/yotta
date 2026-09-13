@@ -20,6 +20,9 @@ type Held interface {
 }
 
 type Owner struct {
+	// family is immutable after construction. Only arbitration is shared;
+	// lifecycle state below always belongs to this owner.
+	family  *Owner
 	mu      sync.Mutex
 	held    map[Held]struct{}
 	paused  int
@@ -30,6 +33,31 @@ type Owner struct {
 }
 
 func NewOwner() *Owner { return &Owner{changed: make(chan struct{})} }
+
+// NewCooperatingOwner lets a child acquire input while its parent retains held
+// input. Freeze, waiting notifications and held Pause/Resume remain independent.
+// A nil parent creates an ordinary independent owner.
+func NewCooperatingOwner(parent *Owner) *Owner {
+	owner := NewOwner()
+	if parent != nil {
+		owner.family = parent.arbitrationOwner()
+	}
+	return owner
+}
+
+func (o *Owner) arbitrationOwner() *Owner {
+	if o.family != nil {
+		return o.family
+	}
+	return o
+}
+
+// IsCooperative identifies a scope explicitly created for input alongside a
+// still-running parent. Pointer/camera adapters can reject incompatible input.
+func IsCooperative(ctx context.Context) bool {
+	owner, _ := ctx.Value(ownerKey{}).(*Owner)
+	return owner != nil && owner.family != nil
+}
 
 // SetWake is configured once before the scope starts any input operation.
 func (o *Owner) SetWake(wake chan<- struct{}) { o.wake = wake }
@@ -145,7 +173,7 @@ type Lease struct {
 	once        sync.Once
 }
 
-// Acquire is reentrant for one execution scope. Other scopes queue FIFO; a
+// Acquire is reentrant for one arbitration family. Other families queue FIFO; a
 // cancelled waiter cannot retain the physical input domain or block its queue.
 func (c *Coordinator) Acquire(ctx context.Context, key string, owner *Owner) (*Lease, error) {
 	if err := ctx.Err(); err != nil {
@@ -212,20 +240,21 @@ func (c *Coordinator) acquire(ctx context.Context, key string, owner *Owner) (*L
 		c.domains[key] = d
 	}
 	lease := &Lease{coordinator: c, key: key, domain: d}
-	if d.owner == nil || d.owner == owner {
-		d.owner = owner
+	family := owner.arbitrationOwner()
+	if d.owner == nil || d.owner == family {
+		d.owner = family
 		d.count++
 		c.mu.Unlock()
 		return lease, nil
 	}
-	// A scope already holding another domain must not wait in a cycle.
+	// A family already holding another domain must not wait in a cycle.
 	for _, held := range c.domains {
-		if held.owner == owner {
+		if held.owner == family {
 			c.mu.Unlock()
 			return nil, errors.New("conflicting input domains are already held")
 		}
 	}
-	w := &waiter{owner: owner, ready: make(chan struct{})}
+	w := &waiter{owner: family, ready: make(chan struct{})}
 	d.queue = append(d.queue, w)
 	c.mu.Unlock()
 	select {
@@ -270,6 +299,21 @@ func (c *Coordinator) releaseLocked(key string, d *domain) {
 		d.count = 1
 		w.granted = true
 		close(w.ready)
+		// Family members already queued must join the handoff too. Otherwise a
+		// newly granted parent can wait forever for its queued child while
+		// retaining the domain. Preserve FIFO order among the remaining families.
+		pending := d.queue[:0]
+		for _, cooperating := range d.queue {
+			if cooperating.owner == d.owner {
+				d.count++
+				cooperating.granted = true
+				close(cooperating.ready)
+			} else {
+				pending = append(pending, cooperating)
+			}
+		}
+		clear(d.queue[len(pending):])
+		d.queue = pending
 	} else {
 		delete(c.domains, key)
 	}

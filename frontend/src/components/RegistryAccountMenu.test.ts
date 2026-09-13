@@ -6,7 +6,8 @@ import RegistryAccountMenu from './RegistryAccountMenu.vue'
 describe('account menu presentation', () => {
   it('shows nickname and a plain account center without IDs or manual refresh', async () => {
     const host = document.createElement('div'),
-      center = vi.fn()
+      center = vi.fn(),
+      submissions = vi.fn()
     const app = createApp({
       render: () =>
         h(RegistryAccountMenu, {
@@ -21,6 +22,7 @@ describe('account menu presentation', () => {
           syncing: false,
           failure: '',
           onCenter: center,
+          onSubmissions: submissions,
         }),
     })
     app.component('UButton', {
@@ -38,6 +40,11 @@ describe('account menu presentation', () => {
     entry?.click()
     await nextTick()
     expect(center).toHaveBeenCalledTimes(1)
+    const submissionEntry = host.querySelector<HTMLButtonElement>('[data-testid="my-submissions"]')
+    expect(submissionEntry?.textContent).toBe('我的投稿')
+    submissionEntry?.click()
+    await nextTick()
+    expect(submissions).toHaveBeenCalledTimes(1)
     app.unmount()
   })
 })

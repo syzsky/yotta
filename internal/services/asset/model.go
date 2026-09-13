@@ -11,6 +11,7 @@ const (
 	KindTemplate = "template"
 	KindClip     = "clip"
 	KindMacro    = "macro"
+	KindPath     = "path"
 )
 
 // RecordSchemaVersion is an exact persisted contract. Other versions are

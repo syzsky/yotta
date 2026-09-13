@@ -31,10 +31,23 @@ type BundleFacts struct {
 	BlobBytes          int64 `json:"blobBytes"`
 }
 type Facets struct {
-	Categories []string `json:"categories"`
-	Tags       []string `json:"tags"`
+	ProfileRevision uint64             `json:"profileRevision,omitempty"`
+	CountUnit       string             `json:"countUnit,omitempty"`
+	CategoryCounts  []SystemFacetValue `json:"categoryCounts,omitempty"`
+	TagCounts       []SystemFacetValue `json:"tagCounts,omitempty"`
+	Dimensions      []DimensionFacet   `json:"dimensions,omitempty"`
+	Categories      []string           `json:"categories"`
+	Tags            []string           `json:"tags"`
+	SystemFacets    []SystemFacet      `json:"systemFacets"`
+	ProfileKind     string             `json:"profileKind,omitempty"`
 }
+type DimensionFacet struct {
+	ID     string             `json:"id"`
+	Values []SystemFacetValue `json:"values"`
+}
+
 type SearchOptions struct {
+	SystemFacets       []string `json:"systemFacets,omitempty"`
 	Kinds              []string `json:"kinds,omitempty"`
 	FilterValues       []string `json:"filterValues,omitempty"`
 	Selection          string   `json:"selection,omitempty"`
@@ -55,6 +68,9 @@ func (client *Client) SearchCatalog(ctx context.Context, options SearchOptions) 
 	}
 	for _, id := range options.FilterValues {
 		query.Add("filterValue", id)
+	}
+	for _, selection := range options.SystemFacets {
+		query.Add("systemFacet", selection)
 	}
 	if options.IncludeDescendants {
 		query.Set("includeDescendants", "true")

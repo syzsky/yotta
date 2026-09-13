@@ -8,7 +8,7 @@ import (
 	"github.com/yottaapp/yotta/internal/workflow/schema"
 )
 
-const compilerImplementationVersion = "v3"
+const compilerImplementationVersion = "v4"
 
 // BuildDigest identifies the installed lowering/interpreter contract. Bump the
 // implementation version whenever executable Program semantics change; stored
@@ -25,6 +25,7 @@ func BuildDigest() (artifact.Digest, error) {
 		"implementationVersion": compilerImplementationVersion,
 		"readyQueueBudget":      MaxReadyInvocations,
 		"controlFrameBudget":    maxControlFrames,
+		"pendingBranchBudget":   maxPendingBranches,
 		"signalLowering":        "ordered-exec-error-routes/v1",
 		"instructionLowering":   "scoped-tasks-and-resumable-frames/v2",
 		"dataLowering":          "pull-bindings-topological-order/v1",

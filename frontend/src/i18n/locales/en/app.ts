@@ -233,6 +233,30 @@ export default {
   },
   type: {
     navigation: {
+      pathAsset: {
+        title: 'Saved path',
+        description: 'A path resource pinned to immutable content.',
+      },
+      path: {
+        title: 'Path',
+        description: 'Ordered points sharing a coordinate reference.',
+        breakTitle: 'Break Path',
+      },
+      'path-reference': {
+        title: 'Path reference',
+        description:
+          'Coordinate frame, units and axes; local references require explicit alignment.',
+        breakTitle: 'Break Path reference',
+      },
+      'path-point': {
+        title: 'Path point',
+        description: 'A stable point identity, coordinates and optional altitude.',
+        breakTitle: 'Break Path point',
+      },
+      'path-height': {
+        title: 'Optional altitude',
+        description: 'Unknown altitude is null, not zero.',
+      },
       worldPosition: {
         title: 'Live position',
         description: 'Position observation with coordinates, heading, frame and sample time.',
@@ -484,6 +508,7 @@ export default {
         launcher_toggle: 'Show/hide launcher window',
       },
       recording: {
+        path_mark: 'Path: mark current position',
         start: 'Start recording',
         stop: 'Stop recording',
         pause: 'Pause / resume recording',
@@ -507,6 +532,23 @@ export default {
     },
   },
   error: {
+    'path.inline_budget_exceeded':
+      'This route exceeds the data-wire capacity. Use Follow Saved Path to run the complete route directly.',
+    'path.name_invalid': 'Use a path name of 1–80 characters.',
+    'path.identity_conflict': 'This asset is not a path. Select a path from the library.',
+    'path.save_failed': 'Could not save the path. Your edits are retained; retry saving.',
+    'path.source_endpoint_missing':
+      'The position service responded, but its sample endpoint was not found (HTTP 404). Check the address, or update the plugin and restart its collector.',
+    'path.source_invalid': 'Invalid source URL or sample. Check the plugin sample endpoint.',
+    'path.source_unavailable':
+      'Cannot connect to the source. Start the positioning plugin and retry.',
+    'path.reference_undeclared':
+      'The source has not declared its coordinate reference. Update the plugin and retry.',
+    'path.position_wait_timeout':
+      'No fresh coordinates arrived within 10 seconds. Check positioning in the game and try again.',
+    'path.position_unavailable':
+      'Position is unavailable or expired. Restore positioning before resuming.',
+    'path.invalid': 'Invalid path. Check its coordinate reference, point IDs and selected range.',
     'authoring.observation.unavailable': 'Authoring context is unavailable. Reopen the workflow.',
     'authoring.observation.workflow_not_found': 'Workflow not found. Refresh the workflow list.',
     'authoring.observation.invalid_capture': 'Choose either a target capture or a screen capture.',
@@ -576,6 +618,9 @@ export default {
     'plugins.load_failed': 'Could not read plugin information. Retry or import the package again.',
     'plugins.install_failed':
       'Plugin installation did not complete. Retry or obtain a fresh package.',
+    'plugins.market_cancelled':
+      'The plugin market request was cancelled. Your selections are preserved.',
+    'plugins.market_timeout': 'The plugin market request timed out. Try again.',
     'plugins.market_unavailable': 'The plugin market is temporarily unavailable. Try again later.',
     'plugins.market_invalid_release':
       'This plugin release is invalid. Return to the market and choose it again.',
@@ -877,6 +922,15 @@ export default {
       'The order state changed. Retry to check the existing order; no new order will be created.',
     'workflow.registry.purchase_required':
       'Purchase this workflow first. If already purchased, sign in with the buyer account and retry installation.',
+    'workflow.registry.invalid_sales': 'Check the price and terms of use, then submit again.',
+    'workflow.registry.sales_changed':
+      'Sales settings changed. Reopen the submission form to load the latest settings.',
+    'workflow.registry.submission_pending':
+      'This workflow already has a submission under review. Check My submissions for progress.',
+    'workflow.registry.idempotency_conflict':
+      'The submission changed. Reopen the submission form and try again.',
+    'workflow.registry.review_required':
+      'This change requires review. Submit it using the publication form.',
     'workflow.registry.authentication_required': 'Sign in before publishing this Workflow.',
     'workflow.registry.workflow_rejected':
       'This Workflow cannot be published yet. Check its content and try again.',

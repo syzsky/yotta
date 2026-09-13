@@ -168,10 +168,23 @@ export function applyCommand(
     }
     case 'clear-config': {
       const node = requireNode(graph, command.nodeId)
-      const field = requireProjection(node, projections).configFields.find(
-        (candidate) => candidate.id === command.fieldId,
+      const projection = requireProjection(node, projections)
+      const field = projection.configFields.find((candidate) => candidate.id === command.fieldId)
+      const inherited = [
+        ...(projection.configuredTargets ?? []).map((target) => ({
+          key: target.slotConfigKey,
+          target: target.targetSlot,
+        })),
+        ...projection.capabilities.map((target) => ({
+          key: target.targetSlotConfigKey,
+          target: target.targetSlot,
+        })),
+      ].some(
+        (target) =>
+          target.key === command.fieldId &&
+          source.targetDefaults?.some((value) => value.target === target.target && value.slot),
       )
-      if (field?.hasDefault) node.config[command.fieldId] = clone(field.default)
+      if (field?.hasDefault && !inherited) node.config[command.fieldId] = clone(field.default)
       else delete node.config[command.fieldId]
       pruneConfigDependentTopology(graph, node, projections)
       return

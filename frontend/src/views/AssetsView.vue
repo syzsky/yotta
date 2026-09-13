@@ -84,6 +84,19 @@
             total
           }}</UBadge>
         </UButton>
+        <UButton
+          color="neutral"
+          :variant="activeTab === 'paths' ? 'soft' : 'ghost'"
+          icon="i-tabler-map-route"
+          class="mt-1 h-auto w-full justify-start px-2.5 py-2 text-left"
+          data-testid="assets-tab-paths"
+          @click="activeTab = 'paths'"
+        >
+          <span class="min-w-0 flex-1 text-xs font-medium">{{ t('paths.title') }}</span>
+          <UBadge v-if="activeTab === 'paths'" color="neutral" variant="soft" size="xs">{{
+            total
+          }}</UBadge>
+        </UButton>
       </aside>
 
       <main class="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -129,6 +142,12 @@
               :label="t('assets.templates.capture')"
               :loading="captureBusy"
               @click="openResourceAction('template')"
+            />
+            <UButton
+              v-if="activeTab === 'paths'"
+              icon="i-tabler-map-pin-plus"
+              :label="t('paths.new')"
+              @click="openPathEditor()"
             />
           </div>
           <form
@@ -307,6 +326,7 @@
             :visible-columns="visibleColumns"
             :grid-template-columns="assetGridTemplate"
             @preview-state="setPreviewState"
+            @use="(item) => activeTab === 'paths' && openPathEditor(item.id)"
           >
             <template #select-all>
               <UCheckbox
@@ -344,7 +364,9 @@
                   ? 'i-tabler-list-details'
                   : activeTab === 'clips'
                     ? 'i-tabler-route-alt-left'
-                    : 'i-tabler-photo-off'
+                    : activeTab === 'paths'
+                      ? 'i-tabler-map-route'
+                      : 'i-tabler-photo-off'
             "
             :title="hasLibraryFilters ? t('assets.no_results') : t(`assets.${activeTab}.empty`)"
             :description="
@@ -804,6 +826,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useAppToast'
 import {
@@ -866,6 +889,8 @@ type AssetMetadataDraft = { category: string; tags: string[] }
 const defaultColumns: AssetColumn[] = ['category', 'tags', 'details', 'createdAt']
 
 const { t } = useI18n()
+const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const { confirm } = useConfirm()
 const settings = useSettingsStore()
@@ -911,6 +936,14 @@ const {
   clearSelection,
   retainFailedSelection,
 } = assetBrowse
+const initialTab = route.query.type
+if (
+  initialTab === 'paths' ||
+  initialTab === 'macros' ||
+  initialTab === 'clips' ||
+  initialTab === 'templates'
+)
+  activeTab.value = initialTab
 const recording = useRecordingStore()
 const { starting: recordingStarting, start: beginRecording } = useRecordingStart()
 const { show: showRecordingStartError } = useRecordingStartFeedback()
@@ -1085,7 +1118,9 @@ const activeResourceIcon = computed(() =>
     ? 'i-tabler-list-details'
     : activeTab.value === 'clips'
       ? 'i-tabler-route-alt-left'
-      : 'i-tabler-photo',
+      : activeTab.value === 'paths'
+        ? 'i-tabler-map-route'
+        : 'i-tabler-photo',
 )
 const activeResourceTitle = computed(() => t(`assets.tabs.${activeTab.value}`))
 const resourceActionTitle = computed(() => {
@@ -1112,6 +1147,19 @@ const recordingTab = computed<AssetTab>(() =>
 )
 const items = computed<AssetItem[]>(() => {
   return assetPage.value.map((asset) => {
+    if (asset.kind === 'path')
+      return {
+        id: asset.guid,
+        kind: 'paths',
+        name: asset.name || asset.guid,
+        description: asset.description ?? '',
+        category: asset.category ?? '',
+        tags: asset.tags ?? [],
+        meta: t('paths.content_size', { size: asset.blob?.size ?? 0 }),
+        icon: 'i-tabler-map-route',
+        createdAt: formatAssetDate(asset.createdAt),
+        source: asset,
+      }
     if (asset.kind === 'macro')
       return {
         id: asset.guid,
@@ -1201,11 +1249,25 @@ watch(
   { deep: true },
 )
 
+watch(
+  () => assets.epoch,
+  () => void refreshAssets(),
+)
+
 watch(activeTab, async () => {
+  await router.replace({ query: { ...route.query, type: activeTab.value } })
   clearSelection()
   page.value = 1
   await refreshAssets()
 })
+
+watch(
+  () => route.query.type,
+  (value) => {
+    if (value === 'paths' || value === 'macros' || value === 'clips' || value === 'templates')
+      activeTab.value = value
+  },
+)
 
 watch(
   () => recording.state.pending,
@@ -1523,7 +1585,15 @@ function assetMenu(item: AssetItem) {
               onSelect: () => void openPreciseWorkbench(item.source),
             },
           ]
-        : []
+        : item.kind === 'paths'
+          ? [
+              {
+                label: t('paths.edit'),
+                icon: 'i-tabler-map-route',
+                onSelect: () => void openPathEditor(item.id),
+              },
+            ]
+          : []
   return [
     [
       ...details,
@@ -1752,6 +1822,14 @@ async function saveAssetMeta(): Promise<void> {
   }
 }
 
+async function openPathEditor(guid = ''): Promise<void> {
+  try {
+    await backend.tools.openPathEditor(guid)
+  } catch (error) {
+    showError(t('paths.editor_title'), error)
+  }
+}
+
 async function deleteAsset(item: AssetItem): Promise<void> {
   const accepted = await confirm({
     title: t('assets.delete_title', { name: item.name }),
@@ -1762,6 +1840,7 @@ async function deleteAsset(item: AssetItem): Promise<void> {
   if (accepted !== true) return
   try {
     await backend.assets.delete_(item.id)
+    assets.invalidate()
     const next = { ...selected.value }
     delete next[item.id]
     selected.value = next

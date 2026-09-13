@@ -36,6 +36,7 @@ export interface PluginBatchResult {
   problem?: NormalizedError
 }
 export interface PluginRegistrySearchPage {
+  total: number
   items: NodePackRelease[]
   facets: Facets
   nextCursor?: string
@@ -55,6 +56,7 @@ function invokePlugin<K extends keyof Bindings>(method: K, ...args: Parameters<B
 }
 
 export const pluginBackend = {
+  registryTaxonomy: () => invokePlugin('RegistryTaxonomy'),
   locations: (id = '') => invokePlugin('Locations', id) as Promise<PluginLocation[]>,
   openLocation: (kind: string, id = '') => invokePlugin('OpenLocation', kind, id),
   batch: (action: PluginBatchAction, ids: string[]) =>

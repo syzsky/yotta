@@ -1,0 +1,44 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	project "@@MODULE@@"
+	sdk "github.com/yottaapp/yotta/sdk/plugin/go"
+)
+
+func main() {
+	if len(os.Args) != 2 || os.Args[1] != sdk.ProcessGuestArgument {
+		os.Exit(2)
+	}
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	guest, err := sdk.NewGuest(os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	invocation, err := guest.ReceiveInvocation()
+	if err != nil {
+		return err
+	}
+	// Implement one bounded operation here. Decode invocation.ConfigJson and
+	// declared Value Envelopes; declare matching ports in cmd/package.
+	_ = invocation
+	config, err := project.Load()
+	if err != nil {
+		return err
+	}
+	// The effect contract requires one honest action record for every declared effect.
+	// This starter completes a no-op. Replace outcome/counters/facts with the real
+	// operation, and record failure/cancellation as appropriate before returning.
+	if err := guest.Record(&sdk.Action{EffectId: config.EffectID(), Action: "plugin." + config.Slug + ".invoke", Outcome: "succeeded", SummaryCode: "plugin." + config.Slug + ".completed"}); err != nil {
+		return err
+	}
+	return guest.Succeed(nil, []string{"done"})
+}

@@ -778,10 +778,13 @@ func (e *Engine) applyCommand(source *schema.WorkflowSource, command Command, in
 		if !ok {
 			return patchError(index, "UNKNOWN_CONFIG_FIELD", "config field is not declared by the Node Contract")
 		}
-		if field.Required && !field.HasDefault {
+		inherited := inheritsConfigField(*source, e.projection, *node, field.ID)
+		if field.Required && !field.HasDefault && !inherited {
 			return patchError(index, "REQUIRED_CONFIG_FIELD", "required config field cannot be cleared")
 		}
-		if field.HasDefault {
+		if inherited {
+			delete(node.Config, field.ID)
+		} else if field.HasDefault {
 			value, decodeErr := decodeRaw(field.Default)
 			if decodeErr != nil {
 				return patchError(index, "INVALID_CATALOG_DEFAULT", decodeErr.Error())
@@ -1747,6 +1750,30 @@ func configField(projection nodeauthoring.Snapshot, node schema.Node, fieldID st
 		}
 	}
 	return nodeauthoring.FieldProjection{}, false
+}
+
+// Restoring a target removes its override, including a contract default, so
+// subsequent changes to the workflow default continue to reach this node.
+func inheritsConfigField(source schema.WorkflowSource, snapshot nodeauthoring.Snapshot, node schema.Node, fieldID string) bool {
+	projection, ok := snapshot.Node(node.NodeRef.NodeTypeID)
+	if !ok || projection.NodeRef != node.NodeRef {
+		return false
+	}
+	for _, target := range projection.ConfiguredTargets {
+		if target.SlotConfigKey == fieldID {
+			if slot, exists := schema.TargetDefaultSlot(source, target.TargetSlot); exists && slot != "" {
+				return true
+			}
+		}
+	}
+	for _, target := range projection.Capabilities {
+		if target.TargetSlotConfigKey == fieldID {
+			if slot, exists := schema.TargetDefaultSlot(source, target.TargetSlot); exists && slot != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func dataInput(projection nodeauthoring.Snapshot, node schema.Node, portID string) (nodeauthoring.PortProjection, bool) {

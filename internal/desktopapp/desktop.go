@@ -35,6 +35,7 @@ import (
 	"github.com/yottaapp/yotta/internal/services/calibration"
 	"github.com/yottaapp/yotta/internal/services/mcpserver"
 	"github.com/yottaapp/yotta/internal/services/panels"
+	"github.com/yottaapp/yotta/internal/services/pathrecording"
 	"github.com/yottaapp/yotta/internal/services/plugins"
 	"github.com/yottaapp/yotta/internal/services/recording"
 	"github.com/yottaapp/yotta/internal/services/resourceauthoring"
@@ -385,7 +386,7 @@ func Run(config Config) error {
 		OnSystemChange: func(key, newStr string) error {
 			switch key {
 			case "system.execution-stop", "recording.start", "recording.stop", "recording.pause", "recording.cancel",
-				"system.calibrate-toggle", "system.launcher-toggle", "tools.window-capture":
+				"system.calibrate-toggle", "system.launcher-toggle", "tools.window-capture", "paths.mark":
 			default:
 				return nil
 			}
@@ -407,6 +408,8 @@ func Run(config Config) error {
 					cur.UI.LauncherToggleHotkey = newStr
 				case "tools.window-capture":
 					cur.UI.WindowCaptureHotkey = newStr
+				case "paths.mark":
+					cur.UI.PathMarkHotkey = newStr
 				}
 				return nil
 			})
@@ -441,6 +444,7 @@ func Run(config Config) error {
 		"recording.stop":          "F12",
 		"recording.pause":         "F11",
 		"recording.cancel":        "F7",
+		"paths.mark":              "F6",
 	}
 	runWorkflowHotkey := func(workflowID string) {
 		go func() {
@@ -506,6 +510,8 @@ func Run(config Config) error {
 	// exposed nominal BlobRef through explicit blob-read and playback grants.
 	clipSvc := newClipService(assetStore, app.Emit)
 	macroSvc := newMacroService(assetStore, app.Emit)
+	pathRecordingSvc := pathrecording.NewDesktopService(hotkeyRegistry, app.Emit, local.Plugins.PrepareAuthoringEndpoint)
+
 	snippetSvc := snippet.NewServiceWithAuthoring(snippetStore, workflowRuntime.AuthoringProjection, app.Emit)
 
 	// 全局强停热键取消唯一 Application worker 的 queued/running Runs。
@@ -543,7 +549,8 @@ func Run(config Config) error {
 		return fmt.Errorf("initialize template preview: %w", err)
 	}
 	toolsSvc := tools.NewServiceWithOptions(authoringTargets, toolsPresenter, tools.Options{
-		TemplateMatcher: templatePreview,
+		OnPathEditorClose: pathRecordingSvc.StopCurrent,
+		TemplateMatcher:   templatePreview,
 		OnCalibratorClose: func() {
 			calibrationSvc.StopHotkeyWatch()
 			_, _ = calibrationSvc.Stop()
@@ -614,6 +621,12 @@ func Run(config Config) error {
 		rootLog.Warn().Err(err).Str("tag", "SYSTEM").Str("hotkey", winCapHk).Msg("注册窗口捕获热键失败")
 	}
 
+	if err := hotkeyRegistry.RegisterRecording("paths.mark",
+		"hotkeys.label.recording.path_mark", app.Settings().UI.PathMarkHotkey,
+		func() { app.Emit("path:mark", nil) }); err != nil {
+		rootLog.Warn().Err(err).Str("tag", "HOTKEY").Msg("path mark hotkey registration failed")
+	}
+
 	// Runtime resources are declared in dependency order and close in reverse.
 	// Triggers stop before the single Workflow worker and its Run Owners.
 	applicationRuntime := appruntime.New(
@@ -640,6 +653,7 @@ func Run(config Config) error {
 			Start: func(context.Context) error { scheduleDaemon.Start(); return nil },
 			Close: scheduleDaemon.StopContext,
 		},
+		appruntime.Resource{Name: "path-recording", Start: func(context.Context) error { return nil }, Close: func(ctx context.Context) error { return pathrecording.Shutdown(ctx, pathRecordingSvc) }},
 		appruntime.Resource{
 			Name:  "recording",
 			Start: func(context.Context) error { return nil },
@@ -675,6 +689,7 @@ func Run(config Config) error {
 		application.NewServiceWithOptions(workflowSvc, serviceErrors),
 		application.NewServiceWithOptions(hotkeySvc, serviceErrors),
 		application.NewServiceWithOptions(assetSvc, serviceErrors),
+		application.NewServiceWithOptions(pathRecordingSvc, serviceErrors),
 		application.NewServiceWithOptions(scheduleSvc, serviceErrors),
 		application.NewServiceWithOptions(calibrationSvc, serviceErrors),
 		application.NewServiceWithOptions(recordingSvc, serviceErrors),

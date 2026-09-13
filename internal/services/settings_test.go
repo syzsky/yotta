@@ -352,6 +352,27 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPathMarkHotkeyDefaultAndPersistence(t *testing.T) {
+	settings := defaultSettings()
+	if settings.UI.PathMarkHotkey != "F6" {
+		t.Fatalf("path mark default = %q, want F6", settings.UI.PathMarkHotkey)
+	}
+	path := filepath.Join(t.TempDir(), "settings.json")
+	for _, chord := range []string{"F4", ""} {
+		settings.UI.PathMarkHotkey = chord
+		if err := SaveSettings(path, settings); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := LoadSettings(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.UI.PathMarkHotkey != chord {
+			t.Fatalf("reloaded %q, want %q", loaded.UI.PathMarkHotkey, chord)
+		}
+	}
+}
+
 func TestLoadSettings_MissingFileReturnsDefault(t *testing.T) {
 	s, err := LoadSettings(filepath.Join(t.TempDir(), "does-not-exist.json"))
 	if err != nil {

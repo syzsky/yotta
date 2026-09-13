@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "generator": "wails3",
   "summary": {
-    "services": 18,
-    "methods": 215,
-    "models": 306
+    "services": 19,
+    "methods": 228,
+    "models": 321
   },
   "services": [
     {
@@ -474,6 +474,18 @@
           "returns": "$CancellablePromise<$models.AssetRecord>"
         },
         {
+          "name": "GetPath",
+          "bindingId": "1884081398",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SavedPath>"
+        },
+        {
           "name": "List",
           "bindingId": "373083251",
           "parameters": [],
@@ -564,6 +576,28 @@
             }
           ],
           "returns": "$CancellablePromise<$models.AssetBinding>"
+        },
+        {
+          "name": "SavePath",
+          "bindingId": "1355202189",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "path",
+              "optional": false,
+              "type": "navigationpath$0.Path"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.SavedPath>"
         },
         {
           "name": "SaveTemplateCapture",
@@ -1025,6 +1059,64 @@
       ]
     },
     {
+      "module": "internal/services/pathrecording/service",
+      "methods": [
+        {
+          "name": "Sample",
+          "bindingId": "1667742587",
+          "parameters": [
+            {
+              "name": "endpoint",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.Sample>"
+        },
+        {
+          "name": "SetMarkHotkey",
+          "bindingId": "2761236988",
+          "parameters": [
+            {
+              "name": "chord",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "StartWatching",
+          "bindingId": "4252544830",
+          "parameters": [
+            {
+              "name": "session",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "endpoint",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "StopWatching",
+          "bindingId": "2453904012",
+          "parameters": [
+            {
+              "name": "session",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        }
+      ]
+    },
+    {
       "module": "internal/services/plugins/service",
       "methods": [
         {
@@ -1148,6 +1240,12 @@
             }
           ],
           "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "RegistryTaxonomy",
+          "bindingId": "3912772875",
+          "parameters": [],
+          "returns": "$CancellablePromise<registryclient$0.TaxonomyProfile>"
         },
         {
           "name": "Rollback",
@@ -1593,6 +1691,12 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "ClosePathEditor",
+          "bindingId": "3687966780",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "ClosePicker",
           "bindingId": "1056008200",
           "parameters": [
@@ -1691,6 +1795,30 @@
           "name": "OpenPanels",
           "bindingId": "2450082317",
           "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "OpenPathEditor",
+          "bindingId": "1805970136",
+          "parameters": [
+            {
+              "name": "guid",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "OpenPathSettings",
+          "bindingId": "4124531816",
+          "parameters": [
+            {
+              "name": "section",
+              "optional": false,
+              "type": "string"
+            }
+          ],
           "returns": "$CancellablePromise<void>"
         },
         {
@@ -1827,6 +1955,18 @@
               "name": "height",
               "optional": false,
               "type": "number"
+            }
+          ],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
+          "name": "SetPathEditorAlwaysOnTop",
+          "bindingId": "163974627",
+          "parameters": [
+            {
+              "name": "on",
+              "optional": false,
+              "type": "boolean"
             }
           ],
           "returns": "$CancellablePromise<void>"
@@ -2307,6 +2447,12 @@
           "returns": "$CancellablePromise<void>"
         },
         {
+          "name": "OpenMySubmissions",
+          "bindingId": "2323885303",
+          "parameters": [],
+          "returns": "$CancellablePromise<void>"
+        },
+        {
           "name": "OpenRegistryWallet",
           "bindingId": "929437498",
           "parameters": [],
@@ -2477,6 +2623,18 @@
           "bindingId": "1559029842",
           "parameters": [],
           "returns": "$CancellablePromise<$models.WalletView>"
+        },
+        {
+          "name": "RegistryWorkflowPublicationHistory",
+          "bindingId": "1241263948",
+          "parameters": [
+            {
+              "name": "workflowID",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "returns": "$CancellablePromise<$models.RegistryPublicationHistory>"
         },
         {
           "name": "RenewRegistryPaymentSession",
@@ -4392,6 +4550,104 @@
       ]
     },
     {
+      "module": "internal/navigationpath/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Path",
+          "fields": [
+            {
+              "name": "\"version\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"reference\"",
+              "optional": false,
+              "type": "Reference"
+            },
+            {
+              "name": "\"points\"",
+              "optional": false,
+              "type": "Point[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Point",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"x\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"y\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"z\"",
+              "optional": false,
+              "type": "number | null"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Reference",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"frame\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"unit\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"axisHeading\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"axisSign\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"map\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"floor\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/nodecontract/models",
       "declarations": [
         {
@@ -4937,8 +5193,65 @@
         },
         {
           "kind": "class",
+          "name": "DimensionFacet",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"values\"",
+              "optional": false,
+              "type": "SystemFacetValue[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "Example",
+          "fields": [
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "Facets",
           "fields": [
+            {
+              "name": "\"profileRevision\"",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "\"countUnit\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"categoryCounts\"",
+              "optional": true,
+              "type": "SystemFacetValue[]"
+            },
+            {
+              "name": "\"tagCounts\"",
+              "optional": true,
+              "type": "SystemFacetValue[]"
+            },
+            {
+              "name": "\"dimensions\"",
+              "optional": true,
+              "type": "DimensionFacet[]"
+            },
             {
               "name": "\"categories\"",
               "optional": false,
@@ -4948,6 +5261,16 @@
               "name": "\"tags\"",
               "optional": false,
               "type": "string[]"
+            },
+            {
+              "name": "\"systemFacets\"",
+              "optional": false,
+              "type": "SystemFacet[]"
+            },
+            {
+              "name": "\"profileKind\"",
+              "optional": true,
+              "type": "string"
             }
           ]
         },
@@ -5025,6 +5348,16 @@
               "name": "\"values\"",
               "optional": false,
               "type": "FilterValue[]"
+            },
+            {
+              "name": "\"authorVisible\"",
+              "optional": true,
+              "type": "boolean | null"
+            },
+            {
+              "name": "\"discoveryVisible\"",
+              "optional": true,
+              "type": "boolean | null"
             }
           ]
         },
@@ -5056,6 +5389,11 @@
               "name": "\"position\"",
               "optional": false,
               "type": "number"
+            },
+            {
+              "name": "\"assignable\"",
+              "optional": true,
+              "type": "boolean | null"
             }
           ]
         },
@@ -5443,6 +5781,11 @@
           "name": "SearchOptions",
           "fields": [
             {
+              "name": "\"systemFacets\"",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
               "name": "\"kinds\"",
               "optional": true,
               "type": "string[]"
@@ -5501,6 +5844,100 @@
         },
         {
           "kind": "class",
+          "name": "SystemFacet",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"source\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"values\"",
+              "optional": false,
+              "type": "SystemFacetValue[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SystemFacetDefinition",
+          "fields": [
+            {
+              "name": "\"id\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"description\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"source\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SystemFacetValue",
+          "fields": [
+            {
+              "name": "\"value\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"count\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "TaxonomyProfile",
+          "fields": [
+            {
+              "name": "\"kind\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"categories\"",
+              "optional": false,
+              "type": "Category[]"
+            },
+            {
+              "name": "\"dimensions\"",
+              "optional": false,
+              "type": "FilterDimension[]"
+            },
+            {
+              "name": "\"systemFacets\"",
+              "optional": false,
+              "type": "SystemFacetDefinition[]"
+            }
+          ]
+        },
+        {
+          "kind": "class",
           "name": "WalletPaid",
           "fields": [
             {
@@ -5533,6 +5970,194 @@
               "name": "\"currency\"",
               "optional": false,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WorkflowRelease",
+          "fields": [
+            {
+              "name": "\"sales\"",
+              "optional": true,
+              "type": "WorkflowSales | null"
+            },
+            {
+              "name": "\"publicationStatus\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"submissionId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"official\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"recommended\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"downloadCount\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"dependencies\"",
+              "optional": false,
+              "type": "DependencySummary[]"
+            },
+            {
+              "name": "\"listing\"",
+              "optional": false,
+              "type": "Listing"
+            },
+            {
+              "name": "\"facts\"",
+              "optional": false,
+              "type": "BundleFacts"
+            },
+            {
+              "name": "\"releaseId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"publisherNamespace\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseVersion\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sourceHash\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"bundleDigest\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"title\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"summary\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"releaseNotes\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"examples\"",
+              "optional": false,
+              "type": "Example[]"
+            },
+            {
+              "name": "\"creator\"",
+              "optional": false,
+              "type": "Creator"
+            },
+            {
+              "name": "\"availability\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"publishedAt\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WorkflowSales",
+          "fields": [
+            {
+              "name": "\"priceCents\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"currency\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"available\"",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "name": "\"licenseRef\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"revision\"",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "WorkflowSubmission",
+          "fields": [
+            {
+              "name": "\"submissionId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"workflowId\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"status\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"reason\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"submittedAt\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"release\"",
+              "optional": false,
+              "type": "WorkflowRelease"
+            },
+            {
+              "name": "\"sales\"",
+              "optional": false,
+              "type": "WorkflowSales"
             }
           ]
         }
@@ -5966,6 +6591,32 @@
               "name": "\"sourceID\"",
               "optional": true,
               "type": "string"
+            }
+          ]
+        },
+        {
+          "kind": "class",
+          "name": "SavedPath",
+          "fields": [
+            {
+              "name": "\"guid\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"name\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"path\"",
+              "optional": false,
+              "type": "navigationpath$0.Path"
+            },
+            {
+              "name": "\"blob\"",
+              "optional": false,
+              "type": "blob$0.BlobRef"
             }
           ]
         },
@@ -7398,6 +8049,11 @@
               "type": "string"
             },
             {
+              "name": "\"pathMarkHotkey\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
               "name": "\"recordingMouseMode\"",
               "optional": false,
               "type": "string"
@@ -7473,6 +8129,47 @@
       ]
     },
     {
+      "module": "internal/services/pathrecording/models",
+      "declarations": [
+        {
+          "kind": "class",
+          "name": "Sample",
+          "fields": [
+            {
+              "name": "\"reference\"",
+              "optional": false,
+              "type": "navigationpath$0.Reference"
+            },
+            {
+              "name": "\"point\"",
+              "optional": false,
+              "type": "navigationpath$0.Point"
+            },
+            {
+              "name": "\"epoch\"",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "\"sequence\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"sampleTimeMs\"",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "\"recovery\"",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "module": "internal/services/plugins/models",
       "declarations": [
         {
@@ -7516,6 +8213,11 @@
           "kind": "class",
           "name": "RegistrySearchPage",
           "fields": [
+            {
+              "name": "\"total\"",
+              "optional": false,
+              "type": "number"
+            },
             {
               "name": "\"items\"",
               "optional": false,
@@ -9256,6 +9958,16 @@
           "name": "PublishRegistryRequest",
           "fields": [
             {
+              "name": "\"resubmissionId\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"sales\"",
+              "optional": true,
+              "type": "registryclient$0.WorkflowSales | null"
+            },
+            {
               "name": "\"listing\"",
               "optional": false,
               "type": "registryclient$0.Listing"
@@ -9350,6 +10062,22 @@
           ]
         },
         {
+          "kind": "class",
+          "name": "RegistryPublicationHistory",
+          "fields": [
+            {
+              "name": "\"items\"",
+              "optional": false,
+              "type": "registryclient$0.WorkflowSubmission[]"
+            },
+            {
+              "name": "\"sales\"",
+              "optional": true,
+              "type": "registryclient$0.WorkflowSales | null"
+            }
+          ]
+        },
+        {
           "kind": "type",
           "name": "RegistryQuery",
           "definition": "registryclient$0.SearchOptions"
@@ -9379,6 +10107,21 @@
           "kind": "class",
           "name": "RegistryWorkflowReleaseView",
           "fields": [
+            {
+              "name": "\"sales\"",
+              "optional": true,
+              "type": "registryclient$0.WorkflowSales | null"
+            },
+            {
+              "name": "\"publicationStatus\"",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "\"submissionId\"",
+              "optional": true,
+              "type": "string"
+            },
             {
               "name": "\"official\"",
               "optional": false,

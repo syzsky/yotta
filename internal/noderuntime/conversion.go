@@ -109,6 +109,9 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		nodes.WaitChangeNodeID:           automationObservation(builtins, nodes.WaitChangeNodeID),
 		nodes.PlayInputClipNodeID:        playInputClip(),
 		nodes.PlayMacroNodeID:            playMacro(),
+		nodes.ReadPathNodeID:             readPath(builtins),
+		nodes.FollowPathNodeID:           followPath(builtins),
+		nodes.FollowSavedPathNodeID:      followSavedPath(builtins),
 		nodes.MatchTemplateNodeID:        matchTemplate(builtins),
 		nodes.FindTemplateMatchesNodeID:  findTemplateMatches(builtins),
 		nodes.CompareImagesNodeID:        compareImages(builtins),
@@ -148,11 +151,11 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		if _, duplicate := installed[entrypoint]; duplicate {
 			return nil, fmt.Errorf("duplicate built-in entrypoint %q", entrypoint)
 		}
-		blocking := entrypoint == "panels.wait" || entrypoint == "signals.wait"
+		blocking := entrypoint == "panels.wait" || entrypoint == "signals.wait" || (entrypoint == "navigation.follow-path" || entrypoint == "navigation.follow-saved-path") || entrypoint == "navigation.read-path"
 		for _, family := range []string{"automation.", "vision.", "network.", "http.", "file.", "blob.", "script.", "ai.", "application."} {
 			blocking = blocking || strings.HasPrefix(entrypoint, family)
 		}
-		pauseAtWait := entrypoint == "panels.wait" || entrypoint == "signals.wait" || entrypoint == "automation.wait-template" || entrypoint == "automation.wait-template-gone" || entrypoint == "automation.click-template" || entrypoint == "automation.move-character-to" || entrypoint == "automation.turn-find-template"
+		pauseAtWait := entrypoint == "panels.wait" || entrypoint == "signals.wait" || entrypoint == "automation.wait-template" || entrypoint == "automation.wait-template-gone" || entrypoint == "automation.click-template" || entrypoint == "automation.move-character-to" || entrypoint == "automation.turn-find-template" || (entrypoint == "navigation.follow-path" || entrypoint == "navigation.follow-saved-path")
 		installed[entrypoint] = nodeadapter.InstalledAdapter{Implementation: trusted.Implementation, Run: adapter, Blocking: blocking, PauseAtWait: pauseAtWait}
 	}
 	return installed, nil

@@ -70,7 +70,7 @@
       v-model:open="pickerOpen"
       :kind="assetKind"
       :selected-blob="bindingBlob"
-      :resources="resources"
+      :resources="assetKind === 'path' ? undefined : resources"
       @select="setAsset"
       @select-workflow="setWorkflowAsset"
       @capture="emit('capture-template')"
@@ -141,8 +141,10 @@ const acceptsInline = computed(() =>
 const editorAdapter = computed(() => resolvePortAdapter(props.port))
 const isInputClip = computed(() => props.port.type.typeIds.includes(inputClipTypeId))
 const isMacro = computed(() => props.port.type.typeIds.includes(macroTypeId))
-const assetKind = computed<'template' | 'macro' | 'clip' | null>(() => {
+const assetKind = computed<'template' | 'macro' | 'clip' | 'path' | null>(() => {
   if (props.port.editorAdapter === 'template-image') return 'template'
+  if (props.port.type.typeIds.includes('https://schemas.yotta.dev/types/navigation/path-asset/v1'))
+    return 'path'
   if (isMacro.value) return 'macro'
   if (isInputClip.value) return 'clip'
   return null
@@ -169,11 +171,13 @@ const resolvedWorkflowBinding = computed(() =>
 )
 const pickerPlaceholder = computed(() =>
   t(
-    assetKind.value === 'template'
-      ? 'workflow.inspector.select_template'
-      : assetKind.value === 'macro'
-        ? 'workflow.inspector.select_macro'
-        : 'workflow.inspector.select_clip',
+    assetKind.value === 'path'
+      ? 'paths.choose'
+      : assetKind.value === 'template'
+        ? 'workflow.inspector.select_template'
+        : assetKind.value === 'macro'
+          ? 'workflow.inspector.select_macro'
+          : 'workflow.inspector.select_clip',
   ),
 )
 const resourceLabel = computed(() => {
@@ -213,11 +217,17 @@ const resourceLocation = computed<ResourceLocation | undefined>(() => {
     }
   }
   const selection = immediateSelection.value
-  if (selection && sameBlob(selection.blob, bindingBlob.value)) {
+  if (selection && selection.kind !== 'path' && sameBlob(selection.blob, bindingBlob.value)) {
     return { kind: selection.kind, scope: 'library', id: selection.guid }
   }
   const resolved = resolvedBinding.value
-  if (!resolved?.found || resolved.matchCount !== 1 || !resolved.guid || !assetKind.value)
+  if (
+    !resolved?.found ||
+    resolved.matchCount !== 1 ||
+    !resolved.guid ||
+    !assetKind.value ||
+    assetKind.value === 'path'
+  )
     return undefined
   return { kind: assetKind.value, scope: 'library', id: resolved.guid }
 })

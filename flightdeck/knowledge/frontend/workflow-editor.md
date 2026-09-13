@@ -30,6 +30,9 @@ revision CAS、保存、运行或资源副作用重新塞进 Vue component watch
 - 拖拽中的位置来自 `event.node.position` 或 live gesture overlay；不能从外部 computed nodes 回读。
 - 当前 graph 共用一台 Vue Flow camera；切 graph 时保存/恢复 graph viewport，不能为嵌套层级创建第二个
   store/camera 或把 viewport 混进 Workflow semantic digest。
+- KeepAlive 中每个工作流编辑器实例必须拥有独立 Vue Flow ID，父级 API 与 Canvas 使用同一个实例 ID。
+  不使用全局固定 ID，否则缓存页面会互相覆盖节点、连线和连接校验，淘汰页面也会销毁共享 store。
+  进入页面时同步固定工作流 ID，不在异步初始化完成后从共享 route 回读。
 - node header 是 drag handle；port、input、button、scrollable editor 标记 `nodrag`/`nowheel`，避免点击被
   1px drag threshold 吞掉。
 

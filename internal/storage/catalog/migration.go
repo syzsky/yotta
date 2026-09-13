@@ -101,6 +101,7 @@ var contentMigrations = []migration{
 	{id: "content.workflow-target-profiles.6", from: 5, to: 6, statements: workflowTargetProfileStatements},
 	{id: "content.workflow-installation-rollback.7", from: 6, to: 7, statements: workflowInstallationRollbackStatements},
 	{id: "content.remove-workflow-consent.8", from: 7, to: 8, statements: workflowConsentRemovalStatements},
+	{id: "content.path-assets.9", from: 8, to: 9, statements: pathAssetStatements()},
 }
 
 var runMigrations = []migration{

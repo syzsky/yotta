@@ -98,3 +98,52 @@ func TestRunServicesPrepareOnlyReferencedOwnedCompanion(t *testing.T) {
 		t.Fatalf("disabled companion=%v", err)
 	}
 }
+
+func TestAuthoringPreparesOwnedCompanionWithoutPanels(t *testing.T) {
+	var probes atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probes.Add(1)
+		_, _ = w.Write([]byte(`{"protocol":"test/v1","status":"ready"}`))
+	}))
+	defer server.Close()
+	root := t.TempDir()
+	app, err := services.OpenApp(filepath.Join(root, "settings.json"), filepath.Join(root, "logs"), nil, zerolog.Nop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := New(filepath.Join(root, "store"), nil, app, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, key, _ := ed25519.GenerateKey(rand.Reader)
+	c := packaging.Companion{ID: "capture", Name: "Capture", Executable: "bin/helper.exe", ApplicationSlot: "capture-app", NetworkSlot: "position", Origin: server.URL, HealthPath: "/health", StopPath: "/stop", Protocol: "test/v1"}
+	if err := m.Import(buildArchive(t, root, "1.0.0", key, c)); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.PrepareAuthoringEndpoint(context.Background(), server.URL+"/v1/position-source/sample"); err != nil {
+		t.Fatal(err)
+	}
+	if probes.Load() != 1 {
+		t.Fatalf("not prepared: %d", probes.Load())
+	}
+	_, _, err = app.MutateSettings(func(s *services.Settings) error { s.Network.HTTPOrigins[0].Origin = "http://127.0.0.1:1"; return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.PrepareAuthoringEndpoint(context.Background(), server.URL+"/sample"); err != nil {
+		t.Fatal(err)
+	}
+	if probes.Load() != 1 {
+		t.Fatal("started repointed configuration")
+	}
+	_, _, err = app.MutateSettings(func(s *services.Settings) error { s.Network.HTTPOrigins[0].Origin = server.URL; return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.store.Disable(testID); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.PrepareAuthoringEndpoint(context.Background(), server.URL+"/sample"); apperr.From(err).ID != "plugins.disabled" {
+		t.Fatal(err)
+	}
+}

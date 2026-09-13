@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/yottaapp/yotta/internal/automation/inputcoord"
 )
 
 // Adapter producers inherit the lifetime of the scope that created them.
@@ -52,6 +54,10 @@ func (s *scheduler) spawnTask(task func(context.Context) error) error {
 		return errors.New("scope task is required")
 	}
 	j := s.jobs
+	taskCtx := j.ctx
+	if s.cooperativeInput {
+		taskCtx = inputcoord.WithOwner(taskCtx, s.inputOwner)
+	}
 	j.mu.Lock()
 	if j.closing || j.ctx.Err() != nil {
 		j.mu.Unlock()
@@ -85,7 +91,7 @@ func (s *scheduler) spawnTask(task func(context.Context) error) error {
 			}
 			finish(resultErr)
 		}()
-		resultErr = task(j.ctx)
+		resultErr = task(taskCtx)
 		// The scheduler observes the failure and preserves its scope ownership.
 		return nil
 	})

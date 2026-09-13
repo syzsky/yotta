@@ -43,6 +43,35 @@ func TestRegistry_RegisterBasicEntry(t *testing.T) {
 	}
 }
 
+func TestRecordingShortcutRemainsVisibleAndCanPersistRepair(t *testing.T) {
+	var persistedKey, persistedChord string
+	r := NewHotkeyRegistryWithCallbacks(newTestHotkeyManager(), Callbacks{OnSystemChange: func(key, chord string) error {
+		persistedKey, persistedChord = key, chord
+		return nil
+	}})
+	t.Cleanup(func() { _ = r.Shutdown(context.Background()) })
+	if err := r.RegisterLLHook("other", HotkeySourceRecording, "other", "F6", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.RegisterRecording("paths.mark", "hotkeys.label.recording.path_mark", "F6", func() {}); err != nil {
+		t.Fatal(err)
+	}
+	entry, ok := r.Get("paths.mark")
+	if !ok || entry.Source != HotkeySourceRecording || entry.Status != HotkeyStatusFailed || entry.Problem == nil {
+		t.Fatalf("conflicting recording intent is not repairable: %#v", entry)
+	}
+	if err := r.Update("paths.mark", ""); err != nil {
+		t.Fatal(err)
+	}
+	if persistedKey != "paths.mark" || persistedChord != "" {
+		t.Fatalf("repair was not persisted: %q %q", persistedKey, persistedChord)
+	}
+	entry, _ = r.Get("paths.mark")
+	if entry.Status != HotkeyStatusUnbound {
+		t.Fatalf("clear did not unbind: %#v", entry)
+	}
+}
+
 func TestRegistry_RegisterRejectsDuplicateKey(t *testing.T) {
 	mgr := newTestHotkeyManager()
 	r := NewHotkeyRegistry(mgr)

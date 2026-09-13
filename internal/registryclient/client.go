@@ -39,6 +39,7 @@ type Options struct {
 }
 
 type PublishRequest struct {
+	Sales          *WorkflowSales
 	Listing        Listing
 	IdempotencyKey string
 	ReleaseVersion string
@@ -63,6 +64,9 @@ type Creator struct {
 }
 
 type WorkflowRelease struct {
+	Sales              *WorkflowSales      `json:"sales,omitempty"`
+	PublicationStatus  string              `json:"publicationStatus,omitempty"`
+	SubmissionID       string              `json:"submissionId,omitempty"`
 	Official           bool                `json:"official"`
 	Recommended        bool                `json:"recommended"`
 	DownloadCount      int64               `json:"downloadCount"`
@@ -92,9 +96,12 @@ type SearchResult struct {
 }
 
 type SearchPage struct {
-	Facets     Facets         `json:"facets"`
-	Items      []SearchResult `json:"items"`
-	NextCursor string         `json:"nextCursor,omitempty"`
+	TotalByKind  map[string]int64  `json:"totalByKind,omitempty"`
+	FacetsByKind map[string]Facets `json:"facetsByKind"`
+	Total        int64             `json:"total"`
+	Facets       Facets            `json:"facets"`
+	Items        []SearchResult    `json:"items"`
+	NextCursor   string            `json:"nextCursor,omitempty"`
 }
 
 type Environment struct {
@@ -409,6 +416,16 @@ func (client *Client) downloadVerified(ctx context.Context, route, digest string
 }
 
 func writePublication(multipartWriter *multipart.Writer, pipe *io.PipeWriter, input PublishRequest) error {
+	if input.Sales != nil {
+		raw, err := json.Marshal(input.Sales)
+		if err == nil {
+			err = multipartWriter.WriteField("sales", string(raw))
+		}
+		if err != nil {
+			_ = pipe.CloseWithError(err)
+			return err
+		}
+	}
 	closeWith := func(err error) error {
 		if err != nil {
 			_ = pipe.CloseWithError(err)

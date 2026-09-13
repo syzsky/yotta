@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { FilterDimension } from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
-const props = defineProps<{ dimensions: FilterDimension[]; assignment?: boolean }>()
+import type {
+  DimensionFacet,
+  FilterDimension,
+} from '@bindings/github.com/yottaapp/yotta/internal/registryclient/models.js'
+const props = defineProps<{
+  dimensions: FilterDimension[]
+  assignment?: boolean
+  counts?: DimensionFacet[]
+}>()
 const model = defineModel<string[]>({ default: () => [] })
 const dimensions = computed(() =>
   props.dimensions
-    .filter((d) => d.active)
+    .filter(
+      (d) =>
+        d.active && (props.assignment ? d.authorVisible !== false : d.discoveryVisible !== false),
+    )
     .slice()
     .sort((a, b) => a.position - b.position),
 )
@@ -22,7 +32,8 @@ watch(
   { immediate: true },
 )
 function rows(dim: FilterDimension) {
-  const result: { id: string; name: string; depth: number; leaf: boolean }[] = []
+  const result: { id: string; name: string; depth: number; leaf: boolean; assignable: boolean }[] =
+    []
   const seen = new Set<string>()
   function visit(parent: string, depth: number) {
     for (const v of dim.values
@@ -35,6 +46,7 @@ function rows(dim: FilterDimension) {
         id: v.id,
         name: v.name,
         depth,
+        assignable: v.assignable !== false,
         leaf: !dim.values.some((child) => child.parentId === v.id && child.active),
       })
       visit(v.id, depth + 1)
@@ -49,6 +61,12 @@ function toggle(id: string, checked: boolean) {
 function selectedCount(dim: FilterDimension): number {
   const ids = new Set(dim.values.map((value) => value.id))
   return model.value.filter((id) => ids.has(id)).length
+}
+function valueLabel(dimensionId: string, value: { id: string; name: string }): string {
+  const count = props.counts
+    ?.find((d) => d.id === dimensionId)
+    ?.values.find((v) => v.value === value.id)?.count
+  return count === undefined || props.assignment ? value.name : `${value.name} (${count})`
 }
 </script>
 <template>
@@ -85,8 +103,11 @@ function selectedCount(dim: FilterDimension): number {
       >
         <UCheckbox
           :model-value="model.includes(value.id)"
-          :label="value.name"
-          :disabled="activeDimension.leafOnly && !value.leaf"
+          :label="valueLabel(activeDimension.id, value)"
+          :disabled="
+            !model.includes(value.id) &&
+            (!value.assignable || (activeDimension.leafOnly && !value.leaf))
+          "
           @update:model-value="
             (checked: boolean | 'indeterminate') => toggle(value.id, checked === true)
           "
@@ -104,8 +125,12 @@ function selectedCount(dim: FilterDimension): number {
       >
         <UCheckbox
           :model-value="model.includes(value.id)"
-          :label="value.name"
-          :disabled="assignment && dim.leafOnly && !value.leaf"
+          :label="valueLabel(dim.id, value)"
+          :disabled="
+            assignment &&
+            !model.includes(value.id) &&
+            (!value.assignable || (dim.leafOnly && !value.leaf))
+          "
           @update:model-value="
             (checked: boolean | 'indeterminate') => toggle(value.id, checked === true)
           "

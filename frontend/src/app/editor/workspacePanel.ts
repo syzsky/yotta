@@ -4,4 +4,5 @@ export type WorkflowWorkspacePanel =
   | 'macro'
   | 'clip'
   | 'template'
+  | 'path'
   | 'snippets'

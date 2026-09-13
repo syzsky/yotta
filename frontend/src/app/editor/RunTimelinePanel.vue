@@ -252,7 +252,7 @@ const activeAttemptTimeout = computed(() => {
 const activeAttemptStatus = computed(() => {
   const code = activeAttempt.value?.statusCode
   if (!code) return t('workflow.timeline.executing')
-  const key = `workflow.timeline.status.${code}`
+  const key = `workflow.timeline.status[${JSON.stringify(code)}]`
   return te(key) ? t(key) : code
 })
 
@@ -324,6 +324,30 @@ function templateMatchEvidence(entry: RunView['timeline'][number]): string {
 }
 
 function navigationEvidence(entry: RunView['timeline'][number]): string {
+  if (
+    entry.statusCode?.startsWith('navigation.path.') &&
+    entry.statusCode !== 'navigation.path.progress'
+  ) {
+    const key = `workflow.timeline.status[${JSON.stringify(entry.statusCode)}]`
+    return te(key) ? t(key) : ''
+  }
+  if (entry.statusCode === 'navigation.path.progress') {
+    const counters = entry.summary.counters
+    const outcome = [
+      'arrived',
+      'stuck',
+      'unavailable',
+      'timeout',
+      'reference_mismatch',
+      'height_mismatch',
+    ].find((value) => counters[`path_${value}`] === 1)
+    return t(`workflow.timeline.path_${outcome ?? 'progress'}`, {
+      point: counters.current_point ?? 0,
+      last: counters.last_point ?? 0,
+      distance: counters.remaining_distance ?? 0,
+    })
+  }
+
   if (!entry.statusCode?.startsWith('automation.navigation.')) return ''
   const counters = entry.summary.counters
   const outcome = ['arrived', 'stuck', 'unavailable', 'timeout'].find(

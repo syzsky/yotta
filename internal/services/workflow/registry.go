@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"github.com/yottaapp/yotta/internal/workflowstore"
 	"os"
@@ -41,6 +42,9 @@ func (s *Service) RegistryCommerce(ctx context.Context, workflowID string) (regi
 }
 
 type RegistryWorkflowReleaseView struct {
+	Sales              *registryclient.WorkflowSales      `json:"sales,omitempty"`
+	PublicationStatus  string                             `json:"publicationStatus,omitempty"`
+	SubmissionID       string                             `json:"submissionId,omitempty"`
 	Official           bool                               `json:"official"`
 	Recommended        bool                               `json:"recommended"`
 	DownloadCount      int64                              `json:"downloadCount"`
@@ -74,18 +78,23 @@ type PublishRegistryExample struct {
 }
 
 type PublishRegistryRequest struct {
-	Listing        registryclient.Listing   `json:"listing"`
-	WorkflowID     string                   `json:"workflowId"`
-	ReleaseVersion string                   `json:"releaseVersion"`
-	Title          string                   `json:"title"`
-	Summary        string                   `json:"summary"`
-	ReleaseNotes   string                   `json:"releaseNotes"`
-	Examples       []PublishRegistryExample `json:"examples"`
+	ResubmissionID string                        `json:"resubmissionId,omitempty"`
+	Sales          *registryclient.WorkflowSales `json:"sales,omitempty"`
+	Listing        registryclient.Listing        `json:"listing"`
+	WorkflowID     string                        `json:"workflowId"`
+	ReleaseVersion string                        `json:"releaseVersion"`
+	Title          string                        `json:"title"`
+	Summary        string                        `json:"summary"`
+	ReleaseNotes   string                        `json:"releaseNotes"`
+	Examples       []PublishRegistryExample      `json:"examples"`
 }
 
 func (s *Service) PublishSourceToRegistry(
 	ctx context.Context, request PublishRegistryRequest,
 ) (RegistryWorkflowReleaseView, error) {
+	if sales := request.Sales; sales != nil && (sales.PriceCents < 0 || sales.PriceCents > 2147483647 || sales.Currency != "CNY" || strings.TrimSpace(sales.LicenseRef) == "" || len(sales.LicenseRef) > 500 || sales.Revision < 0) {
+		return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_sales", apperr.CategoryValidation, nil, false, errors.New("invalid publication sales"))
+	}
 	if n := utf8.RuneCountInString(strings.TrimSpace(request.Title)); n < 1 || n > 160 {
 		return RegistryWorkflowReleaseView{}, projectError("workflow.registry.invalid_title", apperr.CategoryValidation, nil, false, errors.New("title length outside 1..160"))
 	}
@@ -107,9 +116,10 @@ func (s *Service) PublishSourceToRegistry(
 		examples = append(examples, registryclient.Example{Title: example.Title, Description: example.Description})
 	}
 	release, err := s.registry.PublishWorkflow(ctx, registryclient.PublishRequest{
+		Sales:   request.Sales,
 		Listing: request.Listing,
 		Bundle:  bytes.NewReader(bundle), Filename: request.WorkflowID + ".yotta-workflow",
-		IdempotencyKey: publicationKey(request.WorkflowID, request.ReleaseVersion, string(info.SourceHash)),
+		IdempotencyKey: publicationKey(request, string(info.SourceHash)),
 		ReleaseVersion: request.ReleaseVersion, Title: request.Title, Summary: request.Summary,
 		ReleaseNotes: request.ReleaseNotes, Examples: examples,
 	})
@@ -119,8 +129,9 @@ func (s *Service) PublishSourceToRegistry(
 	return registryReleaseView(release), nil
 }
 
-func publicationKey(workflowID, version, sourceHash string) string {
-	digest := sha256.Sum256([]byte(workflowID + "\x00" + version + "\x00" + sourceHash))
+func publicationKey(request PublishRegistryRequest, sourceHash string) string {
+	raw, _ := json.Marshal(request)
+	digest := sha256.Sum256(append(raw, []byte("\x00"+sourceHash)...))
 	return hex.EncodeToString(digest[:])
 }
 
@@ -238,6 +249,7 @@ func registryReleaseView(release registryclient.WorkflowRelease) RegistryWorkflo
 		examples = append(examples, PublishRegistryExample{Title: example.Title, Description: example.Description})
 	}
 	return RegistryWorkflowReleaseView{
+		Sales: release.Sales, PublicationStatus: release.PublicationStatus, SubmissionID: release.SubmissionID,
 		DownloadCount: release.DownloadCount,
 		Official:      release.Official, Recommended: release.Recommended,
 		Dependencies: release.Dependencies,
@@ -265,6 +277,16 @@ func registryError(operation string, cause error) error {
 	var problem registryclient.Problem
 	if errors.As(cause, &problem) {
 		switch problem.Code {
+		case "registry.submission_pending":
+			return projectError("workflow.registry.submission_pending", apperr.CategoryDomain, nil, false, cause)
+		case "registry.idempotency_conflict":
+			return projectError("workflow.registry.idempotency_conflict", apperr.CategoryDomain, nil, false, cause)
+		case "registry.review_required":
+			return projectError("workflow.registry.review_required", apperr.CategoryDomain, nil, false, cause)
+		case "registry.management.invalid":
+			return projectError("workflow.registry.invalid_sales", apperr.CategoryValidation, nil, false, cause)
+		case "registry.management.conflict":
+			return projectError("workflow.registry.sales_changed", apperr.CategoryDomain, nil, true, cause)
 		case "commerce.payment_cancel_unsupported":
 			return projectError("workflow.checkout.cancel_unsupported", apperr.CategoryPolicy, nil, false, cause)
 		case "commerce.payment_session_expired":

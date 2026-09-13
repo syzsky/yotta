@@ -1,7 +1,13 @@
+import { backend } from '@/lib/backend'
+import type { AssetPickerSelection } from '@/stores/assets'
 import { ref } from 'vue'
 import type { useAssetsStore } from '@/stores/assets'
 import { snapshotGlobalAssetByID } from './workflowResourceSnapshot'
-import { parseWorkspaceResource, RESOURCE_DRAG_FORMAT } from './resourceDrag'
+import {
+  LOCAL_RESOURCE_DRAG_FORMAT,
+  parseWorkspaceResource,
+  RESOURCE_DRAG_FORMAT,
+} from './resourceDrag'
 import type { StateReferenceMode } from './EditorSession'
 
 export const NODE_TYPE_DRAG_FORMAT = 'application/x-yotta-node-type'
@@ -19,6 +25,8 @@ interface WorkflowEditorDropOptions {
     resource: Awaited<ReturnType<typeof snapshotGlobalAssetByID>>,
     position: { x: number; y: number },
   ) => void
+  useLocalResource?: (id: string, position: { x: number; y: number }) => void
+  usePathResource?: (selection: AssetPickerSelection, position: { x: number; y: number }) => void
   insertStateReference: (
     name: string,
     mode: StateReferenceMode,
@@ -36,6 +44,7 @@ export function useWorkflowEditorDrop(options: WorkflowEditorDropOptions) {
     SNIPPET_DRAG_FORMAT,
     GRAPH_CALL_DRAG_FORMAT,
     RESOURCE_DRAG_FORMAT,
+    LOCAL_RESOURCE_DRAG_FORMAT,
   ]
 
   function continueDrag(event: DragEvent): void {
@@ -50,15 +59,28 @@ export function useWorkflowEditorDrop(options: WorkflowEditorDropOptions) {
   }
 
   function drop(event: DragEvent): void {
+    const localResource = event.dataTransfer?.getData(LOCAL_RESOURCE_DRAG_FORMAT)
     const nodeTypeId = event.dataTransfer?.getData(NODE_TYPE_DRAG_FORMAT)
     const stateReference = event.dataTransfer?.getData(STATE_REFERENCE_DRAG_FORMAT)
     const snippetID = event.dataTransfer?.getData(SNIPPET_DRAG_FORMAT)
     const graphCallID = event.dataTransfer?.getData(GRAPH_CALL_DRAG_FORMAT)
     const workspaceResource = event.dataTransfer?.getData(RESOURCE_DRAG_FORMAT)
-    if (nodeTypeId || stateReference || snippetID || graphCallID || workspaceResource)
+    if (
+      localResource ||
+      nodeTypeId ||
+      stateReference ||
+      snippetID ||
+      graphCallID ||
+      workspaceResource
+    )
       event.preventDefault()
     finishDrag()
     const position = options.screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
+    if (localResource) {
+      const id = parseWorkspaceResource(localResource)
+      if (id) options.useLocalResource?.(id, position)
+      return
+    }
     if (nodeTypeId) return options.addNode(nodeTypeId, position)
     if (snippetID) return void options.useSnippet(snippetID, position)
     if (graphCallID) return options.addGraphCall(graphCallID, position)
@@ -74,7 +96,15 @@ export function useWorkflowEditorDrop(options: WorkflowEditorDropOptions) {
     const guid = parseWorkspaceResource(raw)
     if (!guid) return
     try {
-      options.importWorkflowResource(await snapshotGlobalAssetByID(guid), position)
+      const asset = await backend.assets.get(guid)
+      if (asset.kind === 'path' && asset.blob && options.usePathResource) {
+        options.usePathResource(
+          { guid, name: asset.name, kind: 'path', blob: { ...asset.blob } },
+          position,
+        )
+      } else {
+        options.importWorkflowResource(await snapshotGlobalAssetByID(guid), position)
+      }
       options.assets.markUsed(guid)
     } catch (error) {
       options.showError(options.translate('workflow.toast.edit_rejected'), error)

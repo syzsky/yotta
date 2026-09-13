@@ -40,9 +40,11 @@ type Service struct {
 	calibratorHUD   windowSlot
 	launcher        windowSlot
 	panels          windowSlot
+	pathEditor      windowSlot
 	launcherVisible bool // 只反映本 feature 的 Show/Hide，不强保证跟 OS 同步
 	// onCalibratorClose: 校准 HUD 窗关闭时的兜底清理 (main.go 注入 → 卸 F8 钩 + 停 session)。
 	// 覆盖 ESC / Alt+F4 / 崩溃 等不走前端正常关闭的路径。
+	onPathEditorClose func()
 	onCalibratorClose func()
 	onLauncherShown   func()
 	onLauncherHidden  func()
@@ -61,6 +63,7 @@ type Service struct {
 type Options struct {
 	TemplateMatcher   TemplateMatcher
 	CaptureHotkey     func() (mods, vk uint32)
+	OnPathEditorClose func()
 	OnCalibratorClose func()
 	OnLauncherShown   func()
 	OnLauncherHidden  func()
@@ -78,6 +81,7 @@ func NewServiceWithOptions(resolver TargetResolver, presenter Presenter, options
 		presenter:           presenter,
 		captureHotkey:       options.CaptureHotkey,
 		onCalibratorClose:   options.OnCalibratorClose,
+		onPathEditorClose:   options.OnPathEditorClose,
 		onLauncherShown:     options.OnLauncherShown,
 		onLauncherHidden:    options.OnLauncherHidden,
 		winCache:            map[string]cachedWindow{},
@@ -152,7 +156,7 @@ func (s *Service) shutdown() {
 	s.launcherVisible = false
 	launcherHidden := s.onLauncherHidden
 
-	slots := []*windowSlot{&s.hud, &s.recordingHUD, &s.calibratorHUD, &s.launcher, &s.panels}
+	slots := []*windowSlot{&s.hud, &s.recordingHUD, &s.calibratorHUD, &s.launcher, &s.panels, &s.pathEditor}
 	for _, slot := range s.pickerWindows {
 		if slot != nil {
 			slots = append(slots, slot)
@@ -162,12 +166,16 @@ func (s *Service) shutdown() {
 	windows := make([]Window, 0, len(slots))
 	attempts := make([]*windowOpenAttempt, 0, len(slots))
 	calibratorActive := false
+	pathEditorActive := false
 	for _, slot := range slots {
 		// A completed window no longer owns its closing callback after the
 		// generation bump below, so run that cleanup here. An in-flight open
 		// performs the same cleanup in openWindowSlot after it observes cancel.
 		if slot == &s.calibratorHUD && slot.window != nil {
 			calibratorActive = true
+		}
+		if slot == &s.pathEditor && slot.window != nil {
+			pathEditorActive = true
 		}
 		slot.generation++
 		if slot.window != nil {
@@ -179,6 +187,7 @@ func (s *Service) shutdown() {
 		}
 	}
 	calibratorClose := s.onCalibratorClose
+	pathEditorClose := s.onPathEditorClose
 	s.mu.Unlock()
 	if launcherHidden != nil {
 		launcherHidden()
@@ -192,6 +201,9 @@ func (s *Service) shutdown() {
 	}()
 	for _, window := range windows {
 		window.Close()
+	}
+	if pathEditorActive && pathEditorClose != nil {
+		pathEditorClose()
 	}
 	if calibratorActive && calibratorClose != nil {
 		calibratorClose()

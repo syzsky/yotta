@@ -25,6 +25,7 @@ type typeCapabilityRow struct {
 var typeCapabilityWaivers = map[string]string{
 	InputClipTypeID: "created and selected through the recording asset library",
 	MacroTypeID:     "created and selected through the macro asset library",
+	PathAssetTypeID: "created and selected through the path asset library",
 }
 
 func validateTypeCapabilityClosure(types []datatype.Definition, contracts []nodecontract.Contract) ([]typeCapabilityRow, error) {

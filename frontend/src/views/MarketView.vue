@@ -39,8 +39,10 @@
       </div>
     </header>
 
-    <WorkflowMarketPanel v-if="contentType === 'workflows'" />
-    <PluginMarketPanel v-else />
+    <KeepAlive>
+      <WorkflowMarketPanel v-if="contentType === 'workflows'" />
+      <PluginMarketPanel v-else />
+    </KeepAlive>
   </div>
 </template>
 

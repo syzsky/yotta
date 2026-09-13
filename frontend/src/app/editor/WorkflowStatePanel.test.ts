@@ -9,7 +9,7 @@ import type { EditorCommand } from './EditorSession'
 import { buildStateTypeChoices } from './stateVariableTypes'
 import WorkflowStatePanel from './WorkflowStatePanel.vue'
 
-vi.mock('@/components/common/AdaptiveSelect.vue', async () => {
+vi.mock('@/components/common/TypeSelect.vue', async () => {
   const { defineComponent, h } = await import('vue')
   return {
     default: defineComponent({

@@ -184,6 +184,11 @@
             @locate-reference="locateStateReferenceAt"
             @close="workspaceSidebarOpen = false"
           />
+          <WorkflowPathDock
+            :source="session.source"
+            v-else-if="workspacePanel === 'path'"
+            @use="useWorkspaceResource"
+          />
           <WorkflowResourceDock
             v-else-if="workspaceResourcePanel"
             :kind="workspaceResourceKind"
@@ -215,6 +220,7 @@
         </aside>
 
         <WorkflowEditorCanvas
+          :flow-id="flowApi.id"
           :graph-id="session.currentGraph?.id ?? ''"
           :graph-kind="session.currentGraph?.kind"
           :node-drag-active="nodeDragActive"
@@ -479,7 +485,13 @@
 
 <script setup lang="ts">
 import {
+  POSITION_SOURCE_AUTHORING,
+  POSITION_STRING_TYPE,
+  connectPositionSource,
+} from '@/app/editor/positionSourceAuthoring'
+import {
   computed,
+  provide,
   defineAsyncComponent,
   nextTick,
   onActivated,
@@ -496,7 +508,8 @@ import {
   type MainWindowCloseRequest,
 } from '@/app/window/mainWindowCloseGuard'
 import { useToast } from '@/composables/useAppToast'
-import { useVueFlow, type Node as FlowNode, type VueFlowStore } from '@vue-flow/core'
+import type { Node as FlowNode, VueFlowStore } from '@vue-flow/core'
+import { useWorkflowCanvasStore } from '@/app/editor/useWorkflowCanvasStore'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
@@ -596,6 +609,7 @@ const WorkflowGraphCallInspector = defineAsyncComponent(
 const WorkflowGraphInterfacePanel = defineAsyncComponent(
   () => import('@/app/editor/WorkflowGraphInterfacePanel.vue'),
 )
+const WorkflowPathDock = defineAsyncComponent(() => import('@/app/editor/WorkflowPathDock.vue'))
 const WorkflowResourceDock = defineAsyncComponent(
   () => import('@/app/editor/WorkflowResourceDock.vue'),
 )
@@ -618,6 +632,8 @@ const AIWorkflowReviewPanel = defineAsyncComponent(
 )
 
 const route = useRoute()
+// The shared route can change while this cached instance is still initializing.
+const workflowId = String(route.params.id ?? '')
 const router = useRouter()
 const toast = useToast()
 const { confirm, finishPending } = useConfirm()
@@ -814,7 +830,7 @@ const macroMetadataTags = computed(() =>
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right)),
 )
-const flowApi = shallowRef(useVueFlow('workflow-editor'))
+const flowApi = shallowRef(useWorkflowCanvasStore())
 const getSelectedNodes = computed(() => flowApi.value.getSelectedNodes.value)
 const addSelectedNodes = (...args: Parameters<VueFlowStore['addSelectedNodes']>) =>
   flowApi.value.addSelectedNodes(...args)
@@ -920,6 +936,16 @@ const {
   commitPromotion: commitStatePromotion,
   cancelPromotion: cancelStatePromotion,
 } = stateAuthoring
+provide(POSITION_SOURCE_AUTHORING, {
+  variables: () =>
+    (session.source?.variables ?? [])
+      .filter(
+        (variable) =>
+          variable.type.kind === 'ref' && variable.type.ref.typeId === POSITION_STRING_TYPE,
+      )
+      .map((variable) => ({ label: variable.name, value: variable.name })),
+  connect: (nodeId, slot) => connectPositionSource(session, nodeId, slot),
+})
 const editorDrop = useWorkflowEditorDrop({
   assets,
   screenToFlowCoordinate,
@@ -927,6 +953,11 @@ const editorDrop = useWorkflowEditorDrop({
   useSnippet,
   addGraphCall: (graphId, position) => addGraphCall(graphId, position),
   importWorkflowResource: (resource, position) => importWorkflowResource(resource, position),
+  usePathResource: (selection, position) => useWorkspaceResource(selection, position),
+  useLocalResource: (id, position) => {
+    const resource = session.source?.resources.find((item) => item.id === id)
+    if (resource) dropLocalResource(resource, position)
+  },
   insertStateReference,
   translate: (key) => t(key),
   showError,
@@ -1429,6 +1460,7 @@ const {
   removeVariant: removeWorkflowResourceVariant,
   useWorkspaceResource,
   useResource: useWorkflowResource,
+  dropResource: dropLocalResource,
   locateBoundResource,
   importResource: importWorkflowResource,
   updateResources: updateWorkflowResources,
@@ -1520,7 +1552,6 @@ onMounted(async () => {
     recording.reconcile(),
     snippets.load(),
   ])
-  const workflowId = String(route.params.id ?? '')
   try {
     await session.load(workflowId)
   } catch {
@@ -1558,7 +1589,15 @@ const unregisterMainWindowCloseGuard = registerMainWindowCloseGuard(confirmEdito
 async function confirmEditorExit(
   closeRequest?: MainWindowCloseRequest,
 ): Promise<boolean | 'handled'> {
-  if (!(await inspectorPersistence.flush())) return false
+  return inspectorPersistence.decideExit((inputsValid) =>
+    decideEditorExit(inputsValid, closeRequest),
+  )
+}
+
+async function decideEditorExit(
+  inputsValid: boolean,
+  closeRequest?: MainWindowCloseRequest,
+): Promise<boolean | 'handled'> {
   if (
     recording.state.phase === 'armed' ||
     recording.state.phase === 'countdown' ||
@@ -1586,7 +1625,7 @@ async function confirmEditorExit(
     closeRequest?.setStage('stopping')
     if (!(await editorRecording.execute({ kind: 'discard' }))) return false
   }
-  if (!session.dirty) return true
+  if (!session.dirty && inputsValid) return true
   const decision = await confirm({
     title: t('workflow.editor.leave_title'),
     description: t('workflow.editor.leave_confirm'),
@@ -1602,7 +1641,7 @@ async function confirmEditorExit(
     try {
       closeRequest?.setStage('restoring')
       await nextTick()
-      await session.load(session.workflowId)
+      session.discardDraft()
       if (closeRequest) {
         await closeRequest.close()
         return 'handled'

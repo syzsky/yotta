@@ -15,7 +15,7 @@
     @drop="emit('drop', $event)"
   >
     <VueFlow
-      id="workflow-editor"
+      :id="flowId"
       :nodes="nodes"
       :edges="edges"
       :delete-key-code="null"
@@ -394,6 +394,7 @@ import WorkflowConnectionMenu from './WorkflowConnectionMenu.vue'
 import AdaptiveSelect from '@/components/common/AdaptiveSelect.vue'
 
 defineProps<{
+  flowId: string
   graphId: string
   graphKind?: string
   nodeDragActive: boolean

@@ -9,6 +9,7 @@ import (
 	"github.com/yottaapp/yotta/internal/automation/navigation"
 	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/nodes"
+	"github.com/yottaapp/yotta/sdk/plugin/positionsource"
 )
 
 func makeWorldPosition(b nodes.Builtins) nodeadapter.Adapter {
@@ -56,6 +57,17 @@ func parseWorldPosition(b nodes.Builtins) nodeadapter.Adapter {
 			return nodeadapter.AdapterResult{}, err
 		}
 		now := time.Now()
+		var protocol string
+		_ = json.Unmarshal(document["protocol"], &protocol)
+		if protocol == positionsource.Protocol {
+			position, err := decodePositionSource([]byte(source), now)
+			if err != nil {
+				return nodeadapter.AdapterResult{}, err
+			}
+			result, err := sealVisionOutputs(b, i, map[string]any{"position": position})
+			result.ExecOutputs = []string{"done"}
+			return result, err
+		}
 		pose, readErr := decodeNavigationPose([]byte(source), i, now)
 		position := navigation.WorldPosition{X: pose.X, Y: pose.Y, Heading: pose.Heading, Frame: navString(i, "frame", "world"), Unit: navString(i, "unit", "world"), AxisHeading: navNumber(i, "axisHeading", 0), AxisSign: int(navNumber(i, "axisSign", 1)), Valid: readErr == nil, ReceivedAt: now.UnixMilli(), Epoch: navString(i, "epoch", "")}
 		if readErr == nil {
@@ -72,4 +84,31 @@ func parseWorldPosition(b nodes.Builtins) nodeadapter.Adapter {
 		result.ExecOutputs = []string{"done"}
 		return result, err
 	}
+}
+
+func decodePositionSource(raw []byte, now time.Time) (navigation.WorldPosition, error) {
+	s, err := positionsource.Decode(raw)
+	if err != nil {
+		return navigation.WorldPosition{}, err
+	}
+	p := navigation.WorldPosition{Frame: s.Frame.ID, Unit: s.Frame.Unit,
+		AxisHeading: s.Frame.AxisHeading, AxisSign: s.Frame.AxisSign, Epoch: s.Epoch,
+		ReceivedAt: now.UnixMilli()}
+	if !s.Ready(positionsource.Position, now, time.Second) || !s.Ready(positionsource.CameraHeading, now, time.Second) {
+		return p, nil
+	}
+	xy, heading := s.Observations[positionsource.Position], s.Observations[positionsource.CameraHeading]
+	var point positionsource.Point
+	if err := json.Unmarshal(xy.Value, &point); err != nil {
+		return p, err
+	}
+	if err := json.Unmarshal(heading.Value, &p.Heading); err != nil {
+		return p, err
+	}
+	p.X, p.Y, p.Valid = point.X, point.Y, true
+	p.SampleAt, p.Sequence = xy.SampleTimeMs, xy.Sequence
+	// Keep the older measurement's age: fresh heading cannot refresh stale XY.
+	p.ReceivedAt = min(p.ReceivedAt, xy.SampleTimeMs, heading.SampleTimeMs,
+		now.UnixMilli()-xy.SampleAgeMs, now.UnixMilli()-heading.SampleAgeMs)
+	return p, nil
 }

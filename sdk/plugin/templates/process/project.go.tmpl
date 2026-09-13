@@ -1,0 +1,29 @@
+package project
+
+import (
+	_ "embed"
+	"encoding/json"
+)
+
+//go:embed plugin.json
+var configuration []byte
+
+// Metadata is shared by the guest and packager so their effect identity agrees.
+type Metadata struct {
+	Namespace   string `json:"namespace"`
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Version     string `json:"version"`
+	NodeVersion string `json:"nodeVersion"`
+	Panel       bool   `json:"panel"`
+	PanelPort   int    `json:"panelPort"`
+}
+
+func Load() (Metadata, error) {
+	var config Metadata
+	err := json.Unmarshal(configuration, &config)
+	return config, err
+}
+
+func (config Metadata) EffectID() string { return config.Namespace + "/effects/" + config.Slug + "/v1" }

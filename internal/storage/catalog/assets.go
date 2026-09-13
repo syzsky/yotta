@@ -20,6 +20,7 @@ const (
 	AssetKindTemplate = "template"
 	AssetKindClip     = "clip"
 	AssetKindMacro    = "macro"
+	AssetKindPath     = "path"
 )
 
 var catalogAssetIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
@@ -351,7 +352,7 @@ func validateCatalogAsset(record AssetRecord) error {
 	if !catalogAssetIDPattern.MatchString(record.GUID) {
 		return fmt.Errorf("invalid asset GUID %q", record.GUID)
 	}
-	if record.Kind != AssetKindTemplate && record.Kind != AssetKindClip && record.Kind != AssetKindMacro {
+	if record.Kind != AssetKindTemplate && record.Kind != AssetKindClip && record.Kind != AssetKindMacro && record.Kind != AssetKindPath {
 		return fmt.Errorf("invalid asset kind %q", record.Kind)
 	}
 	if record.CreatedAt.IsZero() {
@@ -546,7 +547,7 @@ func validateAssetQuery(query AssetQuery) error {
 	if query.Page <= 0 || query.PageSize <= 0 || query.PageSize > 100 {
 		return errors.New("asset query pagination is invalid")
 	}
-	if query.Kind != "" && query.Kind != AssetKindTemplate && query.Kind != AssetKindClip && query.Kind != AssetKindMacro {
+	if query.Kind != "" && query.Kind != AssetKindTemplate && query.Kind != AssetKindClip && query.Kind != AssetKindMacro && query.Kind != AssetKindPath {
 		return errors.New("asset query kind is invalid")
 	}
 	if len([]rune(query.Search)) > 200 || len([]rune(query.Category)) > 100 ||

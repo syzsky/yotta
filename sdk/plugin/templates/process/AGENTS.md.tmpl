@@ -1,0 +1,11 @@
+# Yotta plugin project
+
+Read README.md and plugin.json before changing this plugin. Keep its publisher namespace, package ID and existing node/component IDs stable across updates.
+
+Import the pinned public github.com/yottaapp/yotta/sdk/plugin packages; do not import Yotta internal packages or replace the SDK with a sibling checkout. This project's own internal packages are ordinary application code.
+
+Use build.ps1 for Check, Build, Keygen and Pack. Keep the publisher key outside this project. Run the guest through Yotta's plugin invocation protocol; stdout is reserved for protocol frames.
+
+For a panel, edit internal/paneldefinition and cmd/companion together. Test session/control conflicts and event replay. Node invocations finish; persistent background work belongs to the companion.
+
+After changing behavior, test and pack, then use an isolated Yotta profile for install/reopen/run validation. Use the Workspace lifecycle entry if developing in the Yotta workspace. Do not replace the user's live test profile, publish, commit or push unless included in the user's request.

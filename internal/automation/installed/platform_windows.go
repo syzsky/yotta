@@ -24,6 +24,7 @@ var windowsInputCoordinator inputcoord.Coordinator
 type windowsDriver struct {
 	profile Profile
 	backend pkginput.Backend
+	keys    *keyClaims
 	capture pkgcapture.IBackend
 	gate    chan struct{}
 	closed  bool
@@ -123,9 +124,16 @@ func newPlatformDriver(profile Profile) (driver, error) {
 		_ = backend.Close()
 		return nil, failure(CodeUnsupportedHost, errors.New(warning))
 	}
+	keyboard, err := pkginput.NewBackend(machine.InputBackend)
+	if err != nil {
+		_ = captureBackend.Close()
+		_ = backend.Close()
+		return nil, failure(CodeUnsupportedHost, err)
+	}
+	keys := &keyClaims{physical: keyboard}
 	gate := make(chan struct{}, 1)
 	gate <- struct{}{}
-	return &windowsDriver{profile: profile, backend: backend, capture: captureBackend, gate: gate}, nil
+	return &windowsDriver{profile: profile, backend: keys.input(backend), keys: keys, capture: captureBackend, gate: gate}, nil
 }
 
 func (d *windowsDriver) ResolveTarget(ctx context.Context) (target.Target, error) {
@@ -148,6 +156,9 @@ func (d *windowsDriver) ResolveTarget(ctx context.Context) (target.Target, error
 // ActivateAndResolveTarget resolves exactly once under the driver gate, brings
 // that HWND to the foreground, and returns the same identity to recording.
 func (d *windowsDriver) ActivateAndResolveTarget(ctx context.Context) (target.Target, error) {
+	if err := checkCooperativeInput(ctx, OperationActivate); err != nil {
+		return target.Target{}, err
+	}
 	select {
 	case <-ctx.Done():
 		return target.Target{}, ctx.Err()
@@ -258,6 +269,9 @@ func (d *windowsDriver) controller(window winutil.WindowHandle) (*controller.Win
 }
 
 func (d *windowsDriver) OpenPlayback(ctx context.Context) (playbackSessionDriver, error) {
+	if err := checkCooperativeInput(ctx, OperationPlayEvent); err != nil {
+		return nil, err
+	}
 	window, err := d.resolve(ctx)
 	if err != nil {
 		return nil, err
@@ -292,6 +306,9 @@ func (d *windowsDriver) OpenPlayback(ctx context.Context) (playbackSessionDriver
 }
 
 func (playback *windowsPlayback) PlayEvent(ctx context.Context, event PlaybackEvent) error {
+	if err := checkCooperativeInput(ctx, OperationPlayEvent); err != nil {
+		return err
+	}
 	d := playback.parent
 	if playback.lease == nil {
 		lease, err := windowsInputCoordinator.Acquire(ctx, d.inputDomain(playback.window), playback.owner)
@@ -390,6 +407,11 @@ func (d *windowsDriver) ReleaseInput() error {
 }
 
 func (d *windowsDriver) OpenHeldInput() (heldInputDriver, error) {
+	<-d.gate
+	defer func() { d.gate <- struct{}{} }()
+	if d.closed {
+		return nil, failure(CodeContractViolation, errors.New("automation input driver is closed"))
+	}
 	machine, ok := DesktopProfile(d.profile)
 	if !ok {
 		return nil, failure(CodeContractViolation, errors.New("Win32 driver received another adapter profile"))
@@ -398,7 +420,7 @@ func (d *windowsDriver) OpenHeldInput() (heldInputDriver, error) {
 	if err != nil {
 		return nil, failure(CodeUnsupportedHost, err)
 	}
-	return &windowsHeldInput{parent: d, backend: backend}, nil
+	return &windowsHeldInput{parent: d, backend: d.keys.input(backend)}, nil
 }
 
 func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw any) (runErr error) {
@@ -406,6 +428,19 @@ func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw an
 	defer h.mu.Unlock()
 	if h.closed || h.backend == nil {
 		return failure(CodeContractViolation, errors.New("held input driver is closed"))
+	}
+	defer func() {
+		if runErr != nil {
+			releaseErr := h.backend.ReleaseAll()
+			runErr = errors.Join(runErr, releaseErr)
+			if releaseErr == nil {
+				h.lease.Release()
+				h.lease = nil
+			}
+		}
+	}()
+	if err := checkCooperativeInput(ctx, operation); err != nil {
+		return err
 	}
 	window, err := h.parent.resolve(ctx)
 	if err != nil {
@@ -421,14 +456,21 @@ func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw an
 		h.owner, h.lease, h.domain = owner, lease, domain
 		owner.Register(h)
 	}
-	h.operation, h.request = operation, raw
-	h.paused = false
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-h.parent.gate:
 	}
 	defer func() { h.parent.gate <- struct{}{} }()
+	defer func() {
+		if runErr == nil {
+			runErr = ctx.Err()
+		}
+		if runErr == nil {
+			h.operation, h.request = operation, raw
+			h.paused = false
+		}
+	}()
 	if h.parent.closed {
 		return failure(CodeContractViolation, errors.New("automation target driver is closed"))
 	}
@@ -442,7 +484,7 @@ func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw an
 	case HoldKeysRequest:
 		for _, key := range request.Keys {
 			if err := h.backend.KeyDown(handle, key); err != nil {
-				return errors.Join(err, h.backend.ReleaseAll())
+				return err
 			}
 		}
 		return nil
@@ -452,7 +494,7 @@ func (h *windowsHeldInput) Execute(ctx context.Context, operation string, raw an
 			return err
 		}
 		if err := h.backend.MouseDown(handle, point.X, point.Y, request.Button); err != nil {
-			return errors.Join(err, h.backend.ReleaseAll())
+			return err
 		}
 		return nil
 	default:
@@ -466,20 +508,25 @@ func (h *windowsHeldInput) Close() error {
 	if h.closed {
 		return nil
 	}
+	if err := h.backend.Close(); err != nil {
+		return err
+	}
 	h.closed = true
-	err := errors.Join(h.backend.ReleaseAll(), h.backend.Close())
 	h.backend = nil
 	if h.owner != nil {
 		h.owner.Unregister(h)
 	}
-	if err == nil {
-		h.lease.Release()
-		h.lease = nil
-	}
-	return err
+	h.lease.Release()
+	h.lease = nil
+	return nil
 }
 
 func (d *windowsDriver) Execute(ctx context.Context, operation string, raw any) (runErr error) {
+	// Reject before target resolution/acquisition: only physical key claims
+	// compose with a moving parent; pointer/text/window effects need it paused.
+	if err := checkCooperativeInput(ctx, operation); err != nil {
+		return err
+	}
 	window, err := d.resolve(ctx)
 	if err != nil {
 		return err
@@ -745,8 +792,11 @@ func (d *windowsDriver) Close() error {
 	if d.closed {
 		return nil
 	}
+	if err := errors.Join(d.backend.Close(), d.keys.close()); err != nil {
+		return err
+	}
 	d.closed = true
-	err := errors.Join(d.backend.ReleaseAll(), d.backend.Close(), d.capture.Close())
+	err := d.capture.Close()
 	d.backend = nil
 	d.capture = nil
 	return err

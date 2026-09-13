@@ -224,6 +224,26 @@ export default {
   },
   type: {
     navigation: {
+      pathAsset: { title: '保存的路径', description: '固定内容版本的路径资源。' },
+      path: {
+        title: '路径',
+        description: '共享坐标参照中的有序点列。',
+        breakTitle: '拆解路径',
+      },
+      'path-reference': {
+        title: '路径坐标参照',
+        description: '坐标系、单位和轴向；局部参照需要显式对齐。',
+        breakTitle: '拆解路径坐标参照',
+      },
+      'path-point': {
+        title: '路径点',
+        description: '含稳定标识、坐标和可选高度的点位。',
+        breakTitle: '拆解路径点',
+      },
+      'path-height': {
+        title: '可选高度',
+        description: '未知高度为 null，不按零高度处理。',
+      },
       worldPosition: {
         title: '实时位置',
         description: '含坐标、朝向、坐标系与采样时间的位置观测。',
@@ -446,6 +466,7 @@ export default {
         launcher_toggle: '呼出/隐藏 启动器悬浮窗',
       },
       recording: {
+        path_mark: '路径：当前位置打点',
         start: '开始录制',
         stop: '停止录制',
         pause: '暂停/继续录制',
@@ -469,6 +490,20 @@ export default {
     },
   },
   error: {
+    'path.inline_budget_exceeded':
+      '此路径超过数据线传输容量。请使用“沿保存路径移动”直接运行完整路线。',
+    'path.name_invalid': '路径名称需为 1–80 个字符。',
+    'path.identity_conflict': '所选素材不是路径，请重新选择路径。',
+    'path.save_failed': '路径保存失败，编辑内容已保留，请重试。',
+    'path.source_endpoint_missing':
+      '定位服务已响应，但采样接口不存在（HTTP 404）。请检查地址，或更新定位插件后重新启动采集服务。',
+    'path.source_invalid': '定位源地址或返回数据无效，请检查插件的采样地址。',
+    'path.source_unavailable': '无法连接定位源。请启动定位插件后重试。',
+    'path.reference_undeclared': '定位源未声明坐标参照，请更新插件后重试。',
+    'path.position_unavailable': '当前坐标不可用或已过期。恢复定位后继续录制。',
+    'path.position_wait_timeout':
+      '已等待 10 秒，定位服务仍未提供新鲜坐标。请检查游戏内定位是否正常后重试。',
+    'path.invalid': '路径无效：请检查坐标参照、点位标识和点位范围。',
     'authoring.observation.unavailable': '创作上下文暂不可用，请重新打开工作流。',
     'authoring.observation.workflow_not_found': '找不到此工作流，请刷新工作流列表。',
     'authoring.observation.invalid_capture': '截图参数冲突，请选择目标截图或屏幕截图。',
@@ -519,6 +554,8 @@ export default {
     'plugins.batch_invalid': '批量操作无效，请重新选择插件后重试。',
     'plugins.load_failed': '插件信息读取失败，请重试或重新导入插件包。',
     'plugins.install_failed': '插件安装未完成，请重试或重新获取插件包。',
+    'plugins.market_cancelled': '插件市场操作已取消，当前选择已保留。',
+    'plugins.market_timeout': '插件市场请求超时，请重试。',
     'plugins.market_unavailable': '插件市场暂时不可用，请稍后重试。',
     'plugins.market_invalid_release': '这个插件版本无效，请返回市场后重新选择。',
     'plugins.market_install_failed': '插件安装未完成，请稍后重试。',
@@ -753,6 +790,11 @@ export default {
     'workflow.wallet.storage_unavailable': '无法保存付款授权，请检查系统凭据存储后重试。',
     'workflow.checkout.order_changed': '订单状态已变化，请重试查询当前订单；不会重新下单。',
     'workflow.registry.purchase_required': '请先购买此工作流；已购买时请登录购买账户，再重试安装。',
+    'workflow.registry.invalid_sales': '请检查价格和使用条款后重新提交。',
+    'workflow.registry.sales_changed': '销售设置已更新，请重新打开投稿表单获取最新设置。',
+    'workflow.registry.submission_pending': '此作品已有待审核投稿，请在“我的投稿”查看进度。',
+    'workflow.registry.idempotency_conflict': '投稿内容已变化，请重新打开投稿表单后提交。',
+    'workflow.registry.review_required': '此变更需要审核，请通过投稿表单提交。',
     'workflow.registry.authentication_required': '请先登录，再发布工作流。',
     'workflow.registry.workflow_rejected': '这个工作流暂时无法发布，请检查内容后重试。',
     'workflow.registry.bundle_too_large': '工作流包含的内容过大，请减少内嵌资源后重试。',

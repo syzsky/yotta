@@ -122,6 +122,7 @@ vi.mock('vue-router', async (importOriginal) => {
     ...actual,
     useRouter: () => ({
       push,
+      replace: vi.fn(async () => {}),
       resolve: (to: unknown) => ({ href: String(to), matched: [], meta: {} }),
     }),
     useRoute: () => ({

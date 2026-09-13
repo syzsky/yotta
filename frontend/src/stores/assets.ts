@@ -15,7 +15,7 @@ const MAX_CACHED_PAGES = 32
 
 export interface AssetPickerSelection {
   guid: string
-  kind: 'template' | 'macro' | 'clip'
+  kind: 'template' | 'macro' | 'clip' | 'path'
   name: string
   resolution?: [number, number]
   blob: BlobRef

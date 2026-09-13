@@ -44,6 +44,8 @@
         {{ projectionDescription }}
       </p>
 
+      <PathFollowingHelp :node-type-id="projection.nodeRef.nodeTypeId" />
+
       <PlaybackCalibrationPanel v-if="isInputClipPlayback" :node="node" :target-slot="targetSlot" />
 
       <section class="space-y-2">
@@ -229,6 +231,8 @@ import {
   type AuthoringGroup,
 } from './authoringSurface'
 import type { ResourceLocation } from './resourceLocator'
+
+import PathFollowingHelp from './PathFollowingHelp.vue'
 
 const PlaybackCalibrationPanel = defineAsyncComponent(
   () => import('./PlaybackCalibrationPanel.vue'),

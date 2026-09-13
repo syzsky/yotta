@@ -34,7 +34,25 @@
     @inherit="emit('command', { kind: 'clear-config', nodeId: node.id, fieldId: item.field.id })"
   />
   <div v-else-if="item.kind === 'config'" class="space-y-2">
+    <PositionSourceField
+      v-if="
+        item.field.id === 'position-variable' &&
+        projection.nodeRef.nodeTypeId.includes('/navigation/')
+      "
+      :node-id="node.id"
+      :value="String(effectiveConfigValue ?? '')"
+      :label="t(item.field.titleKey || 'paths.source_choose_variable')"
+      @change="
+        emit('command', {
+          kind: 'set-config',
+          nodeId: node.id,
+          fieldId: item.field.id,
+          value: $event,
+        })
+      "
+    />
     <GeneratedFieldEditor
+      v-else
       :field="item.field"
       :model-value="effectiveConfigValue"
       :state-variables="variables"
@@ -125,6 +143,7 @@
 </template>
 
 <script setup lang="ts">
+import PositionSourceField from './PositionSourceField.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {

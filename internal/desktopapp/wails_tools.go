@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -78,7 +79,16 @@ func (p *wailsToolsPresenter) OpenWindow(request tools.WindowRequest) (tools.Win
 	if err != nil {
 		return nil, err
 	}
-	return &wailsToolsWindow{window: app.Window.NewWithOptions(wailsOptions), appContext: app.Context()}, nil
+	w := &wailsToolsWindow{window: app.Window.NewWithOptions(wailsOptions), appContext: app.Context()}
+	if request.Kind == tools.WindowPathEditor {
+		w.window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+			if app.Context().Err() == nil && !w.allowClose.Load() {
+				e.Cancel()
+				app.Event.Emit("path-editor:close-request", nil)
+			}
+		})
+	}
+	return w, nil
 }
 
 func (p *wailsToolsPresenter) ShowMain() error {
@@ -136,6 +146,13 @@ func wailsToolsWindowOptions(request tools.WindowRequest) (application.WebviewWi
 			Frameless: true, AlwaysOnTop: true, DisableResize: true,
 			BackgroundColour: darkBackground,
 		}, nil
+	case tools.WindowPathEditor:
+		query.Set("id", request.GUID)
+		return application.WebviewWindowOptions{
+			Title: "路径录制", Width: 1120, Height: 760, MinWidth: 760, MinHeight: 520,
+			URL: withQuery("/#/tools/path-editor"), Frameless: true, AlwaysOnTop: true,
+			BackgroundColour: darkBackground,
+		}, nil
 	case tools.WindowScreenPicker:
 		query.Set("mode", request.Mode)
 		query.Set("id", request.RequestID)
@@ -163,12 +180,14 @@ func (p *wailsToolsPresenter) Emit(name string, data any) {
 type wailsToolsWindow struct {
 	window     *application.WebviewWindow
 	appContext context.Context
+	allowClose atomic.Bool
 }
 
 func (w *wailsToolsWindow) Focus() { w.window.Focus() }
 func (w *wailsToolsWindow) Show()  { w.window.Show() }
 func (w *wailsToolsWindow) Hide()  { w.window.Hide() }
 func (w *wailsToolsWindow) Close() {
+	w.allowClose.Store(true)
 	requestToolsWindowClose(w.appContext, application.InvokeAsync, w.window.Close)
 }
 

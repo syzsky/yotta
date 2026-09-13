@@ -88,6 +88,7 @@ type Builtins struct {
 	RandomDistributionType       datatype.Definition
 	DurationMillisecondsType     datatype.Definition
 	WorldPositionType            datatype.Definition
+	PathType                     datatype.Definition
 	FileMetadataType             datatype.Definition
 	ObservabilityMessageType     datatype.Definition
 	ConcatContract               nodecontract.Contract
@@ -199,6 +200,14 @@ func Build() (Builtins, error) {
 		return Builtins{}, err
 	}
 	worldPositionType, err := sealWorldPositionType(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()})
+	if err != nil {
+		return Builtins{}, err
+	}
+	pathTypes, err := sealPathTypes(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()})
+	if err != nil {
+		return Builtins{}, err
+	}
+	pathDefinitions, err := definePathNodes(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()}, pathTypes)
 	if err != nil {
 		return Builtins{}, err
 	}
@@ -449,12 +458,29 @@ func Build() (Builtins, error) {
 		pointerButtonType, pointerMotionType, keyCodeType, heldInputType, randomDistributionType, durationMillisecondsType, fileMetadataType, observabilityMessageType,
 	}
 	types = append(types, panelTypes...)
+	types = append(types, pathTypes...)
 	structureDefinitions, err := defineStructureNodes(types)
 	if err != nil {
 		return Builtins{}, err
 	}
 	definitions := []BuiltinDefinition{concatDefinition, blobToStreamDefinition, streamToBlobDefinition}
 	definitions = append(definitions, worldPositionDefinition, parsePositionDefinition)
+	definitions = append(definitions, pathDefinitions...)
+	readPathDefinition, err := defineReadPath(pathTypes, blobRead)
+	if err != nil {
+		return Builtins{}, err
+	}
+	definitions = append(definitions, readPathDefinition)
+	followPathDefinition, err := defineFollowPath(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()}, durationMillisecondsType.TypeRef(), pathTypes[2].TypeRef())
+	if err != nil {
+		return Builtins{}, err
+	}
+	definitions = append(definitions, followPathDefinition)
+	savedPathDefinition, err := definePathFollower(primitiveTypes{stringRef: stringType.TypeRef(), numberRef: numberType.TypeRef(), integerRef: integerType.TypeRef(), booleanRef: booleanType.TypeRef()}, durationMillisecondsType.TypeRef(), pathTypes[4].TypeRef(), true, blobRead)
+	if err != nil {
+		return Builtins{}, err
+	}
+	definitions = append(definitions, savedPathDefinition)
 	definitions = append(definitions, primitiveDefinitions...)
 	definitions = append(definitions, collectionDefinitions...)
 	definitions = append(definitions, extendedDefinitions...)
@@ -508,6 +534,7 @@ func Build() (Builtins, error) {
 	}
 	return Builtins{
 		WorldPositionType: worldPositionType,
+		PathType:          pathTypes[2],
 		Catalog:           catalog, StringType: stringType, BinaryType: binaryType, ImageType: imageType, InputClipType: inputClipType, MacroType: macroType, NumberType: numberType,
 		IntegerType: integerType, BooleanType: booleanType, JSONType: jsonType,
 		PointUnitType: pointUnitType, PointType: pointType, RegionType: regionType, ConcatContract: concat,

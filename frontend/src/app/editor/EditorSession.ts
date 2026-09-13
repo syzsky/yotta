@@ -250,6 +250,7 @@ export class EditorSession {
   private readonly pendingDebugSnapshots = new Map<string, DebugSnapshot>()
   private debugStartPending = false
   private saveInFlight: Promise<SourceView> | null = null
+  private savedSource: SourceView | null = null
 
   constructor(
     private readonly transport: WorkflowTransport,
@@ -1230,6 +1231,15 @@ export class EditorSession {
     this.saveErrorTarget = null
   }
 
+  // Discard must not depend on a new backend read succeeding. Exit waits for
+  // outstanding saves first, so this is the last acknowledged durable snapshot.
+  discardDraft(): void {
+    if (this.saveInFlight) throw new Error('Cannot discard during a save')
+    if (!this.savedSource) throw new Error('No saved Workflow Source to restore')
+    this.acceptSource(this.savedSource)
+    this.phase = 'ready'
+  }
+
   private async persistSave(): Promise<SourceView> {
     let saved: SourceView
     do {
@@ -1446,6 +1456,7 @@ export class EditorSession {
       throw new Error('Workflow Source response has invalid identity')
     }
     for (const graph of parsed.graphs) normalizeGraph(graph)
+    this.savedSource = { ...view }
     this.source = parsed
     this.baseRevision = view.revision
     this.sourceHash = view.sourceHash

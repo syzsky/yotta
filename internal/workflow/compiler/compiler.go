@@ -788,6 +788,13 @@ func signalExecutionRoots(graph programGraph) []string {
 func regionInstructionPorts(instruction nodecontract.InstructionSpec) (map[string]bool, map[string]bool) {
 	switch instruction.Kind {
 	case nodecontract.InstructionInvoke:
+		if instruction.Invoke != nil && len(instruction.Invoke.Branches) > 0 {
+			outputs := map[string]bool{}
+			for _, branch := range instruction.Invoke.Branches {
+				outputs[branch.Output] = true
+			}
+			return outputs, nil
+		}
 		if instruction.Invoke != nil && instruction.Invoke.Subscription != nil {
 			v := instruction.Invoke.Subscription
 			return map[string]bool{v.EventOutput: true, v.MainOutput: true}, map[string]bool{v.StopInput: true}

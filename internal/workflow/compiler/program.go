@@ -24,7 +24,12 @@ import (
 )
 
 const (
-	ProgramFormat       = "yotta.program"
+	ProgramFormat = "yotta.program"
+	// The envelope/table layout remains v1. Invoke.Branches is owned by the
+	// Node Contract v4 semantic identity, not a new Program field. Programs
+	// additionally pin CompilerBuild: the v4 compiler rejects older cached
+	// Programs at strict-open and recompiles Source rather than interpreting
+	// an old cache under new branch semantics.
 	ProgramVersion      = "1"
 	MaxProgramBytes     = 16 << 20
 	MaxProgramJSONDepth = 128

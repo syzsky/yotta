@@ -1,0 +1,13 @@
+package main
+
+import (
+	"fmt"
+	"github.com/yottaapp/yotta/sdk/plugin/packaging"
+)
+
+func addPanel(_ *packaging.Build, config metadata, _ string) error {
+	if config.Panel {
+		return fmt.Errorf("this project was generated without a panel; add the provider and definition before enabling it")
+	}
+	return nil
+}

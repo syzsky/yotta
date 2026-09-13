@@ -49,6 +49,7 @@ const workspaceItems = computed<
   workspaceItem('macro', 'assets.tabs.macros', 'i-tabler-list-details'),
   workspaceItem('clip', 'assets.tabs.clips', 'i-tabler-route-alt-left'),
   workspaceItem('template', 'assets.tabs.templates', 'i-tabler-photo'),
+  workspaceItem('path', 'paths.title', 'i-tabler-map-route'),
   workspaceItem('snippets', 'workflow.snippets.title', 'i-tabler-bookmarks'),
 ])
 

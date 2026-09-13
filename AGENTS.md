@@ -16,6 +16,7 @@
 - `internal/nodecontract/` 与 `internal/datatype/`：节点/数据契约；`internal/workflow/compiler/` 与 `internal/noderuntime/`：唯一工作流执行路径。
 - `internal/automation/`：平台中立 target/controller contract；平台能力通过 adapter 接入。
 - `internal/services/`：应用服务；`pkg/`：可复用 adapter/helper；`cmd/`：仓库工具。
+- 开发独立 Yotta 插件时先读 `sdk/plugin/authoring/README.md`，通过 `scripts/create-plugin.py` 生成固定 SDK 的项目；面板扩展另读 `sdk/plugin/panel/README.md`。
 - `frontend/src/`：UI 与编辑器。`docs/README.md` 和 `flightdeck/knowledge/README.md` 只提供导航；文档与
   Knowledge 都可能过期，任何产品、架构或修改结论必须回到当前生产代码、schema、Task、测试或正式生成
   契约核验，不能用另一份文档自证。

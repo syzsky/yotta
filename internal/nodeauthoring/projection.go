@@ -533,7 +533,7 @@ func projectNode(contract nodecontract.Contract, types map[string]TypeProjection
 	}
 	projection := NodeProjection{
 		NodeRef: contract.NodeRef(), TitleKey: authoring.TitleKey, DescriptionKey: authoring.DescriptionKey,
-		Category: authoring.Category, Tags: append([]string(nil), authoring.Tags...), Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
+		Category: authoring.Category, Tags: append([]string{}, authoring.Tags...), Icon: authoring.Icon, EditorAdapter: authoring.EditorAdapter,
 		Execution: machine.Execution, Instruction: machine.Instruction, Availability: AvailabilityPortable,
 		HostFeatures: append([]nodecontract.HostFeatureRequirement{}, machine.HostFeatureRequirements...), DataInputs: []PortProjection{}, DataOutputs: []PortProjection{},
 		Signals: []SignalProjection{}, ConfigFields: fields, Capabilities: []CapabilityProjection{}, ConfiguredTargets: []ConfiguredTargetProjection{}, StateAccesses: []StateAccessProjection{}, Errors: append([]nodecontract.ErrorSpec{}, machine.Errors...),

@@ -214,8 +214,12 @@ func characterNavigation(b nodes.Builtins, id string) nodeadapter.Adapter {
 			return nodeadapter.AdapterResult{ExecOutputs: []string{"completed"}}, err
 		}
 		timeout, err := integerInput(i, "timeout")
-		if err != nil || timeout < 1 || timeout > 3600000 {
-			return nodeadapter.AdapterResult{}, errors.New("timeout must be between 1 and 3600000 ms")
+		if err != nil {
+			return nodeadapter.AdapterResult{}, err
+		}
+		// Match the duration input contract used by the editor and compiler.
+		if timeout < 1 || timeout > nodes.MaxDelayMilliseconds {
+			return nodeadapter.AdapterResult{}, fmt.Errorf("timeout must be between 1 and %d ms", nodes.MaxDelayMilliseconds)
 		}
 
 		if err := i.EmitStatus(ctx, nodes.NavigationWaitingStatus, map[string]int64{"timeout_ms": timeout}); err != nil {

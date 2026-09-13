@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   discoverRegistry: vi.fn(),
+  registryTaxonomy: vi.fn(),
   list: vi.fn(),
   installRegistry: vi.fn(),
   push: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/plugins', () => ({
   pluginBackend: {
     discoverRegistry: mocks.discoverRegistry,
+    registryTaxonomy: mocks.registryTaxonomy,
     list: mocks.list,
     installRegistry: mocks.installRegistry,
   },
@@ -33,6 +35,8 @@ vi.mock('@/components/workflow/WorkflowMarketDocument.vue', () => ({
 }))
 
 import PluginMarketPanel from './PluginMarketPanel.vue'
+import { RPCError } from '@/lib/invoke'
+import { i18n } from '@/i18n'
 
 const release = {
   releaseId: 'release-1',
@@ -99,9 +103,35 @@ const installed = {
 let app: ReturnType<typeof createApp> | undefined
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.registryTaxonomy.mockResolvedValue({
+    kind: 'node-pack',
+    revision: 2,
+    categories: [
+      { key: 'automation', name: 'Plugin Automation', parentKey: '', active: true, position: 0 },
+    ],
+    dimensions: [],
+    systemFacets: [
+      {
+        id: 'node-pack.operating-system',
+        name: 'Operating system',
+        source: 'system',
+        description: '',
+      },
+    ],
+  })
   mocks.discoverRegistry.mockResolvedValue({
     items: [release],
-    facets: { categories: ['automation'], tags: ['tools'] },
+    facets: {
+      categories: ['automation'],
+      tags: ['tools'],
+      systemFacets: [
+        {
+          id: 'node-pack.operating-system',
+          source: 'system',
+          values: [{ value: 'windows', count: 1 }],
+        },
+      ],
+    },
     nextCursor: '',
   })
   mocks.list.mockResolvedValue([])
@@ -126,6 +156,32 @@ async function mount() {
   return root
 }
 
+it.each([
+  ['plugins.market_cancelled', '插件市场操作已取消', false],
+  ['plugins.market_timeout', '插件市场请求超时', true],
+] as const)('shows %s without losing the search input', async (id, message, retryable) => {
+  const root = await mount()
+  i18n.global.locale.value = 'zh'
+  const query = root.querySelector<HTMLInputElement>('input')!
+  query.value = 'preserved query'
+  query.dispatchEvent(new Event('input'))
+  await nextTick()
+  mocks.registryTaxonomy.mockRejectedValueOnce(
+    new RPCError(
+      { id, category: 'domain', retryable },
+      'RegistryTaxonomy',
+      'taxonomy-test-operation',
+      null,
+    ),
+  )
+  root
+    .querySelector('form')!
+    .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  await vi.waitFor(() => expect(root.textContent).toContain(message))
+  expect(root.textContent).toContain('taxonomy-test-operation')
+  expect(query.value).toBe('preserved query')
+})
+
 it('discovers plugins and installs the selected release through the registry service', async () => {
   mocks.list.mockResolvedValueOnce([]).mockResolvedValue([installed])
   const root = await mount()
@@ -145,5 +201,94 @@ it('shows update state when the registry release is newer than the installed plu
   await nextTick()
   expect(root.querySelector('[data-testid="plugin-market-install"]')?.textContent).toContain(
     'market.plugins.update',
+  )
+})
+
+it('keeps a selected tag removable when the current query has no matching tags', async () => {
+  const root = await mount()
+  ;(root.querySelector('[data-testid="plugin-market-filter-toggle"]') as HTMLButtonElement).click()
+  await vi.waitFor(() => expect(document.body.querySelector('select')).not.toBeNull())
+  const select = document.body.querySelector('select') as HTMLSelectElement
+  mocks.discoverRegistry.mockResolvedValueOnce({
+    items: [],
+    facets: { categories: [], tags: [], systemFacets: [] },
+    nextCursor: '',
+  })
+  select.value = 'tools'
+  select.dispatchEvent(new Event('change', { bubbles: true }))
+  await vi.waitFor(() =>
+    expect(mocks.discoverRegistry).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tag: 'tools' }),
+    ),
+  )
+  await vi.waitFor(() => expect(root.textContent).toContain('market.plugins.empty_title'))
+  const remaining = document.body.querySelector('select') as HTMLSelectElement
+  expect(remaining.value).toBe('tools')
+  remaining.value = ''
+  remaining.dispatchEvent(new Event('change', { bubbles: true }))
+  await vi.waitFor(() =>
+    expect(mocks.discoverRegistry).toHaveBeenLastCalledWith(expect.objectContaining({ tag: '' })),
+  )
+})
+
+it('shows business candidate counts only with matching profile metadata', async () => {
+  mocks.registryTaxonomy.mockResolvedValue({
+    kind: 'node-pack',
+    revision: 7,
+    categories: [],
+    systemFacets: [],
+    dimensions: [
+      {
+        id: 'purpose',
+        name: 'Purpose',
+        active: true,
+        position: 0,
+        values: [{ id: 'tools', name: 'Tools', active: true, position: 0, parentId: '' }],
+      },
+    ],
+  })
+  mocks.discoverRegistry.mockResolvedValue({
+    items: [release],
+    facets: {
+      categories: [],
+      tags: [],
+      systemFacets: [],
+      profileRevision: 7,
+      dimensions: [{ id: 'purpose', values: [{ value: 'tools', count: 2 }] }],
+    },
+    nextCursor: '',
+  })
+  const root = await mount()
+  ;(root.querySelector('[data-testid="plugin-market-filter-toggle"]') as HTMLButtonElement).click()
+  await vi.waitFor(() => expect(document.body.textContent).toContain('Tools (2)'))
+})
+
+it('uses plugin taxonomy and keeps a selected system facet removable after an empty result', async () => {
+  const root = await mount()
+  expect(root.textContent).toContain('Plugin Automation')
+  ;(root.querySelector('[data-testid="plugin-market-filter-toggle"]') as HTMLButtonElement).click()
+  await vi.waitFor(() => expect(document.body.textContent).toContain('windows (1)'))
+  const checkbox = () =>
+    [...document.querySelectorAll('[role="checkbox"]')].find((element) => {
+      const label = document.querySelector(`label[for="${element.id}"]`)
+      return label?.textContent?.includes('windows')
+    }) as HTMLButtonElement
+  mocks.discoverRegistry.mockResolvedValueOnce({
+    items: [],
+    facets: { categories: [], tags: [], systemFacets: [] },
+    nextCursor: '',
+  })
+  checkbox().click()
+  await vi.waitFor(() =>
+    expect(mocks.discoverRegistry).toHaveBeenLastCalledWith(
+      expect.objectContaining({ systemFacets: ['node-pack.operating-system:windows'] }),
+    ),
+  )
+  await vi.waitFor(() => expect(document.body.textContent).toContain('windows (0)'))
+  checkbox().click()
+  await vi.waitFor(() =>
+    expect(mocks.discoverRegistry).toHaveBeenLastCalledWith(
+      expect.objectContaining({ systemFacets: [] }),
+    ),
   )
 })

@@ -1230,3 +1230,33 @@ func emptySource() schema.WorkflowSource {
 func patchEdge(edge schema.Edge) authoring.PatchEdge {
 	return authoring.PatchEdgeFromSource(edge)
 }
+func TestEngineRestoresInheritedWindowSlotAndAllowsLaterOverride(t *testing.T) {
+	builtins, projection := testContracts(t)
+	engine, err := authoring.New(builtins.Catalog, projection, func() string { return "window" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := emptySource()
+	source.TargetDefaults = []schema.TargetDefault{{Target: "target", Slot: "desktop"}}
+	created, err := engine.Apply(source, []authoring.Command{
+		{Kind: authoring.CommandAddNode, AddNode: &authoring.AddNodeCommand{GraphID: "main", NodeTypeID: nodes.MoveResizeWindowNodeID, Handle: "window"}},
+		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "$window", FieldID: "slot", Value: "other"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := engine.Apply(created.Source, []authoring.Command{{Kind: authoring.CommandClearConfig, ClearConfig: &authoring.FieldCommand{GraphID: "main", NodeID: "window", FieldID: "slot"}}})
+	if err != nil {
+		t.Fatalf("restore inheritance: %v", err)
+	}
+	if _, ok := restored.Source.Graphs[0].Nodes[0].Config["slot"]; ok {
+		t.Fatal("inheritance must remove the override")
+	}
+	_, err = engine.Apply(created.Source, []authoring.Command{
+		{Kind: authoring.CommandClearConfig, ClearConfig: &authoring.FieldCommand{GraphID: "main", NodeID: "window", FieldID: "slot"}},
+		{Kind: authoring.CommandSetConfig, SetConfig: &authoring.SetConfigCommand{GraphID: "main", NodeID: "window", FieldID: "slot", Value: "third"}},
+	})
+	if err != nil {
+		t.Fatalf("correcting an unsaved restore: %v", err)
+	}
+}

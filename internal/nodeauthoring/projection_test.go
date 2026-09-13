@@ -25,6 +25,9 @@ func TestProjectionDerivesEditorFactsFromTrustedContracts(t *testing.T) {
 	if !projection.Valid() || projection.CatalogHash() != builtins.Catalog.Hash() {
 		t.Fatal("projection did not bind the trusted machine Catalog")
 	}
+	if bytes.Contains(projection.Bytes(), []byte(`"tags":null`)) {
+		t.Fatal("editor catalog tags must serialize as an iterable array")
+	}
 	opened, err := nodeauthoring.Open(projection.Bytes(), input)
 	if err != nil || opened.Digest() != projection.Digest() || !bytes.Equal(opened.Bytes(), projection.Bytes()) {
 		t.Fatalf("strict open changed projection identity: %v", err)

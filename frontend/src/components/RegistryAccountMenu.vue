@@ -48,6 +48,17 @@
       block
       color="neutral"
       variant="ghost"
+      icon="i-tabler-file-upload"
+      class="justify-start"
+      data-testid="my-submissions"
+      @click="emit('submissions')"
+      >{{ t('workflow.market.my_submissions') }}</UButton
+    >
+    <UButton
+      v-if="profile.user_key"
+      block
+      color="neutral"
+      variant="ghost"
       icon="i-tabler-wallet"
       class="justify-start"
       @click="emit('wallet')"
@@ -102,6 +113,7 @@ const emit = defineEmits<{
   logout: []
   cancel: []
   center: []
+  submissions: []
   wallet: []
 }>()
 const { t } = useI18n()

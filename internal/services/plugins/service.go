@@ -24,6 +24,7 @@ type Registry interface {
 }
 
 type RegistrySearchPage struct {
+	Total      int64                            `json:"total"`
 	Items      []registryclient.NodePackRelease `json:"items"`
 	Facets     registryclient.Facets            `json:"facets"`
 	NextCursor string                           `json:"nextCursor,omitempty"`
@@ -75,13 +76,27 @@ func (s *Service) DiscoverRegistry(ctx context.Context, options registryclient.S
 	if err != nil {
 		return RegistrySearchPage{}, pluginMarketError("plugins.market_unavailable", err, true)
 	}
-	result := RegistrySearchPage{Items: []registryclient.NodePackRelease{}, Facets: page.Facets, NextCursor: page.NextCursor}
+	result := RegistrySearchPage{Items: []registryclient.NodePackRelease{}, Facets: page.Facets, NextCursor: page.NextCursor, Total: page.Total}
 	for _, item := range page.Items {
 		if item.Kind == "node-pack" {
 			result.Items = append(result.Items, item.NodePack)
 		}
 	}
 	return result, nil
+}
+
+func (s *Service) RegistryTaxonomy(ctx context.Context) (registryclient.TaxonomyProfile, error) {
+	client, ok := s.registry.(interface {
+		TaxonomyProfile(context.Context, string) (registryclient.TaxonomyProfile, error)
+	})
+	if !ok {
+		return registryclient.TaxonomyProfile{}, apperr.NewRetryable("plugins.market_unavailable", nil)
+	}
+	profile, err := client.TaxonomyProfile(ctx, "node-pack")
+	if err != nil {
+		return registryclient.TaxonomyProfile{}, pluginMarketError("plugins.market_unavailable", err, true)
+	}
+	return profile, nil
 }
 
 func (s *Service) InstallRegistry(ctx context.Context, releaseID string) (RegistryInstallResult, error) {
@@ -185,6 +200,11 @@ func userActionText(actions []registryclient.UserAction) string {
 }
 
 func pluginMarketError(id string, cause error, retryable bool) error {
+	if errors.Is(cause, context.Canceled) {
+		id, retryable = "plugins.market_cancelled", false
+	} else if errors.Is(cause, context.DeadlineExceeded) {
+		id, retryable = "plugins.market_timeout", true
+	}
 	var problem registryclient.Problem
 	params := map[string]any{}
 	if errors.As(cause, &problem) && problem.OperationID != "" {
@@ -196,5 +216,5 @@ func pluginMarketError(id string, cause error, retryable bool) error {
 	} else {
 		projected = apperr.New(id, params)
 	}
-	return fmt.Errorf("%w: %v", projected, cause)
+	return fmt.Errorf("%w: %w", projected, cause)
 }

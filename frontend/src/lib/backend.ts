@@ -5,6 +5,9 @@ import { Dialogs, Events } from '@wailsio/runtime'
 import * as SettingsService from '@bindings/github.com/yottaapp/yotta/internal/services/settingsservice.js'
 import * as HotkeyService from '@bindings/github.com/yottaapp/yotta/internal/hotkey/hotkeyservice.js'
 import * as ScheduleService from '@bindings/github.com/yottaapp/yotta/internal/services/schedule/service.js'
+import * as PathRecordingService from '@bindings/github.com/yottaapp/yotta/internal/services/pathrecording/service.js'
+import { Path as PathBinding } from '@bindings/github.com/yottaapp/yotta/internal/navigationpath/models.js'
+import type { NavigationPath, SavedPath, PositionSample } from '@/app/paths/pathModel'
 import * as AssetService from '@bindings/github.com/yottaapp/yotta/internal/services/asset/service.js'
 import * as CalibrationService from '@bindings/github.com/yottaapp/yotta/internal/services/calibration/service.js'
 import * as AppInfoService from '@bindings/github.com/yottaapp/yotta/internal/services/appinfoservice.js'
@@ -111,7 +114,7 @@ export type ScheduleFireResult = ScheduleFireResultModel
 // 键 = guid (稳定 UUID), 不再是 namespace.name key.
 export interface AssetSummary {
   guid: string
-  kind: 'template' | 'macro' | 'clip'
+  kind: 'template' | 'macro' | 'clip' | 'path'
   name: string
   description?: string
   category?: string
@@ -163,7 +166,7 @@ export interface AssetPage {
 export interface AssetBinding {
   found: boolean
   guid: string
-  kind: 'template' | 'macro' | 'clip' | ''
+  kind: 'template' | 'macro' | 'clip' | 'path' | ''
   name: string
   resolution: [number, number]
   blob: BlobRef
@@ -750,6 +753,26 @@ export const backend = {
     update: (id: string, patchJSON: string) => invoke(ScheduleService.Update, id, patchJSON),
     delete_: (id: string) => invoke(ScheduleService.Delete, id),
   },
+  paths: {
+    save: (guid: string, name: string, path: NavigationPath) =>
+      invoke(AssetService.SavePath, guid, name, PathBinding.createFrom(path)) as Promise<SavedPath>,
+    get: (guid: string) => invoke(AssetService.GetPath, guid) as Promise<SavedPath>,
+    sample: (endpoint: string) =>
+      invoke(PathRecordingService.Sample, endpoint) as Promise<PositionSample>,
+    startWatching: (session: string, endpoint: string) =>
+      invoke(PathRecordingService.StartWatching, session, endpoint),
+    stopWatching: (session: string) => invoke(PathRecordingService.StopWatching, session),
+    setMarkHotkey: (chord: string) => invoke(PathRecordingService.SetMarkHotkey, chord),
+    onMark: (callback: () => void) => Events.On('path:mark', () => callback()),
+    onSample: (
+      callback: (event: { session: string; sample?: PositionSample; problem?: unknown }) => void,
+    ) =>
+      Events.On('path:sample', (event: { data?: unknown }) => {
+        const payload = Array.isArray(event.data) ? event.data[0] : event.data
+        if (typeof payload === 'object' && payload !== null && 'session' in payload)
+          callback(payload as { session: string; sample?: PositionSample; problem?: unknown })
+      }),
+  },
   assets: {
     // List 全局资产列表 (template + macro + clip), 无工作流级存储分支.
     list: () => invoke(AssetService.List),
@@ -961,6 +984,16 @@ export const backend = {
     markUsed: (id: string) => invoke(SnippetService.MarkUsed, id) as Promise<WorkflowSnippet>,
   },
   tools: {
+    openPathSettings: (section: 'plugins' | 'hotkeys') => invokeTools('OpenPathSettings', section),
+    openPathEditor: (guid = '') => invokeTools('OpenPathEditor', guid),
+    closePathEditor: () => invokeTools('ClosePathEditor'),
+    setPathEditorAlwaysOnTop: (on: boolean) => invokeTools('SetPathEditorAlwaysOnTop', on),
+    onPathEditorOpen: (cb: (guid: string) => void) =>
+      Events.On('path-editor:open', (event: { data?: unknown }) => {
+        const value = Array.isArray(event.data) ? event.data[0] : event.data
+        cb(typeof value === 'string' ? value : '')
+      }),
+    onPathEditorClose: (cb: () => void) => Events.On('path-editor:close-request', cb),
     previewTemplate: (request: TemplateMatchPreviewRequest) =>
       invokeTools('PreviewTemplate', request),
     mousePos: (targetSlot: string) => invokeTools('MousePos', targetSlot),

@@ -105,3 +105,16 @@ func TestWailsToolsPresenterDelegatesWindowLifecycleBeforeNativeAttach(t *testin
 		t.Fatalf("main window options = %+v", options)
 	}
 }
+
+func TestPathEditorUsesStandaloneResizablePinnedWorkbench(t *testing.T) {
+	options, err := wailsToolsWindowOptions(tools.WindowRequest{Kind: tools.WindowPathEditor, GUID: "route&one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.URL != "/#/tools/path-editor?id=route%26one" || !options.Frameless || !options.AlwaysOnTop || options.DisableResize {
+		t.Fatalf("path window options: %+v", options)
+	}
+	if options.MinWidth < 760 || options.MinHeight < 520 {
+		t.Fatal("path editor minimum dimensions missing")
+	}
+}

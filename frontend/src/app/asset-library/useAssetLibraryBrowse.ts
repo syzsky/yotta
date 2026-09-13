@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import type { AssetPage, AssetQuery, AssetSummary } from '@/lib/backend'
 
-export type AssetLibraryTab = 'macros' | 'clips' | 'templates'
+export type AssetLibraryTab = 'macros' | 'clips' | 'templates' | 'paths'
 export type AssetDateRange = 'all' | 'today' | '7d' | '30d' | '90d'
 
 interface AssetLibraryBrowseOptions {
@@ -70,7 +70,9 @@ export function useAssetLibraryBrowse(options: AssetLibraryBrowseOptions) {
   ])
   const tagOptions = computed(() => tags.value.map((item) => item.value))
 
+  let requestGeneration = 0
   async function refresh(): Promise<void> {
+    const generation = ++requestGeneration
     loading.value = true
     try {
       const result = await options.queryAssets({
@@ -80,7 +82,9 @@ export function useAssetLibraryBrowse(options: AssetLibraryBrowseOptions) {
             ? 'macro'
             : activeTab.value === 'clips'
               ? 'clip'
-              : 'template',
+              : activeTab.value === 'paths'
+                ? 'path'
+                : 'template',
         category: categoryFilter.value === allCategories ? '' : categoryFilter.value.trim(),
         tags: [...tagFilters.value],
         createdSince: rangeStart(createdRange.value),
@@ -90,6 +94,7 @@ export function useAssetLibraryBrowse(options: AssetLibraryBrowseOptions) {
         thumbnailBudget: pageSize.value,
         recentGUIDs: [...options.recentGUIDs()],
       })
+      if (generation !== requestGeneration) return
       assetPage.value = result.items ?? []
       total.value = result.total ?? 0
       categories.value = result.categories ?? []
@@ -99,9 +104,10 @@ export function useAssetLibraryBrowse(options: AssetLibraryBrowseOptions) {
         await refresh()
       }
     } catch (error) {
+      if (generation !== requestGeneration) return
       options.showError(options.translate('assets.load_failed'), error)
     } finally {
-      loading.value = false
+      if (generation === requestGeneration) loading.value = false
     }
   }
 

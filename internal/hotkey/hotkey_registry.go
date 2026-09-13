@@ -196,6 +196,12 @@ func (r *HotkeyRegistry) RegisterAction(key, label string, labelParams map[strin
 	return r.registerVisible(key, HotkeySourceAction, label, labelParams, hotkeyStr, onFire)
 }
 
+// RegisterRecording keeps a built-in recording shortcut visible for repair
+// even when its configured key conflicts at startup.
+func (r *HotkeyRegistry) RegisterRecording(key, label, hotkeyStr string, onFire func()) error {
+	return r.registerVisible(key, HotkeySourceRecording, label, nil, hotkeyStr, onFire)
+}
+
 func (r *HotkeyRegistry) registerVisible(key string, source HotkeySource, label string, labelParams map[string]string, hotkeyStr string, onFire func()) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

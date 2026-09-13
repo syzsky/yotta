@@ -1,0 +1,43 @@
+param(
+    [ValidateSet('Check','Build','Keygen','Pack')][string]$Action='Check',
+    [ValidateSet('amd64','arm64')][string[]]$Architectures=@('amd64','arm64'),
+    [string]$PublisherKey=''
+)
+$ErrorActionPreference='Stop'
+$previous=@{}
+foreach($name in @('GOOS','GOARCH','CGO_ENABLED')) { $previous[$name]=[Environment]::GetEnvironmentVariable($name,'Process') }
+function Invoke-Go([string[]]$Arguments) {
+    & go @Arguments
+    if($LASTEXITCODE -ne 0) { throw "go $($Arguments -join ' ') failed" }
+}
+if($PublisherKey) { $PublisherKey=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PublisherKey) }
+Push-Location $PSScriptRoot
+try {
+    # Tests and the packaging tool execute on the host, not the cross-compile target.
+    $env:GOOS=(& go env GOHOSTOS).Trim()
+    $env:GOARCH=(& go env GOHOSTARCH).Trim()
+    $hostOS=$env:GOOS; $hostArch=$env:GOARCH
+    if($Action -eq 'Keygen') {
+        if(-not $PublisherKey) { throw 'PublisherKey is required' }
+        Invoke-Go @('run','./cmd/package','-key',$PublisherKey,'-init-key')
+        return
+    }
+    if($Action -eq 'Pack' -and (-not $PublisherKey -or -not (Test-Path -LiteralPath $PublisherKey -PathType Leaf))) { throw 'Pack requires an existing PublisherKey; use Keygen once first' }
+    Invoke-Go @('test','./...')
+    if($Action -eq 'Check') { return }
+    $metadata=Get-Content -LiteralPath plugin.json -Raw | ConvertFrom-Json
+    foreach($architecture in ($Architectures | Select-Object -Unique)) {
+        $env:GOOS='windows'; $env:GOARCH=$architecture; $env:CGO_ENABLED='0'
+        $directory="bin/windows-$architecture"
+        New-Item -ItemType Directory -Force $directory | Out-Null
+        # LPAC starts without a console. Use the Windows GUI subsystem while
+        # continuing to exchange protocol frames over inherited standard handles.
+        Invoke-Go @('build','-trimpath','-ldflags=-H windowsgui','-o',"$directory/node.exe",'./cmd/node')
+        if($metadata.panel) { Invoke-Go @('build','-trimpath','-ldflags=-H windowsgui','-o',"$directory/companion.exe",'./cmd/companion') }
+        $env:GOOS=$hostOS; $env:GOARCH=$hostArch
+        if($Action -eq 'Pack') { Invoke-Go @('run','./cmd/package','-arch',$architecture,'-key',$PublisherKey) }
+    }
+} finally {
+    Pop-Location
+    foreach($name in $previous.Keys) { [Environment]::SetEnvironmentVariable($name,$previous[$name],'Process') }
+}

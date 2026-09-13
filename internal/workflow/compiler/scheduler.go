@@ -37,48 +37,51 @@ type scheduledInvocation struct {
 }
 
 type scheduler struct {
-	group          *executionGroup
-	scopeID        uint64
-	scopeRole      string
-	scopeNode      programNode
-	parent         *scheduler
-	clock          *scopeClock
-	paused         bool
-	pauseCount     int
-	inputOwner     *inputcoord.Owner
-	keepAlive      int
-	tasks          map[string]*taskActivation
-	listeners      map[string]*listenerActivation
-	operation      *pendingOperation
-	jobs           *scopeJobs
-	done           func(context.Context, error) error
-	stopped        bool
-	runID          string
-	workflowID     string
-	runStartedAt   time.Time
-	executor       *Executor
-	graph          *programGraph
-	owner          *run.Owner
-	targets        *targetruntime.Run
-	journal        *run.JournalWriter
-	state          *runState
-	nodes          map[string]programNode
-	routes         map[routeKey][]programSignalRoute
-	dataConsumers  map[string]int
-	volatile       map[string]bool
-	queue          []scheduledInvocation
-	frames         []*controlFrame
-	waits          waitQueue
-	waitCount      int
-	waitSequence   uint64
-	result         ExecutionResult
-	attempts       map[string]int
-	outputSessions map[string]map[string]*run.Session
-	evaluating     map[string]bool
-	owned          []ownedLease
-	retainedBytes  int
-	control        *DebugController
-	debugPrevious  *DebugQueueEntry
+	group            *executionGroup
+	scopeID          uint64
+	scopeRole        string
+	scopeNode        programNode
+	parent           *scheduler
+	clock            *scopeClock
+	paused           bool
+	pauseCount       int
+	inputOwner       *inputcoord.Owner
+	cooperativeInput bool
+	keepAlive        int
+	tasks            map[string]*taskActivation
+	listeners        map[string]*listenerActivation
+	operation        *pendingOperation
+	branchRoot       *branchExecution
+	transientOutputs map[string]bool
+	jobs             *scopeJobs
+	done             func(context.Context, error) error
+	stopped          bool
+	runID            string
+	workflowID       string
+	runStartedAt     time.Time
+	executor         *Executor
+	graph            *programGraph
+	owner            *run.Owner
+	targets          *targetruntime.Run
+	journal          *run.JournalWriter
+	state            *runState
+	nodes            map[string]programNode
+	routes           map[routeKey][]programSignalRoute
+	dataConsumers    map[string]int
+	volatile         map[string]bool
+	queue            []scheduledInvocation
+	frames           []*controlFrame
+	waits            waitQueue
+	waitCount        int
+	waitSequence     uint64
+	result           ExecutionResult
+	attempts         map[string]int
+	outputSessions   map[string]map[string]*run.Session
+	evaluating       map[string]bool
+	owned            []ownedLease
+	retainedBytes    int
+	control          *DebugController
+	debugPrevious    *DebugQueueEntry
 }
 
 func newScheduler(executor *Executor, graph *programGraph, owner *run.Owner, targets *targetruntime.Run, journal *run.JournalWriter, state *runState) *scheduler {
@@ -343,8 +346,14 @@ func (s *scheduler) invoke(ctx context.Context, nodeID string, trigger *nodeadap
 		invocation.Signals = &s.group.signals
 	}
 	activation := waitingActivation{node: node, machine: machine, attempt: attempt, summary: summary, sessions: nodeSessions, actions: actions, statuses: statuses}
+	if v := node.Instruction.Invoke; v != nil && len(v.Branches) > 0 && (!installed.Blocking || s.group == nil) {
+		return s.finishInvocation(ctx, activation, nodeadapter.AdapterResult{}, errors.New("invocation branches require a blocking adapter and execution group"))
+	}
 	if installed.Blocking && s.group != nil {
 		return s.startOperation(ctx, activation, installed, invocation)
+	}
+	if s.cooperativeInput {
+		ctx = inputcoord.WithOwner(ctx, s.inputOwner)
 	}
 	outcome, runErr := installed.Run(ctx, invocation)
 	return s.completeInvocation(ctx, activation, outcome, runErr)
@@ -417,6 +426,15 @@ func (s *scheduler) finishInvocation(ctx context.Context, activation waitingActi
 		return errors.Join(wrapNodeRunError(node.ID, runErr), actionErr, statusErr, journalErr)
 	}
 	selected, err := validateExecSelection(node.Ports.ExecOutputs, outcome.ExecOutputs)
+	if err == nil && node.Instruction.Invoke != nil {
+		for _, branch := range node.Instruction.Invoke.Branches {
+			for _, output := range outcome.ExecOutputs {
+				if output == branch.Output {
+					err = errors.New("child branch output cannot be selected as a terminal output")
+				}
+			}
+		}
+	}
 	if err != nil {
 		journalErr := s.executor.failAttempt(context.WithoutCancel(ctx), s.journal, node.GraphPath, sourceNodeID, attempt, "runtime.signal_invalid", summary)
 		return errors.Join(err, journalErr)

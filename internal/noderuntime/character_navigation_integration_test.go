@@ -19,6 +19,7 @@ import (
 	run "github.com/yottaapp/yotta/internal/run"
 	"github.com/yottaapp/yotta/internal/targetruntime"
 	"github.com/yottaapp/yotta/internal/workflow/compiler"
+	"github.com/yottaapp/yotta/sdk/plugin/positionsource"
 )
 
 type navigationProvider struct {
@@ -29,6 +30,9 @@ type navigationProvider struct {
 	opened               int
 	x, heading           float64
 	turns, steps, closed int
+	positionSource       bool
+	allowReturn          bool
+	sequence             int64
 }
 
 func (p *navigationProvider) Open(_ context.Context, r resource.ProviderOpenRequest) (any, error) {
@@ -43,6 +47,9 @@ func (p *navigationProvider) Open(_ context.Context, r resource.ProviderOpenRequ
 func (p *navigationProvider) Close(_ context.Context, object any) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.allowReturn {
+		p.advancePathFixture(time.Now())
+	}
 	p.closed++
 	if object == installed.KindHeldInput {
 		p.held = false
@@ -52,16 +59,39 @@ func (p *navigationProvider) Close(_ context.Context, object any) error {
 func (p *navigationProvider) Invoke(_ context.Context, _ any, op string, payload []byte) ([]byte, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.allowReturn {
+		p.advancePathFixture(time.Now())
+	}
 	switch op {
 	case httpegress.OperationGet:
 		now := time.Now()
 		if now.Before(p.readyAt) {
 			return artifact.Marshal(httpegress.GetResponse{StatusCode: 200, ContentType: "application/json", Body: `{"valid":false}`})
 		}
-		if p.held && !p.sampled.IsZero() {
-			p.x += now.Sub(p.sampled).Seconds() * 10
+		if p.held && !p.sampled.IsZero() && !p.allowReturn {
+			direction := 1.0
+			elapsed := now.Sub(p.sampled).Seconds()
+			p.x += elapsed * 10 * direction
 		}
 		p.sampled = now
+		if p.positionSource {
+			p.sequence++
+			observation := func(value any) positionsource.Observation {
+				raw, _ := json.Marshal(value)
+				return positionsource.Observation{Status: "tracking", Value: raw, SampleTimeMs: now.UnixMilli(), Sequence: p.sequence}
+			}
+			raw, err := json.Marshal(positionsource.Snapshot{Descriptor: positionsource.Descriptor{
+				Protocol: positionsource.Protocol, Source: "synthetic.navigation",
+				Capabilities: []positionsource.Capability{positionsource.Position, positionsource.CameraHeading},
+				Frame:        positionsource.Frame{ID: "test/world", Unit: "test-raw", AxisHeading: 90, AxisSign: 1, Kind: "world", Recovery: "stable"}},
+				Epoch: "test-session", Observations: map[positionsource.Capability]positionsource.Observation{
+					positionsource.Position: observation(positionsource.Point{X: p.x}), positionsource.CameraHeading: observation(math.Mod(math.Mod(p.heading, 360)+360, 360)),
+				}})
+			if err != nil {
+				return nil, err
+			}
+			return artifact.Marshal(httpegress.GetResponse{StatusCode: 200, ContentType: "application/json", Body: string(raw)})
+		}
 		return artifact.Marshal(httpegress.GetResponse{StatusCode: 200, ContentType: "application/json", Body: fmt.Sprintf(`{"valid":true,"x":%v,"y":0,"cameraHeading":%v,"sampleTimeMs":%d}`, p.x, p.heading, time.Now().Add(time.Millisecond).UnixMilli())})
 	case installed.OperationTurnView:
 		var req installed.TurnViewRequest
@@ -71,8 +101,8 @@ func (p *navigationProvider) Invoke(_ context.Context, _ any, op string, payload
 		p.heading += req.Degrees
 		p.turns++
 	case installed.OperationHoldKeys:
-		if math.Abs(p.heading-90) > 5 {
-			return nil, fmt.Errorf("held forward before facing target")
+		if !p.allowReturn && math.Abs(p.heading-90) > 5 {
+			return nil, fmt.Errorf("held forward before facing target: heading=%v x=%v", p.heading, p.x)
 		}
 		p.held = true
 		p.sampled = time.Now()
@@ -91,6 +121,16 @@ func (p *navigationProvider) Invoke(_ context.Context, _ any, op string, payload
 		return nil, fmt.Errorf("unexpected operation %s", op)
 	}
 	return []byte(`{}`), nil
+}
+
+// Settle motion before changing heading or releasing a held key. Otherwise a
+// predictive stop between position polls discards the final movement entirely.
+func (p *navigationProvider) advancePathFixture(now time.Time) {
+	if p.held && !p.sampled.IsZero() {
+		elapsed := min(now.Sub(p.sampled).Seconds(), 0.1)
+		p.x += elapsed * 10 * math.Cos((p.heading-90)*math.Pi/180)
+	}
+	p.sampled = now
 }
 
 func navigationSource(t *testing.T, b nodes.Builtins, id string, config map[string]any, bindings map[string]any) []byte {
@@ -116,20 +156,28 @@ func navigationSource(t *testing.T, b nodes.Builtins, id string, config map[stri
 }
 
 func TestCharacterMoveConsumesIndependentPositionUpdates(t *testing.T) {
-	testCharacterPositionFeed(t, 0)
+	testCharacterPositionFeed(t, 0, 60000, 10, false)
 }
 
 func TestCharacterMoveWaitsForColdPositionSource(t *testing.T) {
-	testCharacterPositionFeed(t, 1500*time.Millisecond)
+	testCharacterPositionFeed(t, 1500*time.Millisecond, 60000, 10, false)
 }
 
-func testCharacterPositionFeed(t *testing.T, startupDelay time.Duration) {
+func TestCharacterMoveAcceptsHundredMinuteTimeout(t *testing.T) {
+	testCharacterPositionFeed(t, 0, 100*60*1000, 0, false)
+}
+
+func TestCharacterMoveConsumesPositionSourceProtocol(t *testing.T) {
+	testCharacterPositionFeed(t, 0, 60000, 10, true)
+}
+
+func testCharacterPositionFeed(t *testing.T, startupDelay time.Duration, timeout int64, targetX float64, positionSource bool) {
 	b, err := nodes.Build()
 	if err != nil {
 		t.Fatal(err)
 	}
 	bindings := map[string]any{}
-	for key, value := range map[string]any{"target-x": 10, "target-y": 0, "tolerance": 0.6, "timeout": 60000, "interval": 100, "slow-distance": 3} {
+	for key, value := range map[string]any{"target-x": targetX, "target-y": 0, "tolerance": 0.6, "timeout": timeout, "interval": 100, "slow-distance": 3} {
 		bindings[key] = map[string]any{"kind": "value", "value": value}
 	}
 
@@ -139,7 +187,7 @@ func testCharacterPositionFeed(t *testing.T, startupDelay time.Duration) {
 		t.Fatalf("resolved navigation target slots: %v", slots)
 	}
 
-	p := &navigationProvider{heading: 180, readyAt: time.Now().Add(startupDelay)}
+	p := &navigationProvider{heading: 180, readyAt: time.Now().Add(startupDelay), positionSource: positionSource}
 	snapshot, err := targetruntime.NewSnapshot([]targetruntime.Installation{{Slot: "game", TargetID: "test/game", Provider: p}, {Slot: "position", TargetID: "test/position", Provider: p}})
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +213,11 @@ func testCharacterPositionFeed(t *testing.T, startupDelay time.Duration) {
 	if err := json.Unmarshal(result.NodeOutputs["navigation"]["distance"].InlineJSON(), &distance); err != nil {
 		t.Fatal(err)
 	}
-	if distance > 0.6 || p.turns != 2 || p.steps == 0 || p.closed != p.opened || p.held {
+	movementInvalid := p.turns != 2 || p.steps == 0
+	if targetX == 0 {
+		movementInvalid = p.turns != 0 || p.steps != 0
+	}
+	if distance > 0.6 || movementInvalid || p.closed != p.opened || p.held {
 		t.Fatalf("distance=%v provider=%+v", distance, p)
 	}
 	actions := 0
@@ -214,4 +266,20 @@ func navigationPositionFeed(t *testing.T, b nodes.Builtins, input []byte, parseC
 		t.Fatal(err)
 	}
 	return raw
+}
+
+func TestPathFixtureSettlesMovementBeforeRelease(t *testing.T) {
+	p := &navigationProvider{held: true, heading: 90, allowReturn: true, sampled: time.Now().Add(-80 * time.Millisecond)}
+	if err := p.Close(context.Background(), installed.KindHeldInput); err != nil {
+		t.Fatal(err)
+	}
+	if p.x < 0.7 || p.x > 1.01 || p.held {
+		t.Fatalf("release discarded movement: x=%v held=%v", p.x, p.held)
+	}
+	stopped := p.x
+	time.Sleep(time.Millisecond)
+	p.advancePathFixture(time.Now())
+	if p.x != stopped {
+		t.Fatal("movement continued after release")
+	}
 }

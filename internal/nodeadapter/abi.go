@@ -17,6 +17,29 @@ import (
 
 type Adapter func(context.Context, Invocation) (AdapterResult, error)
 
+// BranchRequest starts a declared child output of the current invocation.
+// Outputs is a complete, immutable snapshot of the node's durable data outputs.
+// Values are visible only to that child, never published as completed outputs.
+type BranchRequest struct {
+	Output  string
+	Outputs map[string]datatype.ValueEnvelope
+	// CooperativeInput shares physical keyboard coordination with the caller,
+	// while preserving independent pause/cancellation ownership. Use false for
+	// recovery and stopped actions. Non-keyboard mutations are rejected by the
+	// installed input adapter; this is input composition, not permission.
+	CooperativeInput bool
+}
+
+// BranchHandle belongs to one invocation. Await Done using Invocation.Await
+// when the caller must join the branch; otherwise the caller can keep working.
+// Err is read after Done closes. Invocation completion cancels unfinished
+// branches, so callers must join branches whose work must finish first.
+// Coalescing retains the original request's snapshot, context and input mode.
+type BranchHandle interface {
+	Done() <-chan struct{}
+	Err() error
+}
+
 type AdapterResult struct {
 	Outputs      map[string]datatype.ValueEnvelope
 	ExecOutputs  []string
@@ -110,6 +133,15 @@ type StateBinding interface {
 }
 
 type Invocation struct {
+	// Branch is available only to blocking adapters with Invoke.Branches. It
+	// waits for scheduler acknowledgement, not child completion. Calls from
+	// the invocation worker are serial; coalescing is declared by the contract.
+	Branch func(context.Context, BranchRequest) (BranchHandle, error)
+	// HasBranch reads the frozen route lookup; undeclared or unwired outputs
+	// return false. Branch's context owns the child lifetime after admission.
+	// Cancel that context and await its handle to join an activity before
+	// recovery. Expected activity cancellation does not fail the parent.
+	HasBranch func(string) bool
 	// WaitWithPause releases operation-owned input before acknowledging a
 	// requested pause. The callback runs on the operation's worker.
 	WaitWithPause func(context.Context, time.Duration, func(context.Context) error) error

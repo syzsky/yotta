@@ -7,6 +7,7 @@
 | 安装、界面和常用功能怎么使用 | [用户指南](https://github.com/yottaapp/docs/blob/main/content/index.md) |
 | 领域术语与核心运行模型 | [Repository context](../CONTEXT.md) |
 | Workflow Source、图、节点、Snippet 与导入导出 | [Workflow 与创作](product/workflows.md) |
+| 路径录制、打点、编辑与顺序移动 | [路径工具与节点](product/paths.md) |
 | Target Slot、Configured Target、Capability 与资源 | [Target 与资源](product/targets-and-resources.md) |
 | Run 生命周期、Debug、Timeline 与 Schedule | [Run 与 Schedule](product/runs-and-schedules.md) |
 | 软件架构、关键代码、模块所有权 | [架构与代码地图](architecture/README.md) |
@@ -17,6 +18,7 @@
 | 版本域、兼容与迁移 | [兼容策略](compatibility.md) |
 | Windows/Linux/macOS/Target 支持程度 | [平台支持](platform-support.md) |
 | Headless CLI 的 validate/compile/run/health/migrate | [CLI reference](reference/cli.md) |
+| 开发、打包独立节点插件和扩展面板 | [公开 SDK 与项目模板](../sdk/plugin/authoring/README.md) |
 | 许可与公开发布差距 | [发布就绪](open-source-readiness.md) |
 | 构建、节点、编辑器、自动化、Wails 修改方法 | [任务知识](../flightdeck/knowledge/README.md) |
 

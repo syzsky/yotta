@@ -53,6 +53,8 @@ type nodeContractMigration struct {
 // digest or non-adjacent version is unsupported until its migration is added
 // with a frozen regression fixture.
 var nodeContractMigrations = [...]nodeContractMigration{
+	{nodeTypeID: "https://schemas.yotta.dev/nodes/navigation/follow-path", from: "1.0.0", fromDigest: "sha256:d1417bed7085cd3b433602442dd5149e4c1a195a02c0c90907f3333189f6b568", to: "1.1.0", toDigest: "sha256:6cfe508e82b033a7c88922f0204cc5b1ae26424ec6f16311a411fecd27c12553", kind: nodeContractMigrationShapeCompatible},
+	{nodeTypeID: "https://schemas.yotta.dev/nodes/navigation/follow-saved-path", from: "1.0.0", fromDigest: "sha256:a78eef488c0a48bb74ce24423d366acb6449933329052d46dfc75676f43cf85b", to: "1.1.0", toDigest: "sha256:e16a19b01bd0207c50e3d57d98101687662661e9f3ab2941dd137eec1cd22079", kind: nodeContractMigrationShapeCompatible},
 	{nodeTypeID: "https://schemas.yotta.dev/nodes/panel/button", from: "1.1.0", fromDigest: "sha256:7b3469750e612338155f638ce8e0f1f96e88e8bdb9893572594145b433d3ac09", to: "1.2.0", toDigest: "sha256:9705ed62741914ddb8af604537d6e16710456de5d77edf87ce3a3f4a5faf13ca", kind: nodeContractMigrationShapeCompatible},
 	{nodeTypeID: "https://schemas.yotta.dev/nodes/panel/create", from: "1.1.0", fromDigest: "sha256:d97de952f7f686b63d76eb254e84bb7763b9a2880ea38d67fc9df0685fde5909", to: "1.2.0", toDigest: "sha256:5f98f0e628501bf8f6f3b8ea41a9e43bb557b65d817cfcb6de6f2b6279084ae0", kind: nodeContractMigrationShapeCompatible},
 	{nodeTypeID: "https://schemas.yotta.dev/nodes/panel/end", from: "1.1.0", fromDigest: "sha256:76ab41d98ba7e56deb1cc1fed0786e6aba8d00940a53ce8caed4295e523ab089", to: "1.2.0", toDigest: "sha256:0c159e37a3ffe713c8626ff6be11238a574607d07c9bdca7a7d1d875117cfec4", kind: nodeContractMigrationShapeCompatible},
