@@ -15,8 +15,11 @@ var (
 )
 
 type Pose struct {
-	X, Y, Heading         float64
-	Time                  time.Time
+	InputReset    bool
+	X, Y, Heading float64
+	Time          time.Time
+	// SampleTime is the source acquisition time; Time remains the delivery revision.
+	SampleTime            time.Time
 	AxisHeading, AxisSign float64
 }
 
