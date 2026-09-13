@@ -194,7 +194,7 @@ func migrateLedger(root string, write bool) error {
 		}
 		count, err := result.RowsAffected()
 		if err != nil || count != 1 {
-			return errors.New("Run head changed during migration")
+			return errors.New("run head changed during migration")
 		}
 	}
 	if err := tx.Commit(); err != nil {

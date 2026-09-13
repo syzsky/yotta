@@ -29,6 +29,7 @@ func TestToolsWindowCloseLeavesAppShutdownWindowsToWails(t *testing.T) {
 }
 
 func TestToolsWindowCloseWithoutAttachedAppDoesNotDispatch(t *testing.T) {
+	//lint:ignore SA1012 A nil context represents an unattached app; this test verifies that explicit lifecycle sentinel.
 	requestToolsWindowClose(nil, func(func()) { t.Error("queued UI work without an app") }, func() {
 		t.Error("closed a window without an app")
 	})

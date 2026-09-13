@@ -53,7 +53,7 @@ func migrateNavigation(raw []byte, b nodes.Builtins) ([]byte, error) {
 			id := node["id"].(string)
 			for _, e := range graph["edges"].([]any) {
 				if e.(map[string]any)["from"].(map[string]any)["nodeId"] == id {
-					return nil, fmt.Errorf("Move %s has outgoing branches; reconnect its position source explicitly", id)
+					return nil, fmt.Errorf("move %s has outgoing branches; reconnect its position source explicitly", id)
 				}
 			}
 			prefix := ""

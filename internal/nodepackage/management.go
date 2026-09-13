@@ -38,13 +38,13 @@ func (p TrustPolicy) WithInstalledPublisher(namespace string, key ed25519.Public
 	}
 	draft.Publishers = append(draft.Publishers, PublisherAuthorityDraft{Namespace: namespace, Keys: []ed25519.PublicKey{key}})
 	for _, s := range p.state.document.RevokedKeys {
-		draft.RevokedKeys = append(draft.RevokedKeys, TrustStatusDraft{Digest: s.Digest, Reason: s.Reason})
+		draft.RevokedKeys = append(draft.RevokedKeys, TrustStatusDraft(s))
 	}
 	for _, s := range p.state.document.RevokedManifests {
-		draft.RevokedManifests = append(draft.RevokedManifests, TrustStatusDraft{Digest: s.Digest, Reason: s.Reason})
+		draft.RevokedManifests = append(draft.RevokedManifests, TrustStatusDraft(s))
 	}
 	for _, s := range p.state.document.QuarantinedManifests {
-		draft.QuarantinedManifests = append(draft.QuarantinedManifests, TrustStatusDraft{Digest: s.Digest, Reason: s.Reason})
+		draft.QuarantinedManifests = append(draft.QuarantinedManifests, TrustStatusDraft(s))
 	}
 	return SealTrustPolicy(draft)
 }

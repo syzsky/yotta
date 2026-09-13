@@ -94,9 +94,6 @@ func (e *Executor) timer(duration time.Duration) (<-chan time.Time, func()) {
 	}
 	return newRuntimeTimer(duration)
 }
-func waitContext(ctx context.Context, duration time.Duration) error {
-	return waitWithTimer(ctx, duration, newRuntimeTimer)
-}
 func waitWithTimer(ctx context.Context, duration time.Duration, newTimer func(time.Duration) (<-chan time.Time, func())) error {
 	if duration < 0 {
 		return errors.New("wait duration is negative")
@@ -435,19 +432,6 @@ func (e *Executor) cancelAttempt(ctx context.Context, journal *run.JournalWriter
 	}
 	_, err = journal.Append(ctx, fact)
 	return err
-}
-
-func removeRuntimeOutputs(nodes map[string]map[string]datatype.ValueEnvelope) {
-	for nodeID, outputs := range nodes {
-		for portID, envelope := range outputs {
-			if !envelope.Durable() {
-				delete(outputs, portID)
-			}
-		}
-		if len(outputs) == 0 {
-			delete(nodes, nodeID)
-		}
-	}
 }
 
 func (e *Executor) resolveInput(result ExecutionResult, input inputPlan) (datatype.ValueEnvelope, string, string, error) {
