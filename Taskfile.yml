@@ -118,9 +118,11 @@ tasks:
   check:go:full:
     summary: Runs Go tests, coverage, vet and static analysis
     cmds:
-      - go test -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      # Durable-store integration packages share disk and have real input deadlines.
+      # Keep coverage instrumentation from running competing package suites at once.
+      - go test -p 1 -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - powershell -NoProfile -Command "New-Item -ItemType Directory -Force .task | Out-Null"
-      - go test -count=1 -covermode=atomic "-coverpkg=./internal/pluginfixture,./internal/pluginhost,./internal/pluginprotocol,./internal/processsandbox,./internal/wasmrunner,./sdk/plugin/go" "-coverprofile=.task/plugin-conformance-coverage.out" ./internal/pluginconformance ./internal/pluginprotocol ./internal/pluginhost ./internal/processsandbox ./internal/wasmrunner ./sdk/plugin/go
+      - go test -p 1 -count=1 -covermode=atomic "-coverpkg=./internal/pluginfixture,./internal/pluginhost,./internal/pluginprotocol,./internal/processsandbox,./internal/wasmrunner,./sdk/plugin/go" "-coverprofile=.task/plugin-conformance-coverage.out" ./internal/pluginconformance ./internal/pluginprotocol ./internal/pluginhost ./internal/processsandbox ./internal/wasmrunner ./sdk/plugin/go
       - cmd: powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-script-worker.ps1
         platforms: [windows]
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-go-coverage.ps1 -AdditionalCoverageFiles .task/plugin-conformance-coverage.out

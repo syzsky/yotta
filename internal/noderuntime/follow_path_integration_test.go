@@ -192,6 +192,7 @@ func testPathFollower(t *testing.T, scenario string, saved bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	navigationFixtureTimers(adapters)
 	result, err := compiler.NewExecutor(b.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).RunWithTargets(ctx, program, owner, targets, journal)
 	if scenario == "release-failure" {
 		if err == nil || !strings.Contains(err.Error(), "fixture release failed") || p.actionCount != 0 {

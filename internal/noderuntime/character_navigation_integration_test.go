@@ -14,6 +14,7 @@ import (
 	"github.com/yottaapp/yotta/internal/artifact"
 	"github.com/yottaapp/yotta/internal/automation/installed"
 	"github.com/yottaapp/yotta/internal/httpegress"
+	"github.com/yottaapp/yotta/internal/nodeadapter"
 	"github.com/yottaapp/yotta/internal/noderuntime"
 	"github.com/yottaapp/yotta/internal/nodes"
 	"github.com/yottaapp/yotta/internal/resource"
@@ -38,8 +39,8 @@ type navigationProvider struct {
 }
 
 // Coordinate timestamps advance at source observations, independently of slow
-// race-instrumented durable journal writes. Real movement and deadline timers
-// remain real; stale-source cases explicitly supply an expired observation.
+// race-instrumented durable journal writes. Stale-source cases explicitly
+// supply an expired observation.
 type positionFixtureClock struct{ milliseconds atomic.Int64 }
 
 func newPositionFixtureClock() *positionFixtureClock {
@@ -49,6 +50,36 @@ func newPositionFixtureClock() *positionFixtureClock {
 }
 func (c *positionFixtureClock) Now() time.Time    { return time.UnixMilli(c.milliseconds.Load()) }
 func (c *positionFixtureClock) Sample() time.Time { return time.UnixMilli(c.milliseconds.Add(100)) }
+
+// Navigation deadlines measure simulated wait time, not the cost of committing
+// the surrounding integration workflow to disk. Keep the scheduler's real waits
+// and pause hooks so the independent position feed and action branches still run.
+func navigationFixtureTimers(adapters map[string]nodeadapter.InstalledAdapter) {
+	for _, key := range []string{"automation.move-character-to", "navigation.follow-path", "navigation.follow-saved-path"} {
+		entry := adapters[key]
+		original := entry.Run
+		entry.Run = func(ctx context.Context, i nodeadapter.Invocation) (nodeadapter.AdapterResult, error) {
+			var elapsed atomic.Int64
+			epoch := time.Now()
+			i.MonotonicNow = func() time.Time { return epoch.Add(time.Duration(elapsed.Load())) }
+			wait, waitWithPause := i.Wait, i.WaitWithPause
+			i.Wait = func(ctx context.Context, duration time.Duration) error {
+				err := wait(ctx, duration)
+				elapsed.Add(int64(max(duration, 0)))
+				return err
+			}
+			if waitWithPause != nil {
+				i.WaitWithPause = func(ctx context.Context, duration time.Duration, pause func(context.Context) error) error {
+					err := waitWithPause(ctx, duration, pause)
+					elapsed.Add(int64(max(duration, 0)))
+					return err
+				}
+			}
+			return original(ctx, i)
+		}
+		adapters[key] = entry
+	}
+}
 
 func (p *navigationProvider) Open(_ context.Context, r resource.ProviderOpenRequest) (any, error) {
 	if r.Kind == installed.KindHeldInput && !slices.Equal(r.Operations, installed.HeldInputOperations()) {
@@ -227,6 +258,7 @@ func testCharacterPositionFeed(t *testing.T, startupDelay time.Duration, timeout
 	if err != nil {
 		t.Fatal(err)
 	}
+	navigationFixtureTimers(adapters)
 	result, err := compiler.NewExecutor(b.Catalog, adapters, compiler.ExecutorOptions{Now: func() time.Time { return now }}).RunWithTargets(context.Background(), program, owner, targets, journal)
 	if err != nil {
 		t.Fatal(err)

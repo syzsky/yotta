@@ -42,7 +42,7 @@ func TestOnlineProfileRejectsDevelopmentAndMissingSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, bad := range []string{
-		strings.ReplaceAll(string(raw), "https://api.yuelili.com/yotta/hub", "http://127.0.0.1:8094"),
+		strings.ReplaceAll(string(raw), "https://yotta.yuelili.com/api/hub", "http://127.0.0.1:8094"),
 		string(raw) + "\nYOTTA_CLIENT_SECRET=forbidden-field\n",
 		string(raw) + "\nYOTTA_HUB_URL=https://example.test\n",
 		strings.ReplaceAll(string(raw), "YOTTA_HUB_ALLOW_INSECURE_HTTP=false", "YOTTA_HUB_ALLOW_INSECURE_HTTP=true"),

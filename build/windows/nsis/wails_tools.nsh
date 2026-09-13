@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "Yotta"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "4.0.0-alpha.6"
+    !define INFO_PRODUCTVERSION "4.0.0-alpha.7"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "(c) 2026 Yotta"
