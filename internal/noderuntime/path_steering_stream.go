@@ -65,7 +65,7 @@ func (d *pathDriver) runSteering(ctx context.Context, done chan struct{}) {
 				continue
 			}
 			var err error
-			if now.After(until) {
+			if d.wallTime().After(until) {
 				err = navigationpath.ErrUnavailable
 			} else if dt > 100*time.Millisecond {
 				err = errors.New("path input scheduling stalled")
@@ -112,7 +112,7 @@ func (d *pathDriver) Wait(ctx context.Context, duration time.Duration) error {
 	paused := false
 	err := d.i.WaitWithPause(ctx, duration, func(cleanup context.Context) error { paused = true; return d.StopForward(cleanup) })
 	if paused {
-		d.freshAfter = time.Now().UnixMilli() + 1
+		d.freshAfter = d.wallTime().UnixMilli() + 1
 		d.inputReset = true
 	}
 	return err

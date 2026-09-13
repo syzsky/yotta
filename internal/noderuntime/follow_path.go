@@ -51,7 +51,7 @@ func (d *pathDriver) Read(ctx context.Context, after time.Time) (navigation.Pose
 		if err := json.Unmarshal(snapshot.Value.InlineJSON(), &raw); err != nil {
 			return navigation.Pose{}, navigationpath.ErrUnavailable
 		}
-		o, err := navigationpath.Observe([]byte(raw), time.Now(), 500*time.Millisecond)
+		o, err := navigationpath.Observe([]byte(raw), d.wallTime(), 500*time.Millisecond)
 		if errors.Is(err, navigationpath.ErrReference) {
 			return navigation.Pose{}, err
 		}
@@ -103,9 +103,13 @@ func (d *pathDriver) Read(ctx context.Context, after time.Time) (navigation.Pose
 	}
 }
 
-func followPath(b nodes.Builtins) nodeadapter.Adapter      { return pathFollower(b, false) }
-func followSavedPath(b nodes.Builtins) nodeadapter.Adapter { return pathFollower(b, true) }
-func pathFollower(b nodes.Builtins, saved bool) nodeadapter.Adapter {
+func followPath(b nodes.Builtins, wallNow func() time.Time) nodeadapter.Adapter {
+	return pathFollower(b, false, wallNow)
+}
+func followSavedPath(b nodes.Builtins, wallNow func() time.Time) nodeadapter.Adapter {
+	return pathFollower(b, true, wallNow)
+}
+func pathFollower(b nodes.Builtins, saved bool, wallNow func() time.Time) nodeadapter.Adapter {
 	effectID, action := nodes.FollowPathEffectID, "navigation.follow-path"
 	if saved {
 		effectID, action = nodes.FollowSavedPathEffectID, "navigation.follow-saved-path"
@@ -150,7 +154,7 @@ func pathFollower(b nodes.Builtins, saved bool) nodeadapter.Adapter {
 		if err := opts.Validate(); err != nil {
 			return nodeadapter.AdapterResult{}, err
 		}
-		d := &pathDriver{navigationDriver: &navigationDriver{i: i}, reference: path.Reference, tolerance: tolerance, heightTolerance: height}
+		d := &pathDriver{navigationDriver: &navigationDriver{i: i, wallNow: wallNow}, reference: path.Reference, tolerance: tolerance, heightTolerance: height}
 		d.turn, err = openConfiguredTarget(ctx, i, installed.KindInput, []string{installed.OperationTurnView})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, err

@@ -7,6 +7,7 @@ import (
 	"math"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,7 +34,21 @@ type navigationProvider struct {
 	positionSource       bool
 	allowReturn          bool
 	sequence             int64
+	clock                *positionFixtureClock
 }
+
+// Coordinate timestamps advance at source observations, independently of slow
+// race-instrumented durable journal writes. Real movement and deadline timers
+// remain real; stale-source cases explicitly supply an expired observation.
+type positionFixtureClock struct{ milliseconds atomic.Int64 }
+
+func newPositionFixtureClock() *positionFixtureClock {
+	c := &positionFixtureClock{}
+	c.milliseconds.Store(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli())
+	return c
+}
+func (c *positionFixtureClock) Now() time.Time    { return time.UnixMilli(c.milliseconds.Load()) }
+func (c *positionFixtureClock) Sample() time.Time { return time.UnixMilli(c.milliseconds.Add(100)) }
 
 func (p *navigationProvider) Open(_ context.Context, r resource.ProviderOpenRequest) (any, error) {
 	if r.Kind == installed.KindHeldInput && !slices.Equal(r.Operations, installed.HeldInputOperations()) {
@@ -74,11 +89,15 @@ func (p *navigationProvider) Invoke(_ context.Context, _ any, op string, payload
 			p.x += elapsed * 10 * direction
 		}
 		p.sampled = now
+		sampleTime := now
+		if p.clock != nil {
+			sampleTime = p.clock.Sample()
+		}
 		if p.positionSource {
 			p.sequence++
 			observation := func(value any) positionsource.Observation {
 				raw, _ := json.Marshal(value)
-				return positionsource.Observation{Status: "tracking", Value: raw, SampleTimeMs: now.UnixMilli(), Sequence: p.sequence}
+				return positionsource.Observation{Status: "tracking", Value: raw, SampleTimeMs: sampleTime.UnixMilli(), Sequence: p.sequence}
 			}
 			raw, err := json.Marshal(positionsource.Snapshot{Descriptor: positionsource.Descriptor{
 				Protocol: positionsource.Protocol, Source: "synthetic.navigation",
@@ -92,7 +111,7 @@ func (p *navigationProvider) Invoke(_ context.Context, _ any, op string, payload
 			}
 			return artifact.Marshal(httpegress.GetResponse{StatusCode: 200, ContentType: "application/json", Body: string(raw)})
 		}
-		return artifact.Marshal(httpegress.GetResponse{StatusCode: 200, ContentType: "application/json", Body: fmt.Sprintf(`{"valid":true,"x":%v,"y":0,"cameraHeading":%v,"sampleTimeMs":%d}`, p.x, p.heading, time.Now().Add(time.Millisecond).UnixMilli())})
+		return artifact.Marshal(httpegress.GetResponse{StatusCode: 200, ContentType: "application/json", Body: fmt.Sprintf(`{"valid":true,"x":%v,"y":0,"cameraHeading":%v,"sampleTimeMs":%d}`, p.x, p.heading, sampleTime.UnixMilli())})
 	case installed.OperationTurnView:
 		var req installed.TurnViewRequest
 		if err := json.Unmarshal(payload, &req); err != nil {
@@ -187,7 +206,8 @@ func testCharacterPositionFeed(t *testing.T, startupDelay time.Duration, timeout
 		t.Fatalf("resolved navigation target slots: %v", slots)
 	}
 
-	p := &navigationProvider{heading: 180, readyAt: time.Now().Add(startupDelay), positionSource: positionSource}
+	clock := newPositionFixtureClock()
+	p := &navigationProvider{clock: clock, heading: 180, readyAt: time.Now().Add(startupDelay), positionSource: positionSource}
 	snapshot, err := targetruntime.NewSnapshot([]targetruntime.Installation{{Slot: "game", TargetID: "test/game", Provider: p}, {Slot: "position", TargetID: "test/position", Provider: p}})
 	if err != nil {
 		t.Fatal(err)
@@ -201,7 +221,9 @@ func testCharacterPositionFeed(t *testing.T, startupDelay time.Duration, timeout
 	var store *run.Store
 	_, owner, journal := admittedExecutionWithConsent(t, b, program, map[string]run.InstalledProvider{}, now, executionProfile(t, b), nil, func(value *run.Store) { store = value })
 	defer owner.Close(context.Background())
-	adapters, err := noderuntime.Installed(b, testDependencies())
+	dependencies := testDependencies()
+	dependencies.Now = clock.Now
+	adapters, err := noderuntime.Installed(b, dependencies)
 	if err != nil {
 		t.Fatal(err)
 	}

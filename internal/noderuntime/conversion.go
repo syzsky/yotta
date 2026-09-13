@@ -45,7 +45,7 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 	}
 	installed := make(map[string]nodeadapter.InstalledAdapter, len(builtins.Definitions()))
 	specialized := map[string]nodeadapter.Adapter{
-		nodes.ParseWorldPositionNodeID:   parseWorldPosition(builtins),
+		nodes.ParseWorldPositionNodeID:   parseWorldPosition(builtins, dependencies.Now),
 		nodes.MakeWorldPositionNodeID:    makeWorldPosition(builtins),
 		nodes.BlobToStreamNodeID:         blobToStream(builtins),
 		nodes.StreamToBlobNodeID:         streamToBlob(builtins),
@@ -83,9 +83,9 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		nodes.ScrollPointerNodeID:        automationInput(nodes.ScrollPointerNodeID, automationinstalled.OperationScroll),
 		nodes.DragPointerNodeID:          automationInput(nodes.DragPointerNodeID, automationinstalled.OperationDrag),
 		nodes.MovePointerRelativeNodeID:  automationInput(nodes.MovePointerRelativeNodeID, automationinstalled.OperationMoveRelative),
-		nodes.TurnViewNodeID:             characterNavigation(builtins, nodes.TurnViewNodeID),
-		nodes.MoveCharacterNodeID:        characterNavigation(builtins, nodes.MoveCharacterNodeID),
-		nodes.TurnFindTemplateNodeID:     characterNavigation(builtins, nodes.TurnFindTemplateNodeID),
+		nodes.TurnViewNodeID:             characterNavigation(builtins, nodes.TurnViewNodeID, dependencies.Now),
+		nodes.MoveCharacterNodeID:        characterNavigation(builtins, nodes.MoveCharacterNodeID, dependencies.Now),
+		nodes.TurnFindTemplateNodeID:     characterNavigation(builtins, nodes.TurnFindTemplateNodeID, dependencies.Now),
 		nodes.PressKeysNodeID:            automationInput(nodes.PressKeysNodeID, automationinstalled.OperationPressKeys),
 		nodes.TypeTextNodeID:             automationInput(nodes.TypeTextNodeID, automationinstalled.OperationTypeText),
 		nodes.HoldKeysNodeID:             holdInput(builtins.Catalog, automationinstalled.OperationHoldKeys, nodes.HoldKeysEffectID, "automation.hold-keys"),
@@ -110,8 +110,8 @@ func Installed(builtins nodes.Builtins, dependencies Dependencies) (map[string]n
 		nodes.PlayInputClipNodeID:        playInputClip(),
 		nodes.PlayMacroNodeID:            playMacro(),
 		nodes.ReadPathNodeID:             readPath(builtins),
-		nodes.FollowPathNodeID:           followPath(builtins),
-		nodes.FollowSavedPathNodeID:      followSavedPath(builtins),
+		nodes.FollowPathNodeID:           followPath(builtins, dependencies.Now),
+		nodes.FollowSavedPathNodeID:      followSavedPath(builtins, dependencies.Now),
 		nodes.MatchTemplateNodeID:        matchTemplate(builtins),
 		nodes.FindTemplateMatchesNodeID:  findTemplateMatches(builtins),
 		nodes.CompareImagesNodeID:        compareImages(builtins),

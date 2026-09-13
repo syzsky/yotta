@@ -19,6 +19,13 @@ var assets embed.FS
 var trayIcon []byte
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--print-build-service-config" {
+		if err := serviceconfig.WriteBuildValues(os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	desktopMainWithReporter(desktopapp.Run, os.Stderr, showStartupError, os.Exit)
 }
 

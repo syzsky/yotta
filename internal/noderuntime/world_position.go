@@ -40,7 +40,7 @@ func makeWorldPosition(b nodes.Builtins) nodeadapter.Adapter {
 	}
 }
 
-func parseWorldPosition(b nodes.Builtins) nodeadapter.Adapter {
+func parseWorldPosition(b nodes.Builtins, wallNow func() time.Time) nodeadapter.Adapter {
 	return func(ctx context.Context, i nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		defer func() {
 			if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) {
@@ -56,7 +56,7 @@ func parseWorldPosition(b nodes.Builtins) nodeadapter.Adapter {
 		if err := json.Unmarshal([]byte(source), &document); err != nil {
 			return nodeadapter.AdapterResult{}, err
 		}
-		now := time.Now()
+		now := wallNow()
 		var protocol string
 		_ = json.Unmarshal(document["protocol"], &protocol)
 		if protocol == positionsource.Protocol {

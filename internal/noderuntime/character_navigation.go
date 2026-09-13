@@ -18,6 +18,7 @@ import (
 
 type navigationDriver struct {
 	i                  nodeadapter.Invocation
+	wallNow            func() time.Time
 	turn, forward      resource.Handle
 	held               resource.Handle
 	frame, unit, epoch string
@@ -27,6 +28,15 @@ type navigationDriver struct {
 	lastPosition       navigation.WorldPosition
 	freshAfter         int64
 	initialWait        time.Duration
+}
+
+// wallTime is the positioning source clock. Movement deadlines continue to use
+// the invocation's monotonic clock, including pause accounting.
+func (d *navigationDriver) wallTime() time.Time {
+	if d.wallNow != nil {
+		return d.wallNow()
+	}
+	return time.Now()
 }
 
 func (d *navigationDriver) HoldForward(ctx context.Context) error {
@@ -59,7 +69,7 @@ func (d *navigationDriver) Wait(ctx context.Context, duration time.Duration) err
 	paused := false
 	err := d.i.WaitWithPause(ctx, duration, func(cleanupCtx context.Context) error { paused = true; return d.StopForward(cleanupCtx) })
 	if paused {
-		d.freshAfter = time.Now().UnixMilli()
+		d.freshAfter = d.wallTime().UnixMilli()
 	}
 	return err
 }
@@ -98,14 +108,14 @@ func (d *navigationDriver) Turn(ctx context.Context, angle float64) error {
 	if err := navInvoke(ctx, d.i, d.turn, installed.OperationTurnView, installed.TurnViewRequest{Degrees: angle, DurationMilliseconds: 150}); err != nil {
 		return err
 	}
-	d.freshAfter = time.Now().UnixMilli() + 1
+	d.freshAfter = d.wallTime().UnixMilli() + 1
 	return d.Wait(ctx, 50*time.Millisecond)
 }
 func (d *navigationDriver) Forward(ctx context.Context, duration time.Duration) error {
 	if err := navInvoke(ctx, d.i, d.forward, installed.OperationPressKeys, installed.PressKeysRequest{Keys: []string{navString(d.i, "forwardKey", "W")}, DurationMilliseconds: duration.Milliseconds()}); err != nil {
 		return err
 	}
-	d.freshAfter = time.Now().UnixMilli() + 1
+	d.freshAfter = d.wallTime().UnixMilli() + 1
 	return d.Wait(ctx, 50*time.Millisecond)
 }
 func (d *navigationDriver) Read(ctx context.Context, after time.Time) (navigation.Pose, error) {
@@ -134,7 +144,7 @@ func (d *navigationDriver) Read(ctx context.Context, after time.Time) (navigatio
 		if err := json.Unmarshal(snapshot.Value.InlineJSON(), &p); err != nil {
 			return navigation.Pose{}, navigation.ErrStale
 		}
-		valid := p.Fresh(time.Now(), 500*time.Millisecond)
+		valid := p.Fresh(d.wallTime(), 500*time.Millisecond)
 		if d.havePosition && !valid {
 			// A delayed observation stops physical input immediately. Allow a
 			// bounded fresh sample to arrive before declaring the source lost.
@@ -191,7 +201,7 @@ func decodeNavigationPose(raw []byte, i nodeadapter.Invocation, now time.Time) (
 	return p, nil
 }
 
-func characterNavigation(b nodes.Builtins, id string) nodeadapter.Adapter {
+func characterNavigation(b nodes.Builtins, id string, wallNow func() time.Time) nodeadapter.Adapter {
 	return func(ctx context.Context, i nodeadapter.Invocation) (_ nodeadapter.AdapterResult, runErr error) {
 		defer func() {
 			if runErr != nil && !errors.Is(runErr, context.Canceled) && !errors.Is(runErr, context.DeadlineExceeded) {
@@ -228,7 +238,7 @@ func characterNavigation(b nodes.Builtins, id string) nodeadapter.Adapter {
 		if id == nodes.TurnFindTemplateNodeID {
 			return turnFindTemplate(ctx, ctx, b, i, turn)
 		}
-		d := &navigationDriver{i: i, turn: turn, initialWait: time.Duration(timeout) * time.Millisecond}
+		d := &navigationDriver{i: i, wallNow: wallNow, turn: turn, initialWait: time.Duration(timeout) * time.Millisecond}
 		d.forward, err = openConfiguredTarget(ctx, i, installed.KindInput, []string{installed.OperationPressKeys})
 		if err != nil {
 			return nodeadapter.AdapterResult{}, err

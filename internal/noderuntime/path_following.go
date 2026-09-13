@@ -136,7 +136,7 @@ func executePathFollow(ctx context.Context, b nodes.Builtins, i nodeadapter.Invo
 	var tickAt, statusAt time.Time
 	lastRecoveryArc := 0.0
 	for {
-		opts := navigation.FollowOptions{Options: options, ObservationNow: time.Now, Resume: cursor, ProtectedPoints: protected}
+		opts := navigation.FollowOptions{Options: options, ObservationNow: d.wallTime, Resume: cursor, ProtectedPoints: protected}
 		opts.OnCrossed = func(index int) error {
 			if connected("marker") && path.Points[start+index].Name != "" {
 				markers = append(markers, index)
@@ -160,7 +160,7 @@ func executePathFollow(ctx context.Context, b nodes.Builtins, i nodeadapter.Invo
 			}
 			if now().Sub(statusAt) >= 500*time.Millisecond || at.Last == len(points)-1 {
 				statusAt = now()
-				if err := i.EmitStatus(ctx, nodes.PathProgressStatus, pathProgressCounters(at, start, attempt, time.Now().UnixMilli()-d.observation.SampleTimeMs)); err != nil {
+				if err := i.EmitStatus(ctx, nodes.PathProgressStatus, pathProgressCounters(at, start, attempt, d.wallTime().UnixMilli()-d.observation.SampleTimeMs)); err != nil {
 					return err
 				}
 			}
@@ -209,7 +209,7 @@ func executePathFollow(ctx context.Context, b nodes.Builtins, i nodeadapter.Invo
 			}
 			markers = nil
 			actionsCtx, movingCtx, cancelActions, cancelMoving = newPathActionContexts(ctx)
-			d.freshAfter = time.Now().UnixMilli() + 1
+			d.freshAfter = d.wallTime().UnixMilli() + 1
 			continue
 		}
 		if errors.Is(err, navigation.ErrStuck) && connected("recover") && attempt < limit {
@@ -229,7 +229,7 @@ func executePathFollow(ctx context.Context, b nodes.Builtins, i nodeadapter.Invo
 				return progress, "", "", attempt, err
 			}
 			actionsCtx, movingCtx, cancelActions, cancelMoving = newPathActionContexts(ctx)
-			d.freshAfter = time.Now().UnixMilli() + 1
+			d.freshAfter = d.wallTime().UnixMilli() + 1
 			continue
 		}
 		exit, reason = "arrived", ""

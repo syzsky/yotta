@@ -171,7 +171,8 @@ func testPathFollower(t *testing.T, scenario string, saved bool) {
 	program := compilePrimitiveProgram(t, b, raw)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	p := &followProvider{navigationProvider: &navigationProvider{heading: 90, positionSource: true, allowReturn: true}, scenario: scenario, cancel: cancel}
+	clock := newPositionFixtureClock()
+	p := &followProvider{navigationProvider: &navigationProvider{clock: clock, heading: 90, positionSource: true, allowReturn: true}, scenario: scenario, cancel: cancel}
 	snapshot, err := targetruntime.NewSnapshot([]targetruntime.Installation{{Slot: "game", TargetID: "test/game", Provider: p}, {Slot: "position", TargetID: "test/position", Provider: p}})
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +186,9 @@ func testPathFollower(t *testing.T, scenario string, saved bool) {
 	var store *run.Store
 	_, owner, journal := admittedExecutionWithConsent(t, b, program, providers, now, executionProfile(t, b), nil, func(value *run.Store) { store = value })
 	defer owner.Close(context.Background())
-	adapters, err := noderuntime.Installed(b, testDependencies())
+	dependencies := testDependencies()
+	dependencies.Now = clock.Now
+	adapters, err := noderuntime.Installed(b, dependencies)
 	if err != nil {
 		t.Fatal(err)
 	}

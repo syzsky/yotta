@@ -2,13 +2,15 @@ package main
 
 import (
 	"bufio"
-	"debug/buildinfo"
-	"encoding/base64"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/yottaapp/yotta/internal/serviceconfig"
 )
@@ -61,31 +63,23 @@ func readOnlineProfile(path string) (map[string]string, error) {
 }
 
 func embeddedServices(path string) (map[string]string, error) {
-	info, err := buildinfo.ReadFile(path)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, path, "--print-build-service-config")
+	if runtime.GOOS == "windows" {
+		// This read-only entry never initializes the desktop or input drivers.
+		// Run it at the verifier's existing privilege level without a UAC prompt.
+		command.Env = append(os.Environ(), "__COMPAT_LAYER=RunAsInvoker")
+	}
+	raw, err := command.Output()
 	if err != nil {
+		return nil, fmt.Errorf("read executable public configuration: %w", err)
+	}
+	var values map[string]string
+	if err := json.Unmarshal(raw, &values); err != nil {
 		return nil, err
 	}
-	const prefix = "github.com/yottaapp/yotta/internal/serviceconfig.Encoded="
-	for _, setting := range info.Settings {
-		if setting.Key != "-ldflags" {
-			continue
-		}
-		for _, field := range strings.Fields(setting.Value) {
-			if !strings.HasPrefix(field, prefix) {
-				continue
-			}
-			raw, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(field, prefix))
-			if err != nil {
-				return nil, err
-			}
-			var values map[string]string
-			if err := json.Unmarshal(raw, &values); err != nil {
-				return nil, err
-			}
-			return values, nil
-		}
-	}
-	return nil, fmt.Errorf("executable has no embedded public service configuration")
+	return values, nil
 }
 
 func verifyOnline(profile, binary string) error {

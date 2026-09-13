@@ -68,8 +68,8 @@ func TestVerifyPackagedServicesReadsBinaryNotEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	exe := filepath.Join(t.TempDir(), "service-config.exe")
-	flags := "-X github.com/yottaapp/yotta/internal/serviceconfig.Encoded=" + base64.RawURLEncoding.EncodeToString(raw)
-	cmd := exec.Command("go", "build", "-buildvcs=false", "-ldflags", flags, "-o", exe, ".")
+	flags := "-s -w -X github.com/yottaapp/yotta/internal/serviceconfig.Encoded=" + base64.RawURLEncoding.EncodeToString(raw)
+	cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", flags, "-o", exe, ".")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build fixture: %v\n%s", err, output)
 	}

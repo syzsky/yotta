@@ -17,7 +17,7 @@ func (d *pathDriver) StopForward(ctx context.Context) error {
 		return errors.Join(streamErr, err)
 	}
 	if held {
-		d.freshAfter = time.Now().UnixMilli() + 1
+		d.freshAfter = d.wallTime().UnixMilli() + 1
 	}
 	return streamErr
 }
@@ -39,6 +39,6 @@ func (d *pathDriver) Steer(ctx context.Context, angle float64, duration time.Dur
 	}); err != nil {
 		return err
 	}
-	d.freshAfter = time.Now().UnixMilli() + 1
+	d.freshAfter = d.wallTime().UnixMilli() + 1
 	return nil
 }
