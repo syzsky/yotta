@@ -17,6 +17,11 @@ The freeze tasks are create-only. If a snapshot already exists with different by
 history. Review and commit `contracts/releases/<version>/`, `contracts/node/releases/<version>/`, and
 `contracts/catalog/releases/<version>/` with the code that establishes the release.
 
+Release endpoints come from the public, versioned [.env.online.example](.env.online.example) profile. The GitHub release job
+loads it before packaging. For a local release build, configure the same values in the process environment or `.env.local`;
+`task release:verify-services` rejects missing or development settings. Registry and Hub must use the online HTTPS services.
+The loopback OIDC callback is intentional: it receives the login result on the user's own computer, not a local market server.
+
 Then, from a clean worktree, run:
 
 ```powershell
@@ -26,7 +31,8 @@ task package
 This requires both compatibility floors for the current `VERSION`, checks every older floor against the current readers and
 Catalog, runs the canonical gate, builds the desktop executable plus CLI and isolated workers once, creates the allowlisted
 staging tree and deterministic portable archive, then verifies hashes and smoke-tests copies of those exact staged binaries.
-No build occurs after staging or smoke.
+The frozen EXE's embedded service settings are also checked against the online profile, independently of runtime environment
+overrides. No build occurs after staging or smoke.
 
 The resulting `artifacts/Yotta-<version>-windows-amd64.zip` is an unsigned engineering candidate. `artifact-manifest.json` records the source commit, pinned toolchains, exact file set, sizes, hashes, origins and signing state.
 
@@ -36,16 +42,16 @@ The resulting `artifacts/Yotta-<version>-windows-amd64.zip` is an unsigned engin
 
 - `workflow_dispatch` builds, attests and stores the frozen candidate as a 14-day Actions artifact, but never creates a
   GitHub Release;
-- pushing `v<VERSION>` or `v<VERSION>-<alpha|beta|rc>.<n>` runs the same frozen build and publishes the ZIP, SPDX/CycloneDX
-  SBOMs and `SHA256SUMS` as a GitHub Release. Suffixed tags become prereleases; the exact stable tag becomes Latest.
+- pushing exactly `v<VERSION>` runs the same frozen build and publishes the ZIP, SPDX/CycloneDX SBOMs and `SHA256SUMS`
+  as a GitHub Release. An alpha suffix is already part of `VERSION`; alpha tags become prereleases, while a stable version becomes Latest.
 
-The workflow rejects a tag whose base version differs from `VERSION`, whose commit is not on `main`, or whose GitHub Release
+The workflow rejects a tag that does not equal `v` plus `VERSION`, whose commit is not on `main`, or whose GitHub Release
 already exists. It never replaces published assets. For example:
 
 ```powershell
 $version = (Get-Content VERSION -Raw).Trim()
-git tag -a "v$version-rc.1" -m "Yotta $version release candidate 1"
-git push origin "v$version-rc.1"
+git tag -a "v$version" -m "Yotta $version"
+git push origin "v$version"
 ```
 
 The automated path currently publishes the unsigned payload produced by `task package`; use a prerelease tag unless the

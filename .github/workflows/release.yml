@@ -106,7 +106,15 @@ jobs:
 
       - name: Verify and build
         shell: pwsh
-        run: task package
+        run: |
+          Get-Content -LiteralPath .env.online.example | ForEach-Object {
+            $line = $_.Trim()
+            if ($line -and -not $line.StartsWith('#')) {
+              $key, $value = $line -split '=', 2
+              [Environment]::SetEnvironmentVariable($key, $value, 'Process')
+            }
+          }
+          task package
 
       - name: Generate SPDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0

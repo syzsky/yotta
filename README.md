@@ -11,8 +11,8 @@
 
 <p align="center"><a href="README_EN.md">English</a></p>
 
-[![CI](https://github.com/yuelioi/yotta/actions/workflows/ci.yml/badge.svg)](https://github.com/yuelioi/yotta/actions/workflows/ci.yml)
-[![GitHub release](https://img.shields.io/github/v/release/yuelioi/yotta)](https://github.com/yuelioi/yotta/releases)
+[![CI](https://github.com/yottaapp/yotta/actions/workflows/ci.yml/badge.svg)](https://github.com/yottaapp/yotta/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/yottaapp/yotta?include_prereleases)](https://github.com/yottaapp/yotta/releases)
 
 Yotta 可以把重复操作变成可视化工作流。添加节点、连接执行顺序、选择目标和资源，就可以运行、调试、复用
 或分享自动化流程，不必把日常操作都写成脚本。
@@ -21,9 +21,13 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
 
 ## 可以做什么
 
-- **可视化工作流**：支持分支、循环、子图、变量、注释、类型化连线和自动布局。
+- **可视化工作流**：支持分支、循环、子图、变量、注释、类型化连线和自动布局，以及多个 Run 开始、周期任务和监控任务。
 - **桌面自动化**：控制 Windows 窗口、鼠标和键盘，支持窗口截图。
 - **输入录制**：创建可编辑键鼠宏，或保留拖拽、连续移动和视角转动的精准轨迹。
+- **路径录制与移动**：通过定位插件连续采集或手动打点，编辑路径并在工作流中跟随，支持途中动作和卡住后的恢复分支。
+- **统一资源库**：管理键鼠宏、精准轨迹、视觉模板和路径，支持分类、标签、批量管理和拖拽创建常用节点。
+- **插件与扩展面板**：安装节点插件及配套服务，用可交互面板显示信息、提供按钮和输入控件。
+- **在线市场**：浏览、安装和发布工作流与插件，查看作品版本、评价和讨论。
 - **更多目标**：连接 Android ADB 设备、Chrome/Edge 页面、HTTP 服务和本机应用。
 - **运行与调试**：通过时间线、错误定位、断点和单步查看工作流行为。
 - **高频与定时操作**：使用悬浮启动器、快捷键和计划启动或停止工作流。
@@ -38,6 +42,9 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
 
 工作流只保存可移植的逻辑和目标槽位。应用路径、窗口匹配、设备地址和凭据保留在本机设置中；从其他电脑
 导入工作流后，只需重新绑定本机目标。
+
+同一次运行可以有多个 Run 开始入口；需要明确先后顺序时仍使用执行连线。周期任务用于持续采样或定期检查，
+前一次处理尚未结束时不会堆积重复执行。
 
 ## 输入录制
 
@@ -54,11 +61,21 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
   </tr>
 </table>
 
+## 路径与定位插件
+
+路径与键鼠宏、精准轨迹、视觉模板同属资源。通过独立、可置顶的路径窗口录制路线或按快捷键打点，
+再编辑、命名、导入、导出和复用途经点。将路径拖入工作流即可添加“沿保存路径移动”。
+
+路径跟随使用持续更新的位置与朝向，支持移动中执行动作、到点动作和卡住后的恢复分支。
+实际执行需要兼容的定位插件和正确的目标转向校准；地图、小地图识别与自动避障尚未提供。
+配置和节点说明见[路径工具与节点](docs/product/paths.md)，插件接口见[定位源 SDK](sdk/plugin/positionsource/README.md)。
+
 ## 下载与安装
 
-当前版本为 **4.0.0-alpha.2**，主要支持 **Windows 11 x64**。
+当前为 **4.0 Alpha** 阶段，主要支持 **Windows 11 x64**。最新可下载版本以 Releases 中的预发布版本为准；
+源码版本见 [VERSION](VERSION)。
 
-1. 前往 [GitHub Releases](https://github.com/yuelioi/yotta/releases) 下载 Windows 发布包。
+1. 前往 [GitHub Releases](https://github.com/yottaapp/yotta/releases) 下载 Windows 发布包。
 2. 解压到固定目录。
 3. 运行 `Yotta.exe`。
 
@@ -73,6 +90,9 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
 
 ## 用户文档
 
+公开指南维护在[独立文档仓库](https://github.com/yottaapp/docs/blob/main/content/index.md)。
+本页及指南中的界面截图来自较早的 Alpha 版本，布局可能与当前版本不同。
+
 - [快速开始](https://github.com/yottaapp/docs/blob/main/content/zh/getting-started/index.md)
 - [认识主界面](https://github.com/yottaapp/docs/blob/main/content/zh/getting-started/interface.md)
 - [工作流编辑器](https://github.com/yottaapp/docs/blob/main/content/zh/workflow-editor/index.md)
@@ -86,11 +106,12 @@ Yotta 可以把重复操作变成可视化工作流。添加节点、连接执�
 - [快捷键](https://github.com/yottaapp/docs/blob/main/content/zh/shortcuts/index.md)
 - [更新与备份](https://github.com/yottaapp/docs/blob/main/content/zh/maintenance/index.md)
 - [故障排查](https://github.com/yottaapp/docs/blob/main/content/zh/troubleshooting/index.md)
+- [插件开发](sdk/plugin/authoring/README.md)与[扩展面板](sdk/plugin/panel/README.md)
 
 ## 数据、隐私与许可证
 
-工作流、设置、资源和运行记录保存在本机。只有你主动配置并运行对应节点时，Yotta 才会访问网络服务或 AI
-提供商。请只配置你信任的程序、设备、网页和接口地址。
+工作流、设置、资源和运行记录保存在本机。使用登录、在线市场、发布或联网节点时，Yotta 会访问相应服务；
+使用 AI 功能时，相关输入会发送到你配置的模型提供商。请只配置你信任的程序、设备、网页和接口地址。
 
 Yotta 当前采用 [source-available 许可证](LICENSE)，允许个人、教育和研究用途，但不是 OSI 定义的开源软件。
 商业使用、营利分发、SaaS 或付费服务需要另行授权。
@@ -110,7 +131,3 @@ Yotta 当前采用 [source-available 许可证](LICENSE)，允许个人、教育
 ```powershell
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 ```
-
-## 用户文档
-
-使用指南维护在 [独立文档仓库](https://github.com/yottaapp/docs/blob/main/content/index.md)，支持 AI 提案、MCP、目标配置和截图说明。文档包构建与同步见 [发布说明](docs/user-documentation.md)。

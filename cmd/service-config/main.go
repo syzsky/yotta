@@ -4,11 +4,26 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"os"
+
 	"github.com/yottaapp/yotta/internal/serviceconfig"
 )
 
 func main() {
+	verify := flag.Bool("verify-online", false, "verify public release endpoints against the online profile")
+	profile := flag.String("profile", ".env.online.example", "public online service profile")
+	binary := flag.String("binary", "", "verify embedded endpoints in this executable instead of the environment")
+	flag.Parse()
+	if *verify {
+		if err := verifyOnline(*profile, *binary); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("online release services verified")
+		return
+	}
 	raw, err := json.Marshal(serviceconfig.Values())
 	if err != nil {
 		panic(err)

@@ -214,6 +214,7 @@ tasks:
     summary: Builds a frozen, auditable portable release candidate
     cmds:
       - task: release:verify-clean
+      - task: release:verify-services
       - task: nodes:compatibility:release
       - task: versions:compatibility:release
       - task: check:full
@@ -226,6 +227,11 @@ tasks:
     summary: Creates the allowlisted Windows staging tree and deterministic archive
     cmds:
       - powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stage-release.ps1
+
+  release:verify-services:
+    summary: Rejects missing or development endpoints in release builds
+    cmds:
+      - go run ./cmd/service-config --verify-online
 
   release:smoke:
     summary: Verifies and smoke-tests the exact frozen Windows staging payload without rebuilding it

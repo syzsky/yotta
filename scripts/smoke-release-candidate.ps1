@@ -22,6 +22,11 @@ $stage = (Resolve-Path -LiteralPath (Join-Path $root $StageDirectory)).Path
 $manifestPath = Join-Path $stage "artifact-manifest.json"
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 
+& go run ./cmd/service-config --verify-online --binary (Join-Path $stage "Yotta.exe")
+if ($LASTEXITCODE -ne 0) {
+    throw "staged app does not contain the online service configuration"
+}
+
 $expected = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 [void]$expected.Add("artifact-manifest.json")
 foreach ($record in $manifest.files) {
