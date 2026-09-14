@@ -9,7 +9,7 @@
 // 不带兼容性 manifest 时会一直返回 6.2（Win8）。RtlGetVersion 是 NT 内部 API，
 // 不受兼容性 shim 影响，永远拿真实版本。
 //
-// _windows.go 后缀因为 syscall.LazyDLL 是 Windows 专属。
+// WindowsBuild 是 var 而不是 func，测试里可以临时覆盖它来模拟不同 OS 版本。
 
 package capture
 
@@ -33,11 +33,12 @@ type osVersionInfoEx struct {
 	Reserved          byte
 }
 
-var (
-	procRtlGetVersion = syscall.NewLazyDLL("ntdll.dll").NewProc("RtlGetVersion")
-)
+var procRtlGetVersion = syscall.NewLazyDLL("ntdll.dll").NewProc("RtlGetVersion")
 
-func WindowsBuild() uint32 {
+// WindowsBuild 返回当前 Windows build 号（如 19045 = Win10 22H2，22000 = Win11 21H2）。
+// 声明为 var 而不是 func，这样测试可以临时覆盖它来模拟不同 OS 版本。
+// 生产代码里它永远调用 RtlGetVersion，不受兼容性 manifest 影响。
+var WindowsBuild = func() uint32 {
 	var info osVersionInfoEx
 	info.OSVersionInfoSize = uint32(unsafe.Sizeof(info))
 	r, _, _ := procRtlGetVersion.Call(uintptr(unsafe.Pointer(&info)))
