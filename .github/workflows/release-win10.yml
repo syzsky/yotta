@@ -13,8 +13,22 @@ env:
   GOTOOLCHAIN: local
 
 jobs:
+  test-win10:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run Win10 GDI tests
+        run: go test -v -run "TestWin10|TestForceGDI" ./pkg/capture/...
+
   build-win10:
     runs-on: windows-2025
+    needs: test-win10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -60,7 +74,7 @@ jobs:
           go build -tags "production force_gdi" -trimpath -ldflags="-w -s -H windowsgui" -o bin/Yotta-Win10-x64.exe .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540444e92b4886f43607fa02
         with:
           name: yotta-win10-x64
           path: bin/Yotta-Win10-x64.exe
