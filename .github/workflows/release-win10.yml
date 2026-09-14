@@ -47,10 +47,13 @@ jobs:
       - name: Install frontend deps
         run: pnpm -C frontend install --frozen-lockfile
 
+      - name: Generate Wails bindings
+        run: node frontend/scripts/generate-bindings.mjs
+
       - name: Build frontend
         run: pnpm -C frontend build
 
-      - name: Build Yotta Win10 (GDI forced, no DLL)
+      - name: Build Yotta Win10 (GDI forced)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path bin | Out-Null
