@@ -3,8 +3,8 @@ package capture
 import "testing"
 
 func TestWin10ForcesGDI(t *testing.T) {
-	orig := windowsBuild
-	defer func() { windowsBuild = orig }()
+	orig := WindowsBuild
+	defer func() { WindowsBuild = orig }()
 
 	cases := []struct {
 		build    uint32
@@ -21,7 +21,7 @@ func TestWin10ForcesGDI(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		windowsBuild = func() uint32 { return tc.build }
+		WindowsBuild = func() uint32 { return tc.build }
 
 		got := AutoBackend()
 		gotGDI := got == BackendGDI
@@ -32,30 +32,26 @@ func TestWin10ForcesGDI(t *testing.T) {
 }
 
 func TestForceGDI(t *testing.T) {
-	orig := windowsBuild
-	defer func() { windowsBuild = orig }()
+	orig := WindowsBuild
+	defer func() { WindowsBuild = orig }()
 
-	// Win10
-	windowsBuild = func() uint32 { return 19045 }
+	WindowsBuild = func() uint32 { return 19045 }
 	if !ForceGDI() {
 		t.Error("Win10 (19045): ForceGDI() = false, want true")
 	}
 
-	// Win11
-	windowsBuild = func() uint32 { return 22000 }
+	WindowsBuild = func() uint32 { return 22000 }
 	if ForceGDI() {
 		t.Error("Win11 (22000): ForceGDI() = true, want false")
 	}
 }
 
-// 模拟 backend factory 在 Win10 上不加载 DLL
 func TestWin10SkipsDLL(t *testing.T) {
-	orig := windowsBuild
-	defer func() { windowsBuild = orig }()
+	orig := WindowsBuild
+	defer func() { WindowsBuild = orig }()
 
-	windowsBuild = func() uint32 { return 19045 }
+	WindowsBuild = func() uint32 { return 19045 }
 
-	// auto 模式应该直接返回 GDI，不尝试 WGC
 	b, warn, err := NewIBackend("auto")
 	if err != nil {
 		t.Fatalf("auto backend failed: %v", err)
@@ -64,7 +60,6 @@ func TestWin10SkipsDLL(t *testing.T) {
 		t.Logf("Warning: %s", warn)
 	}
 
-	// wgc 模式也应该回退到 GDI
 	b2, warn2, err2 := NewIBackend("wgc")
 	if err2 != nil {
 		t.Fatalf("wgc backend failed: %v", err2)
