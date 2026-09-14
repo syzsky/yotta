@@ -20,12 +20,21 @@ func ensureWGCInit() error {
 	return wgcInitErr
 }
 
-// NewIBackend distinguishes conservative automatic selection from explicit WGC:
-// auto requires Windows build 20348 because older DirectX games can return black
-// or stale WGC frames, while explicit WGC is accepted from its API floor 18362.
+// NewIBackend 区分 auto 与显式 WGC：
+//   - Win10 (build < 22000): 强制 GDI，不尝试加载 capture_wgc.dll
+//   - Win11 (build >= 22000): auto 走 WGC，失败回退 GDI
 func NewIBackend(name string) (b IBackend, warning string, err error) {
+	isWin10 := WindowsBuild() > 0 && WindowsBuild() < 22000
+
 	switch name {
 	case "", "auto":
+		if isWin10 {
+			// Win10 强制 GDI，避免 DXGI 兼容问题
+			if gb, e := newGDIBackend(); e == nil {
+				return gb, "", nil
+			}
+			return nil, "", errors.New("auto: GDI init 失败")
+		}
 		switch AutoBackend() {
 		case BackendWGC:
 			if wb, e := newWGCBackend(); e == nil {
@@ -42,6 +51,12 @@ func NewIBackend(name string) (b IBackend, warning string, err error) {
 			return nil, "", errors.New("auto: GDI init 失败")
 		}
 	case "wgc":
+		if isWin10 {
+			if gb, e := newGDIBackend(); e == nil {
+				return gb, fmt.Sprintf("WGC 不支持 Win10 (build %d), 强制回退到 GDI", WindowsBuild()), nil
+			}
+			return nil, "", errors.New("wgc: Win10 上 GDI fallback 失败")
+		}
 		if WindowsBuild() >= 18362 {
 			if wb, e := newWGCBackend(); e == nil {
 				return wb, "", nil
