@@ -14,7 +14,7 @@ func TestWin10ForcesGDI(t *testing.T) {
 		{19045, true, "Win10 22H2 (19045)"},
 		{19041, true, "Win10 21H1 (19041)"},
 		{15063, true, "Win10 1703 (15063)"},
-		{0, false, "unknown build (fallback)"},
+		{0, true, "unknown build (0) - conservative GDI"},
 		{22000, false, "Win11 21H2 (22000)"},
 		{22631, false, "Win11 23H2 (22631)"},
 		{26100, false, "Win11 24H2 (26100)"},
