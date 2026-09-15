@@ -74,7 +74,7 @@ jobs:
           go build -tags "production force_gdi" -trimpath -ldflags="-w -s -H windowsgui" -o bin/Yotta-Win10-x64.exe .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540444e92b4886f43607fa02
+        uses: actions/upload-artifact@v4
         with:
           name: yotta-win10-x64
           path: bin/Yotta-Win10-x64.exe
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/download-artifact@65a9ec56e389b96c81358f07ee1b5c48de4f4c7d
+      - uses: actions/download-artifact@v4
         with:
           name: yotta-win10-x64
 
